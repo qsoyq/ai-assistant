@@ -349,7 +349,7 @@ wheels = [
 ]
 
 [[package]]
-name = "python-cli-template"
+name = "ai-assistant"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

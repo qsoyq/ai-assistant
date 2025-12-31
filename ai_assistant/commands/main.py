@@ -1,6 +1,6 @@
 import typer
 
-from cli_template.commands import default_invoke_without_command
+from ai_assistant.commands import default_invoke_without_command
 
 helptext = """
 
@@ -16,5 +16,5 @@ def add_default_invoke():
 
 add_default_invoke()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     cmd()

@@ -1,9 +1,9 @@
-# python-cli-template
+# ai-assistant
 
-Command line application template for python.
+Toolkit for ai usage.
 
 ## Install
 
 ```bash
-pip install git+https://github.com/qsoyq/python-cli-template.git
+pip install git+https://github.com/qsoyq/ai-assistant.git
 ```

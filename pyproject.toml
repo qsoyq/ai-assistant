@@ -1,7 +1,7 @@
 [project]
-name = "python-cli-template"
-version = "0.1.1"
-description = "Command line application template for python."
+name = "ai-assistant"
+version = "0.1.0"
+description = "Toolkit for ai usage."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -11,10 +11,10 @@ dependencies = [
 ]
 
 [project.scripts]
-cli-template = "cli_template.commands.main:cmd"
+ai-assistant = "ai_assistant.commands.main:cmd"
 
 [tool.hatch.build.targets.wheel]
-packages = ["cli_template"]
+packages = ["ai_assistant"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
