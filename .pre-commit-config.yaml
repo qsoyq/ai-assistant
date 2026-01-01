@@ -47,6 +47,7 @@ repos:
                 - uvicorn
                 - fastapi
                 - httpx
+                - openai
                 - asyncache
                 - pytest
                 - types-pytz

@@ -3,13 +3,12 @@ import typer
 import ai_assistant.commands.similar_questions
 from ai_assistant.commands import default_invoke_without_command
 
-
 helptext = """
 
 """
 
 cmd = typer.Typer(help=helptext)
-cmd.add_typer(ai_assistant.commands.similar_questions.cmd, name="similar-questions")
+cmd.add_typer(ai_assistant.commands.similar_questions.cmd, name='similar-questions')
 
 
 def add_default_invoke():
@@ -19,5 +18,5 @@ def add_default_invoke():
 
 add_default_invoke()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     cmd()

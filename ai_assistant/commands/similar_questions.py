@@ -1,8 +1,12 @@
 import json
+from typing import cast
+
 import typer
 from openai import OpenAI
-from openai.types.responses.response_output_message import ResponseOutputMessage
+from openai.types.responses.response_output_message import \
+    ResponseOutputMessage
 from openai.types.responses.response_output_text import ResponseOutputText
+
 from ai_assistant.commands import default_invoke_without_command
 from ai_assistant.settings import OpenAISettings
 
@@ -29,8 +33,8 @@ def get_similar_questions_by_query(query: str, topn: int, base_url: str, api_key
     生成的相似问必须按照 JSON 格式, 并将值作为数组写入 list 字段内, 请严格按照这种格式返回.
     """
     messages = [
-        {"role": "system", "content": f"{prompt}"},
-        {"role": "user", "content": f"{query}"},
+        {'role': 'system', 'content': f"{prompt}"},
+        {'role': 'user', 'content': f"{query}"},
     ]
 
     response = client.responses.create(model=model, input=messages)  # type: ignore
@@ -40,16 +44,17 @@ def get_similar_questions_by_query(query: str, topn: int, base_url: str, api_key
             for content in item.content:
                 if isinstance(content, ResponseOutputText):
                     try:
-                        data = json.loads(content.text)["list"]
-                        return data[:topn]
+                        data = json.loads(content.text)['list']
+                        return cast(list[str], data[:topn])
                     except json.decoder.JSONDecodeError:
                         continue
+    return None
 
 
 @cmd.command()
 def generate(
-    query: str = typer.Argument(..., help="用户输入问题"),
-    topn: int = typer.Option(5, help="生成的相似问条数"),
+    query: str = typer.Argument(..., help='用户输入问题'),
+    topn: int = typer.Option(5, help='生成的相似问条数'),
     base_url: str | None = typer.Option(None),
     api_key: str | None = typer.Option(None),
     model: str | None = typer.Option(None),
@@ -67,8 +72,8 @@ def generate(
 
     assert base_url and api_key and model
     result = get_similar_questions_by_query(query, topn, base_url, api_key, model)
-    typer.echo("\n".join(result or []))
+    typer.echo('\n'.join(result or []))
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     cmd()
