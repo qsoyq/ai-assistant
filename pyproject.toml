@@ -1,6 +1,6 @@
 [project]
 name = "ai-assistant"
-version = "0.1.1"
+version = "0.1.2"
 description = "Toolkit for ai usage."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -11,11 +11,13 @@ dependencies = [
     "pre-commit>=4.5.1",
     "pydantic-settings>=2.12.0",
     "typer-utils@git+https://github.com/qsoyq/typer_utils",
+    "xmltodict>=1.0.2",
 ]
 
 [project.scripts]
 ai-assistant = "ai_assistant.commands.main:cmd"
 ai-assistant-similar-questions = "ai_assistant.commands.similar_questions:cmd"
+ai-assistant-opml = "ai_assistant.commands.opml:cmd"
 
 [tool.hatch.build.targets.wheel]
 packages = ["ai_assistant"]

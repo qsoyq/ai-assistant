@@ -49,6 +49,7 @@ repos:
                 - openai
                 - asyncache
                 - pytest
+                - xmltodict
                 - types-pytz
                 - types-cachetools
                 - types-requests
