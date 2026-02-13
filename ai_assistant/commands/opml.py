@@ -91,15 +91,9 @@ async def fetch_all_rss(urllist: list[str], max_concurrent: int = 5):
         await asyncio.gather(*tasks)
 
 
-async def async_fetch(
-    opml_path: Path,
-    max_concurrent: int = 5,
-    loop: bool = False,
-):
-    """异步抓取 RSS 源"""
-    urllist = fetch_opml(opml_path.expanduser())
-
+async def async_fetch(opml_path: Path, max_concurrent: int = 5, loop: bool = False):
     while True:
+        urllist = fetch_opml(opml_path.expanduser())
         current_time = time.time()
         random.shuffle(urllist)
         logger.info(f"开始新一轮抓取，共 {len(urllist)} 个 RSS 源，最大并发数: {max_concurrent}")
@@ -121,7 +115,7 @@ def fetch(
         dir_okay=False,
         resolve_path=True,
     ),
-    max_concurrent: int = typer.Option(5, help="最大并发数"),
+    max_concurrent: int = typer.Option(5, "-m", "--max-concurrent", help="最大并发数"),
     loop: bool = typer.Option(False, help="是否循环抓取"),
     log_level: str = typer.Option("INFO", help="日志级别 (DEBUG, INFO, WARNING, ERROR)"),
 ):

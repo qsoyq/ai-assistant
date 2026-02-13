@@ -53,6 +53,7 @@ repos:
                 - types-pytz
                 - types-cachetools
                 - types-requests
+                - types-xmltodict
 
     - repo: https://github.com/astral-sh/ruff-pre-commit
       rev: v0.14.14
@@ -62,3 +63,8 @@ repos:
             args: [--fix]
           - id: ruff-format
             types_or: [python, pyi]
+
+    - repo: https://github.com/astral-sh/uv-pre-commit
+      rev: 0.9.28
+      hooks:
+          - id: uv-lock
