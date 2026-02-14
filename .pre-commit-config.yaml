@@ -50,6 +50,7 @@ repos:
                 - asyncache
                 - pytest
                 - xmltodict
+                - watchfiles
                 - types-pytz
                 - types-cachetools
                 - types-requests
