@@ -1,13 +1,16 @@
 [project]
 name = "ai-assistant"
-version = "0.1.5"
+version = "0.1.6"
 description = "Toolkit for ai usage."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "httpx[socks]>=0.28.1",
     "ipython>=8.37.0",
+    "matplotlib>=3.10.8",
     "openai>=2.14.0",
+    "pandas>=2.3.3",
+    "pandas-stubs>=2.3.3.260113",
     "pre-commit>=4.5.1",
     "pydantic-settings>=2.12.0",
     "typer-utils@git+https://github.com/qsoyq/typer_utils",
@@ -21,6 +24,7 @@ ai-assistant-similar-questions = "ai_assistant.commands.similar_questions:cmd"
 ai-assistant-opml = "ai_assistant.commands.opml:cmd"
 ai-assistant-mcp-cli = "ai_assistant.commands.mcp_cli:cmd"
 ai-assistant-file-change-runner = "ai_assistant.commands.file_change_runner:cmd"
+ai-assistant-cursor-usage = "ai_assistant.commands.cursor.usage:cmd"
 
 [tool.hatch.build.targets.wheel]
 packages = ["ai_assistant"]
@@ -61,6 +65,8 @@ exclude = [
     "node_modules",
     "site-packages",
     "venv",
+    "matplotlib",
+    "matplotlib.pyplot",
 ]
 # Same as Black.
 line-length = 200
@@ -117,3 +123,7 @@ follow_untyped_imports = true
 
 [tool.pytest.ini_options]
 markers = []
+
+[tool.isort]
+profile = "hug"
+src_paths = ["ai_assistant"]

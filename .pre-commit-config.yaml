@@ -51,6 +51,8 @@ repos:
                 - pytest
                 - xmltodict
                 - watchfiles
+                - matplotlib
+                - pandas-stubs
                 - types-pytz
                 - types-cachetools
                 - types-requests
