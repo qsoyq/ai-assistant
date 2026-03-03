@@ -13,6 +13,7 @@ dependencies = [
     "pandas-stubs>=2.3.3.260113",
     "pre-commit>=4.5.1",
     "pydantic-settings>=2.12.0",
+    "requests>=2.32.5",
     "typer-utils@git+https://github.com/qsoyq/typer_utils",
     "watchfiles>=1.1.1",
     "xmltodict>=1.0.2",
