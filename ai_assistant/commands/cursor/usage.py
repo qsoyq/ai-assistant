@@ -147,7 +147,11 @@ class UsageChartRenderer:
         fig.suptitle(f"Usage Summary - {user}")
         ax_daily, ax_model_cost, ax_model_tokens = axes
 
-        ax_daily.plot([row["day"] for row in daily_cost], [row["cost"] for row in daily_cost], marker="o")
+        days = [row["day"] for row in daily_cost]
+        costs = [row["cost"] for row in daily_cost]
+        ax_daily.plot(days, costs, marker="o")
+        for x, y in enumerate(costs):
+            ax_daily.annotate(f"{y:.2f}", (x, y), textcoords="offset points", xytext=(0, 8), ha="center", fontsize=8)
         ax_daily.set_title("Daily Cost")
         ax_daily.set_xlabel("Day")
         ax_daily.set_ylabel("Cost")
