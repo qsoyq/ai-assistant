@@ -1,6 +1,6 @@
 [project]
 name = "ai-assistant"
-version = "0.1.7"
+version = "0.1.8"
 description = "Toolkit for ai usage."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -107,7 +107,6 @@ docstring-code-format = true
 # This only has an effect when the `docstring-code-format` setting is
 # enabled.
 # docstring-code-line-length = "dynamic"
-
 [tool.mypy]
 warn_return_any = true
 warn_unused_configs = true
@@ -116,9 +115,7 @@ exclude = ['^venv/', '^__init__\.py$']
 explicit_package_bases = true
 
 [[tool.mypy.overrides]]
-module = [
-    "typer_utils.*",
-]
+module = ["typer_utils.*"]
 ignore_missing_imports = true
 follow_untyped_imports = true
 
