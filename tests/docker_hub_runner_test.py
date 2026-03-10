@@ -53,7 +53,7 @@ def test_fetch_latest_tag_state_returns_latest_state(mock_get: Mock):
     )
     mock_get.assert_called_once_with(
         "https://hub.docker.com/v2/namespaces/library/repositories/nginx/tags",
-        params={"page_size": 1, "ordering": "last_updated"},
+        params={"page_size": "1", "ordering": "last_updated"},
         timeout=5.0,
     )
     response.raise_for_status.assert_called_once_with()
