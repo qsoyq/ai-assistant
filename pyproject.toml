@@ -1,6 +1,6 @@
 [project]
 name = "ai-assistant"
-version = "0.1.8"
+version = "0.1.9"
 description = "Toolkit for ai usage."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -24,7 +24,7 @@ ai-assistant = "ai_assistant.commands.main:cmd"
 ai-assistant-similar-questions = "ai_assistant.commands.similar_questions:cmd"
 ai-assistant-opml = "ai_assistant.commands.opml:cmd"
 ai-assistant-mcp-cli = "ai_assistant.commands.mcp_cli:cmd"
-ai-assistant-file-change-runner = "ai_assistant.commands.file_change_runner:cmd"
+ai-assistant-file-change-runner = "ai_assistant.commands.automation.file_change_runner:cmd"
 ai-assistant-cursor-usage = "ai_assistant.commands.cursor.usage:cmd"
 
 [tool.hatch.build.targets.wheel]
