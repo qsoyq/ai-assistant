@@ -1,12 +1,16 @@
+import logging
 import subprocess
 import time
+from pathlib import Path
 
 import typer
+from watchfiles import Change
+from watchfiles import watch as watch_changes
 
 from ai_assistant.commands import default_invoke_without_command
 
 helptext = """
-监听 Docker 镜像更新并执行命令
+监听文件变化并执行命令
 """
 
 cmd = typer.Typer(help=helptext)
@@ -22,97 +26,69 @@ add_default_invoke()
 
 @cmd.command()
 def watch(
-    image: str = typer.Argument(..., help="监听的 Docker 镜像，例如 nginx:latest"),
+    target: Path = typer.Argument(
+        ...,
+        help="监听目标（文件或目录）",
+        exists=True,
+        file_okay=True,
+        dir_okay=True,
+        resolve_path=True,
+    ),
     run_cmd: str = typer.Argument(..., help="检测到变化后执行的 shell 命令"),
-    interval: float = typer.Option(30.0, "-i", "--interval", min=1.0, help="轮询间隔（秒）"),
-    docker_timeout: float = typer.Option(300.0, "--docker-timeout", min=1.0, help="单次 Docker 命令超时时间（秒）"),
+    interval: float = typer.Option(0.2, "-i", "--interval", help="事件轮询步长（秒）"),
+    debounce: float = typer.Option(0.5, "-d", "--debounce", help="两次触发的最短间隔（秒）"),
     run_on_start: bool = typer.Option(False, "--run-on-start", help="启动时先执行一次命令"),
-    trigger_on_initial_pull: bool = typer.Option(False, "--trigger-on-initial-pull", help="首次拉取到镜像时也触发命令"),
 ):
-    """监听 Docker 镜像更新并执行命令"""
+    """监听文件变化并执行命令"""
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
-    def run_shell_command(command: str) -> None:
-        typer.echo(f"[run] {command}")
-        process = subprocess.run(command, shell=True, check=False, capture_output=True, text=True)
-        typer.echo(f"[exit_code] {process.returncode}")
-        typer.echo(f"[stdout] {process.stdout}")
-        typer.echo(f"[stderr] {process.stderr}")
+    target = target.expanduser()
+    if not target.exists():
+        raise typer.BadParameter(f"目标不存在: {target}")
 
-    def run_docker_command(args: list[str]) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
-            ["docker", *args],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=docker_timeout,
-        )
-
-    def inspect_image_id() -> str | None:
-        process = run_docker_command(["image", "inspect", "--format", "{{.Id}}", image])
-        if process.returncode != 0:
-            return None
-        return process.stdout.strip() or None
-
-    def pull_image() -> tuple[bool, str]:
-        try:
-            process = run_docker_command(["pull", image])
-        except subprocess.TimeoutExpired:
-            return False, f"docker pull 超时（>{docker_timeout} 秒）"
-
-        output = "\n".join(part for part in (process.stdout.strip(), process.stderr.strip()) if part).strip()
-        if process.returncode != 0:
-            return False, output or "docker pull 执行失败"
-        return True, output
-
-    last_image_id = inspect_image_id()
+    watch_path = target if target.is_dir() else target.parent
+    target_resolved = target.resolve()
+    target_is_dir = target.is_dir()
+    last_trigger_at = 0.0
 
     if run_on_start:
-        typer.echo("[startup] 启动时执行命令")
-        run_shell_command(run_cmd)
+        typer.echo(f"[startup] 执行命令: {run_cmd}")
+        p = subprocess.run(run_cmd, shell=True, check=False, capture_output=True, text=True)
+        typer.echo(f"[exit_code] {p.returncode}")
+        typer.echo(f"[stdout] {p.stdout}")
+        typer.echo(f"[stderr] {p.stderr}")
 
-    typer.echo(f"开始监听镜像: {image}")
+        last_trigger_at = time.time()
+
+    typer.echo(f"开始监听: {target}")
     typer.echo(f"触发命令: {run_cmd}")
-    typer.echo(f"当前镜像 ID: {last_image_id or '<未拉取>'}")
-    typer.echo(f"轮询间隔: {interval} 秒")
     typer.echo("按 Ctrl+C 退出")
 
     try:
-        while True:
-            success, pull_output = pull_image()
-            if not success:
-                typer.echo(f"[docker_pull_failed] {pull_output}")
-                time.sleep(interval)
+        for changes in watch_changes(watch_path, recursive=True, debounce=0, step=int(interval * 1000)):
+            if not changes:
                 continue
 
-            current_image_id = inspect_image_id()
-            if current_image_id is None:
-                typer.echo("[inspect_failed] 拉取完成后仍无法获取镜像 ID")
-                time.sleep(interval)
-                continue
-
-            if last_image_id is None:
-                typer.echo(f"[pulled] {image}")
-                if pull_output:
-                    typer.echo(f"[docker] {pull_output}")
-                if trigger_on_initial_pull:
-                    typer.echo("[trigger] 首次拉取到镜像，执行命令")
-                    run_shell_command(run_cmd)
-                last_image_id = current_image_id
-                time.sleep(interval)
-                continue
-
-            if current_image_id != last_image_id:
-                typer.echo(f"[updated] {image}")
-                typer.echo(f"[old_image_id] {last_image_id}")
-                typer.echo(f"[new_image_id] {current_image_id}")
-                if pull_output:
-                    typer.echo(f"[docker] {pull_output}")
-                run_shell_command(run_cmd)
-                last_image_id = current_image_id
+            if target_is_dir:
+                related_changes = changes
             else:
-                typer.echo(f"[no_change] {image}")
+                related_changes = {(change, path) for change, path in changes if Path(path).resolve() == target_resolved}
 
-            time.sleep(interval)
+            if not related_changes:
+                continue
+
+            now = time.time()
+            if now - last_trigger_at < debounce:
+                continue
+
+            action_names = sorted({change.name.lower() for change, _ in related_changes if isinstance(change, Change)})
+            typer.echo(f"[changed] {target} ({', '.join(action_names)})")
+            p = subprocess.run(run_cmd, shell=True, check=False, capture_output=True, text=True)
+            typer.echo(f"[exit_code] {p.returncode}")
+            typer.echo(f"[stdout] {p.stdout}")
+            typer.echo(f"[stderr] {p.stderr}")
+
+            last_trigger_at = now
     except KeyboardInterrupt:
         typer.echo("\n已停止监听")
 
