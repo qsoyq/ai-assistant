@@ -1,6 +1,6 @@
 [project]
 name = "ai-assistant"
-version = "0.1.11"
+version = "0.1.12"
 description = "Toolkit for ai usage."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -17,6 +17,7 @@ dependencies = [
     "typer-utils@git+https://github.com/qsoyq/typer_utils",
     "watchfiles>=1.1.1",
     "xmltodict>=1.0.2",
+    "browser-cookie3>=0.16.6",
 ]
 
 [project.scripts]
@@ -28,6 +29,7 @@ ai-assistant-file-change-runner = "ai_assistant.commands.automation.file_change_
 ai-assistant-docker-hub-runner = "ai_assistant.commands.automation.docker_hub_runner:cmd"
 ai-assistant-cf-tunnel-watcher = "ai_assistant.commands.automation.cloudflare_tunnel_watcher:cmd"
 ai-assistant-cursor-usage = "ai_assistant.commands.cursor.usage:cmd"
+ai-assistant-cookies = "ai_assistant.commands.cookies:cmd"
 
 [tool.hatch.build.targets.wheel]
 packages = ["ai_assistant"]
@@ -112,14 +114,15 @@ docstring-code-format = true
 [tool.mypy]
 warn_return_any = true
 warn_unused_configs = true
-ignore_missing_imports = false
+ignore_missing_imports = true
 exclude = ['^venv/', '^__init__\.py$']
 explicit_package_bases = true
 
 [[tool.mypy.overrides]]
-module = ["typer_utils.*"]
+module = ["typer_utils.*", "browser-cookie3"]
 ignore_missing_imports = true
 follow_untyped_imports = true
+
 
 [tool.pytest.ini_options]
 markers = []
