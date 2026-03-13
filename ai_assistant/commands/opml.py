@@ -157,14 +157,32 @@ def fetch(
     loop: bool = typer.Option(False, help="是否循环抓取"),
     log_level: str = typer.Option("INFO", help="日志级别 (DEBUG, INFO, WARNING, ERROR)"),
     rate_limit_minutes: int = typer.Option(
-        30,
+        5,
         "--rate-limit-minutes",
         envvar="OPML_429_SKIP_MINUTES",
         min=1,
         help="遇到 429 后跳过该 URL 的分钟数，也可通过环境变量 OPML_429_SKIP_MINUTES 设置",
     ),
 ):
-    """从 OPML 文件中读取 RSS 源并抓取"""
+    """从 OPML 文件中读取 RSS 源并抓取
+
+    使用示例::
+
+        # 基本用法：抓取一次
+        ai-assistant-opml fetch ~/feeds.opml
+
+        # 设置最大并发数为 10
+        ai-assistant-opml fetch ~/feeds.opml -m 10
+
+        # 循环抓取
+        ai-assistant-opml fetch ~/feeds.opml --loop
+
+        # 遇到 429 后跳过该 URL 60 分钟
+        ai-assistant-opml fetch ~/feeds.opml --rate-limit-minutes 60
+
+        # 组合使用：并发 10、循环抓取、DEBUG 日志
+        ai-assistant-opml fetch ~/feeds.opml -m 10 --loop --log-level DEBUG
+    """
     logging.basicConfig(level=getattr(logging, log_level.upper()), format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     asyncio.run(async_fetch(opml_path, max_concurrent, loop, rate_limit_minutes))
 
