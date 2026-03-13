@@ -36,13 +36,16 @@ def fetch_opml(path: Path) -> list[str]:
         outline = body["opml"]["body"]["outline"]
         urllist = []
         for line in outline:
-            if isinstance(line["outline"], list):
-                for item in line["outline"]:
+            children = line.get("outline")
+            if children is None:
+                logger.debug(f"skip empty group: {line.get('@text', 'unknown')}")
+                continue
+            if isinstance(children, list):
+                for item in children:
                     url = item["@xmlUrl"]
                     urllist.append(url)
-            elif isinstance(line["outline"], dict):
-                # 部分组下只有一个订阅, 这里就是 dict 类型
-                urllist.append(line["outline"]["@xmlUrl"])
+            elif isinstance(children, dict):
+                urllist.append(children["@xmlUrl"])
             else:
                 logger.error(f"opml file format error, line: {line}")
     except KeyError:
