@@ -2,6 +2,7 @@ import os
 import subprocess
 import time
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 
 import requests
@@ -87,11 +88,12 @@ def run_shell_command(run_cmd: str, state: TunnelState) -> None:
         }
     )
 
-    typer.echo(f"[run] {run_cmd}")
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    typer.echo(f"{now} [run] {run_cmd}")
     p = subprocess.run(run_cmd, shell=True, check=False, capture_output=True, text=True, env=env)
-    typer.echo(f"[exit_code] {p.returncode}")
-    typer.echo(f"[stdout] {p.stdout}")
-    typer.echo(f"[stderr] {p.stderr}")
+    typer.echo(f"{now} [exit_code] {p.returncode}")
+    typer.echo(f"{now} [stdout] {p.stdout}")
+    typer.echo(f"{now} [stderr] {p.stderr}")
 
 
 @cmd.command()
@@ -149,17 +151,19 @@ def watch(
 
             next_state = fetch_tunnel_state(metrics_url, timeout=request_timeout)
 
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
             if next_state.status == current_state.status:
-                typer.echo(f"[no_change] status={next_state.status.value}")
+                typer.echo(f"{now} [no_change] status={next_state.status.value}")
                 continue
 
-            typer.echo(f"[changed] {current_state.status.value} -> {next_state.status.value}")
-            typer.echo(f"[detail] {next_state.detail}")
+            typer.echo(f"{now} [changed] {current_state.status.value} -> {next_state.status.value}")
+            typer.echo(f"{now} [detail] {next_state.detail}")
 
             should_run = True
             if run_on_unhealthy and next_state.is_healthy:
                 should_run = False
-                typer.echo("[skip] 新状态为健康，跳过命令执行")
+                typer.echo(f"{now} [skip] 新状态为健康，跳过命令执行")
 
             if should_run:
                 run_shell_command(run_cmd, next_state)

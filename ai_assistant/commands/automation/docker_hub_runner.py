@@ -2,6 +2,7 @@ import os
 import subprocess
 import time
 from dataclasses import dataclass
+from datetime import datetime
 
 import requests
 import typer
@@ -108,11 +109,12 @@ def run_shell_command(run_cmd: str, state: DockerHubTagState) -> None:
         }
     )
 
-    typer.echo(f"[run] {run_cmd}")
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    typer.echo(f"{now} [run] {run_cmd}")
     p = subprocess.run(run_cmd, shell=True, check=False, capture_output=True, text=True, env=env)
-    typer.echo(f"[exit_code] {p.returncode}")
-    typer.echo(f"[stdout] {p.stdout}")
-    typer.echo(f"[stderr] {p.stderr}")
+    typer.echo(f"{now} [exit_code] {p.returncode}")
+    typer.echo(f"{now} [stdout] {p.stdout}")
+    typer.echo(f"{now} [stderr] {p.stderr}")
 
 
 @cmd.command()
@@ -175,19 +177,21 @@ def watch(
         while True:
             time.sleep(interval)
 
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
             try:
                 next_state = fetch_state()
             except Exception as exc:
-                typer.echo(f"[error] 拉取 Docker Hub 信息失败: {exc}")
+                typer.echo(f"{now} [error] 拉取 Docker Hub 信息失败: {exc}")
                 continue
 
             if next_state == current_state:
-                typer.echo(f"[no_change] {next_state.image_with_tag} @ {next_state.last_updated}")
+                typer.echo(f"{now} [no_change] {next_state.image_with_tag} @ {next_state.last_updated}")
                 continue
 
-            typer.echo(f"[updated] {current_state.image_with_tag} -> {next_state.image_with_tag}")
-            typer.echo(f"[digest] {current_state.digest or '-'} -> {next_state.digest or '-'}")
-            typer.echo(f"[last_updated] {current_state.last_updated} -> {next_state.last_updated}")
+            typer.echo(f"{now} [updated] {current_state.image_with_tag} -> {next_state.image_with_tag}")
+            typer.echo(f"{now} [digest] {current_state.digest or '-'} -> {next_state.digest or '-'}")
+            typer.echo(f"{now} [last_updated] {current_state.last_updated} -> {next_state.last_updated}")
             run_shell_command(run_cmd, next_state)
             current_state = next_state
     except KeyboardInterrupt:

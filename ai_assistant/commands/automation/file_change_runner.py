@@ -1,6 +1,7 @@
 import logging
 import subprocess
 import time
+from datetime import datetime
 from pathlib import Path
 
 import typer
@@ -39,7 +40,19 @@ def watch(
     debounce: float = typer.Option(0.5, "-d", "--debounce", help="两次触发的最短间隔（秒）"),
     run_on_start: bool = typer.Option(False, "--run-on-start", help="启动时先执行一次命令"),
 ):
-    """监听文件变化并执行命令"""
+    """监听文件变化并执行命令
+
+    Usage examples::
+
+        # 监听单个文件变化后重启服务
+        ai-assistant-file-change-runner watch ./config.yaml "systemctl restart myapp"
+
+        # 监听整个目录，启动时先执行一次
+        ai-assistant-file-change-runner watch ./src "make build" --run-on-start
+
+        # 自定义轮询间隔和防抖时长
+        ai-assistant-file-change-runner watch ./data "python process.py" -i 1.0 -d 3.0
+    """
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
     target = target.expanduser()
@@ -52,11 +65,12 @@ def watch(
     last_trigger_at = 0.0
 
     if run_on_start:
-        typer.echo(f"[startup] 执行命令: {run_cmd}")
+        datestr = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        typer.echo(f"{datestr} [startup] 执行命令: {run_cmd}")
         p = subprocess.run(run_cmd, shell=True, check=False, capture_output=True, text=True)
-        typer.echo(f"[exit_code] {p.returncode}")
-        typer.echo(f"[stdout] {p.stdout}")
-        typer.echo(f"[stderr] {p.stderr}")
+        typer.echo(f"{datestr} [exit_code] {p.returncode}")
+        typer.echo(f"{datestr} [stdout] {p.stdout}")
+        typer.echo(f"{datestr} [stderr] {p.stderr}")
 
         last_trigger_at = time.time()
 
@@ -81,12 +95,13 @@ def watch(
             if now - last_trigger_at < debounce:
                 continue
 
+            datestr = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             action_names = sorted({change.name.lower() for change, _ in related_changes if isinstance(change, Change)})
-            typer.echo(f"[changed] {target} ({', '.join(action_names)})")
+            typer.echo(f"{datestr} [changed] {target} ({', '.join(action_names)})")
             p = subprocess.run(run_cmd, shell=True, check=False, capture_output=True, text=True)
-            typer.echo(f"[exit_code] {p.returncode}")
-            typer.echo(f"[stdout] {p.stdout}")
-            typer.echo(f"[stderr] {p.stderr}")
+            typer.echo(f"{datestr} [exit_code] {p.returncode}")
+            typer.echo(f"{datestr} [stdout] {p.stdout}")
+            typer.echo(f"{datestr} [stderr] {p.stderr}")
 
             last_trigger_at = now
     except KeyboardInterrupt:
