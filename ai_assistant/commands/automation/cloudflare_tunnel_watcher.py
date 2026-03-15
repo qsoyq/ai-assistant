@@ -100,12 +100,15 @@ def run_shell_command(run_cmd: str, state: TunnelState) -> None:
 def watch(
     run_cmd: str = typer.Argument(..., help="检测到状态变化后执行的 shell 命令"),
     metrics_url: str = typer.Option("http://127.0.0.1:20241", "--metrics-url", "-m", help="cloudflared metrics 端点地址"),
-    interval: float = typer.Option(30, "-i", "--interval", help="轮询间隔（秒）", min=1),
+    interval: float = typer.Option(10, "-i", "--interval", help="轮询间隔（秒）", min=1),
     request_timeout: float = typer.Option(5.0, "--request-timeout", help="请求超时时间（秒）", min=1),
     run_on_start: bool = typer.Option(False, "--run-on-start", help="启动时立即执行一次命令"),
     run_on_unhealthy: bool = typer.Option(False, "--run-on-unhealthy", help="仅在状态变为不健康时执行命令（默认任何状态变化都执行）"),
+    sleep_after_run: float = typer.Option(60, "-s", "--sleep-after-run", help="执行命令后等待时间（秒）", min=0),
 ):
     """监听 Cloudflare Tunnel 连接状态变化并执行命令
+
+    对于连续的不健康状态, 也会重复执行命令, 直到状态变为健康。
 
     通过轮询 cloudflared 的 metrics 端点 `/ready` 来检测隧道连接状态。
     cloudflared 默认在 `127.0.0.1:20241` 暴露 metrics 服务，
@@ -144,6 +147,7 @@ def watch(
 
     if run_on_start:
         run_shell_command(run_cmd, current_state)
+        time.sleep(sleep_after_run)
 
     try:
         while True:
@@ -153,7 +157,7 @@ def watch(
 
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-            if next_state.status == current_state.status:
+            if next_state.status == current_state.status and next_state.status == TunnelStatus.READY:
                 typer.echo(f"{now} [no_change] status={next_state.status.value}")
                 continue
 
@@ -167,6 +171,7 @@ def watch(
 
             if should_run:
                 run_shell_command(run_cmd, next_state)
+                time.sleep(sleep_after_run)
 
             current_state = next_state
     except KeyboardInterrupt:
