@@ -1,6 +1,7 @@
 import typer
 
 import ai_assistant.commands.similar_questions
+import ai_assistant.commands.ssl
 from ai_assistant.commands import default_invoke_without_command
 
 helptext = """
@@ -8,6 +9,7 @@ helptext = """
 """
 
 cmd = typer.Typer(help=helptext)
+cmd.add_typer(ai_assistant.commands.ssl.cmd, name="ssl")
 cmd.add_typer(ai_assistant.commands.similar_questions.cmd, name="similar-questions")
 
 
