@@ -7,6 +7,7 @@ import ai_assistant.commands.automation.file_change_runner
 import ai_assistant.commands.automation.freshrss
 import ai_assistant.commands.cookies
 import ai_assistant.commands.cursor.usage
+import ai_assistant.commands.docker
 import ai_assistant.commands.mcp_cli
 import ai_assistant.commands.opml
 import ai_assistant.commands.similar_questions
@@ -20,6 +21,7 @@ helptext = """
 cmd = typer.Typer(help=helptext)
 
 for name, subcommand in (
+    ("docker", ai_assistant.commands.docker.cmd),
     ("ssl", ai_assistant.commands.ssl.cmd),
     ("similar-questions", ai_assistant.commands.similar_questions.cmd),
     ("opml", ai_assistant.commands.opml.cmd),

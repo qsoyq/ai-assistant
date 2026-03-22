@@ -18,6 +18,7 @@ dependencies = [
     "watchfiles>=1.1.1",
     "xmltodict>=1.0.2",
     "browser-cookie3>=0.16.6",
+    "docker>=7.1.0",
 ]
 
 [project.scripts]
