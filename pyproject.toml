@@ -1,6 +1,6 @@
 [project]
 name = "ai-assistant"
-version = "0.1.17"
+version = "0.1.18"
 description = "Toolkit for ai usage."
 readme = "README.md"
 requires-python = ">=3.10"
