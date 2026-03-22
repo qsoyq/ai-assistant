@@ -1,4 +1,5 @@
 import ipaddress
+import os
 import re
 import subprocess
 import tempfile
@@ -148,6 +149,54 @@ def _build_openssl_config(common_name: str, san_domains: list[str], san_ips: lis
 def _resolve_output_dir(output_dir: Path | None) -> Path:
     base_dir = output_dir or Path.cwd() / "ssl"
     return base_dir.expanduser().resolve()
+
+
+@cmd.command()
+def info(
+    cert_path: Path = typer.Argument(
+        ...,
+        file_okay=True,
+        dir_okay=False,
+        resolve_path=False,
+        help="证书文件路径",
+    ),
+):
+    """查看证书信息并打印。
+
+    Usage examples::
+
+        # 打印证书详细信息
+        ai-assistant ssl info ./ssl/server.crt
+    """
+    resolved_cert_path = cert_path.expanduser().resolve()
+    if not resolved_cert_path.exists():
+        raise typer.BadParameter(f"证书文件不存在: {resolved_cert_path}")
+
+    if not resolved_cert_path.is_file():
+        raise typer.BadParameter(f"证书路径不是文件: {resolved_cert_path}")
+
+    if not os.access(resolved_cert_path, os.R_OK):
+        raise typer.BadParameter(f"证书文件不可读: {resolved_cert_path}")
+
+    command = ["openssl", "x509", "-in", str(resolved_cert_path), "-text", "-noout"]
+
+    try:
+        result = subprocess.run(command, check=False, capture_output=True, text=True)
+    except FileNotFoundError:
+        typer.echo("未找到 openssl 命令，请先安装 OpenSSL 后再重试。", err=True)
+        raise typer.Exit(code=1) from None
+
+    if result.returncode != 0:
+        typer.echo(f"读取证书信息失败: {resolved_cert_path}", err=True)
+        if result.stdout.strip():
+            typer.echo(result.stdout, err=True)
+        if result.stderr.strip():
+            typer.echo(result.stderr, err=True)
+        raise typer.Exit(code=result.returncode)
+
+    typer.echo(f"证书文件: {resolved_cert_path}")
+    typer.echo("")
+    typer.echo(result.stdout.rstrip())
 
 
 @cmd.command()
