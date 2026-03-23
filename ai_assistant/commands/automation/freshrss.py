@@ -1,8 +1,11 @@
-from typing import TypedDict
+from pathlib import Path
+from typing import TypedDict, cast
 from urllib.parse import quote
 
 import httpx
 import typer
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import make_url
 
 from ai_assistant.commands import default_invoke_without_command
 
@@ -54,6 +57,33 @@ def _get_account_info(endpoint: str, user: str, password: str) -> Account:
     return Account(sid=body.get("sid", ""), lsid=body.get("lsid", ""), auth=body.get("auth", ""))
 
 
+def _database_url(target: str) -> str:
+    value = target.strip()
+    if "://" not in value:
+        path = Path(value).expanduser().resolve()
+        return f"sqlite:///{path.as_posix()}"
+
+    if value.startswith("mysql://"):
+        return value.replace("mysql://", "mysql+pymysql://", 1)
+    if value.startswith("postgres://"):
+        return value.replace("postgres://", "postgresql+psycopg://", 1)
+    if value.startswith("postgresql://"):
+        return value.replace("postgresql://", "postgresql+psycopg://", 1)
+    return value
+
+
+def _masked_database_url(database_url: str) -> str:
+    url = make_url(database_url)
+    masked_url = url
+
+    if url.username is not None:
+        masked_url = masked_url.set(username="***")
+    if url.password is not None:
+        masked_url = masked_url.set(password="***")
+
+    return cast(str, masked_url.render_as_string(hide_password=False))
+
+
 @cmd.command()
 def refresh(
     endpoint: str = typer.Argument(..., help="FreshRSS 端点地址", envvar="FRESHRSS_ENDPOINT"),
@@ -86,6 +116,36 @@ def refresh(
 
     typer.echo(f"刷新完成: 成功 {ok}, 失败 {failed}")
     if failed > 0:
+        raise typer.Exit(1)
+
+
+@cmd.command("disable-priority")
+def disable_priority(
+    target: str = typer.Argument(..., help="SQLite 文件路径或数据库 DSN", envvar="FRESHRSS_DATABASE"),
+):
+    """将所有 feed 的 priority 置为 0
+
+    支持 SQLite 文件路径或数据库 DSN，适用于 sqlite/mysql/postgresql。
+
+    Usage examples::
+        ai-assistant-freshrss disable-priority /path/to/db.sqlite
+        ai-assistant-freshrss disable-priority sqlite:////path/to/db.sqlite
+        ai-assistant-freshrss disable-priority mysql://user:pass@127.0.0.1:3306/freshrss
+        ai-assistant-freshrss disable-priority postgresql://user:pass@127.0.0.1:5432/freshrss
+    """
+    database_url = _database_url(target)
+    typer.echo(f"连接数据库: {_masked_database_url(database_url)}")
+
+    # 统一通过 SQLAlchemy 执行同一条 SQL，兼容 sqlite/mysql/postgresql。
+    engine = create_engine(database_url)
+    with engine.begin() as connection:
+        result = connection.execute(text("UPDATE feed SET priority = 0 WHERE priority != 0"))
+        remaining = connection.execute(text("SELECT COUNT(*) FROM feed WHERE priority != 0")).scalar_one()
+
+    affected = 0 if result.rowcount is None or result.rowcount < 0 else result.rowcount
+    typer.echo(f"已更新 {affected} 条 feed 记录")
+    typer.echo(f"剩余 priority != 0 的 feed 数量: {remaining}")
+    if remaining != 0:
         raise typer.Exit(1)
 
 

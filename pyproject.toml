@@ -19,6 +19,9 @@ dependencies = [
     "xmltodict>=1.0.2",
     "browser-cookie3>=0.16.6",
     "docker>=7.1.0",
+    "sqlalchemy>=2.0.48",
+    "pymysql>=1.1.2",
+    "psycopg[binary]>=3.3.3",
 ]
 
 [project.scripts]
