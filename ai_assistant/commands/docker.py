@@ -6,11 +6,14 @@ from pathlib import Path, PurePosixPath
 import docker
 import typer
 from docker.errors import ContainerError, DockerException, ImageNotFound
+from rich.console import Console
+from rich.markdown import Markdown
 
 from ai_assistant.commands import default_invoke_without_command
 
 _DAEMON_LOG_ROOT = PurePosixPath("/var/lib/docker/containers")
 _DEFAULT_HELPER_IMAGE = "alpine:3.20"
+_CONSOLE = Console()
 
 helptext = """
 Docker 相关工具
@@ -138,6 +141,45 @@ def select_container_targets(targets: list[ContainerLogTarget], selector: str) -
     return matches
 
 
+def get_single_container(client: docker.DockerClient, selector: str) -> docker.models.containers.Container:
+    targets = list_container_log_targets(client)
+    matches = select_container_targets(targets, selector)
+    if len(matches) != 1:
+        raise typer.BadParameter("该命令仅支持单个容器，请传入精确容器名称或容器 ID。")
+    return client.containers.get(matches[0].id)
+
+
+def list_joinable_networks(client: docker.DockerClient) -> list[docker.models.networks.Network]:
+    return [network for network in client.networks.list() if network.name not in {"host", "none"}]
+
+
+def connect_container_to_all_networks(
+    client: docker.DockerClient,
+    container: docker.models.containers.Container,
+) -> tuple[list[str], list[str]]:
+    container.reload()
+    connected_network_names = set(container.attrs.get("NetworkSettings", {}).get("Networks", {}))
+    connected: list[str] = []
+    skipped: list[str] = []
+
+    for network in list_joinable_networks(client):
+        if network.name in connected_network_names:
+            skipped.append(network.name)
+            continue
+
+        try:
+            network.connect(container)
+            connected.append(network.name)
+        except DockerException as exc:
+            raise RuntimeError(f"将容器 `{container.name}` 加入网络 `{network.name}` 失败: {exc}") from exc
+
+    return connected, skipped
+
+
+def print_markdown(message: str) -> None:
+    _CONSOLE.print(Markdown(message))
+
+
 def truncate_log_file(log_path: str) -> None:
     path = Path(log_path)
     if not path.is_absolute():
@@ -259,6 +301,53 @@ def log_clear(
         for target in selected_targets:
             typer.echo(f"已清空日志: {target.display_name}")
         typer.echo(f"完成，共处理 {len(selected_targets)} 个容器")
+    except typer.BadParameter as exc:
+        typer.echo(f"参数错误: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    except DockerException as exc:
+        typer.echo(f"Docker 连接或执行失败: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    except RuntimeError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    finally:
+        if client is not None:
+            client.close()
+
+
+@cmd.command("network-connect-all")
+def network_connect_all(
+    container: str = typer.Argument(..., help="精确容器名称、完整容器 ID 或短容器 ID"),
+):
+    """将指定容器加入到全部普通 Docker 网络中
+
+    使用示例:
+    - `ai-assistant docker network-connect-all web`
+    - `ai-assistant docker network-connect-all 1234567890ab`
+
+    说明:
+    - 会遍历当前 Docker 上的全部网络
+    - 已连接的网络会自动跳过
+    - `host` 和 `none` 属于特殊网络，默认不处理
+    """
+
+    client: docker.DockerClient | None = None
+    try:
+        client = create_docker_client()
+        target_container = get_single_container(client, container)
+        connected, skipped = connect_container_to_all_networks(client, target_container)
+
+        if connected:
+            connected_items = "\n".join(f"- `{network}`" for network in connected)
+            print_markdown(f"已加入网络:\n{connected_items}")
+        if skipped:
+            skipped_items = "\n".join(f"- `{network}`" for network in skipped)
+            print_markdown(f"已跳过网络:\n{skipped_items}")
+        if not connected and not skipped:
+            typer.echo("未发现可加入的普通 Docker 网络")
+            raise typer.Exit(code=1)
+
+        typer.echo(f"完成，容器 {target_container.name} 新加入 {len(connected)} 个网络，跳过 {len(skipped)} 个网络")
     except typer.BadParameter as exc:
         typer.echo(f"参数错误: {exc}", err=True)
         raise typer.Exit(code=1) from exc
