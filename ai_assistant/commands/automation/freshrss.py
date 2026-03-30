@@ -3,7 +3,7 @@ from html import unescape
 from http.cookies import SimpleCookie
 from pathlib import Path
 from typing import TypedDict, cast
-from urllib.parse import quote, urlparse
+from urllib.parse import quote, urlencode, urlparse
 
 import httpx
 import typer
@@ -29,6 +29,11 @@ class Account(TypedDict):
 class SelectOption(TypedDict):
     value: str
     label: str
+
+
+class EntryCandidate(TypedDict):
+    id: str
+    title: str
 
 
 def add_default_invoke():
@@ -265,6 +270,135 @@ def _get_account_info(endpoint: str, user: str, password: str) -> Account:
     return Account(sid=body.get("sid", ""), lsid=body.get("lsid", ""), auth=body.get("auth", ""))
 
 
+def _greader_headers(auth: str) -> dict[str, str]:
+    return {"Authorization": f"GoogleLogin auth={auth}"}
+
+
+def _get_edit_token(client: httpx.Client, endpoint: str) -> str:
+    response = client.get(_greader_url(endpoint, "/reader/api/0/token"), timeout=30)
+    response.raise_for_status()
+    token = response.text.strip()
+    if token == "":
+        typer.echo("未能获取 FreshRSS 写操作 token", err=True)
+        raise typer.Exit(1)
+    return token
+
+
+def _get_unread_entries_by_category(client: httpx.Client, endpoint: str, category: str) -> list[EntryCandidate]:
+    entries: list[EntryCandidate] = []
+    continuation = ""
+
+    while True:
+        response = client.get(
+            _greader_url(
+                endpoint,
+                f"/reader/api/0/stream/contents/user/-/label/{quote(category, safe='')}",
+            ),
+            params={
+                "output": "json",
+                "xt": "user/-/state/com.google/read",
+                "n": 1000,
+                **({"c": continuation} if continuation else {}),
+            },
+            timeout=60,
+        )
+        response.raise_for_status()
+        payload = response.json()
+
+        for item in payload.get("items", []):
+            if not isinstance(item, dict):
+                continue
+
+            entry_id = item.get("id")
+            title = item.get("title")
+            if not isinstance(entry_id, str) or entry_id == "":
+                continue
+            if not isinstance(title, str):
+                title = ""
+
+            entries.append(EntryCandidate(id=entry_id, title=title))
+
+        continuation = payload.get("continuation", "")
+        if not isinstance(continuation, str) or continuation == "":
+            break
+
+    return entries
+
+
+def _normalise_keywords(keywords: list[str], ignore_case: bool) -> list[str]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+
+    for keyword in keywords:
+        value = keyword.strip()
+        if value == "":
+            continue
+        candidate = value.casefold() if ignore_case else value
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        normalized.append(candidate)
+
+    return normalized
+
+
+def _entries_to_mark_read(
+    entries: list[EntryCandidate],
+    keep_keywords: list[str],
+    ignore_case: bool,
+) -> list[EntryCandidate]:
+    normalized_keywords = _normalise_keywords(keep_keywords, ignore_case)
+    if not normalized_keywords:
+        typer.echo("请至少提供一个非空的 --keep 字符串", err=True)
+        raise typer.Exit(1)
+
+    selected: list[EntryCandidate] = []
+    for entry in entries:
+        title = entry["title"].casefold() if ignore_case else entry["title"]
+        if any(keyword in title for keyword in normalized_keywords):
+            continue
+        selected.append(entry)
+    return selected
+
+
+def _limit_entries(entries: list[EntryCandidate], limit: int) -> list[EntryCandidate]:
+    if limit <= 0:
+        return entries
+    return entries[:limit]
+
+
+def _encode_form_data(items: list[tuple[str, str]]) -> bytes:
+    return urlencode(items, doseq=True).encode()
+
+
+def _mark_entries_read(
+    client: httpx.Client,
+    endpoint: str,
+    token: str,
+    entries: list[EntryCandidate],
+    batch_size: int = 250,
+) -> None:
+    for start in range(0, len(entries), batch_size):
+        batch = entries[start : start + batch_size]
+        data: list[tuple[str, str]] = [
+            ("a", "user/-/state/com.google/read"),
+            ("T", token),
+        ]
+        for entry in batch:
+            data.append(("i", entry["id"]))
+
+        response = client.post(
+            _greader_url(endpoint, "/reader/api/0/edit-tag"),
+            content=_encode_form_data(data),
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            timeout=60,
+        )
+        response.raise_for_status()
+        if response.text.strip() != "OK":
+            typer.echo("FreshRSS 未返回 OK，批量标记已读失败", err=True)
+            raise typer.Exit(1)
+
+
 def _database_url(target: str) -> str:
     value = target.strip()
     if "://" not in value:
@@ -409,6 +543,63 @@ def refresh(
     typer.echo(f"刷新完成: 成功 {ok}, 失败 {failed}")
     if failed > 0:
         raise typer.Exit(1)
+
+
+@cmd.command("cleanup-unread")
+def cleanup_unread(
+    category: str = typer.Option(..., "--category", help="FreshRSS 分类名（不是分类 ID）"),
+    keep: list[str] = typer.Option([], "--keep", help="标题包含任一字符串时跳过，不标记为已读；可重复传入"),
+    limit: int = typer.Option(10, "--limit", min=0, help="最多处理多少篇待标记为已读的文章；0 表示不限制"),
+    endpoint: str = typer.Option(..., help="FreshRSS 端点地址", envvar="FRESHRSS_ENDPOINT"),
+    user: str = typer.Option(..., help="FreshRSS 用户名", envvar="FRESHRSS_USER"),
+    token: str = typer.Option(..., help="FreshRSS API Token", envvar="FRESHRSS_API_TOKEN"),
+    dry_run: bool = typer.Option(False, "--dry-run/--no-dry-run", help="只输出将被标记为已读的文章，不实际修改"),
+    ignore_case: bool = typer.Option(True, "--ignore-case/--match-case", help="标题匹配时默认忽略大小写"),
+):
+    """按标题规则清理指定分类下的未读文章
+
+    读取指定分类中的所有未读文章；如果标题不包含任一 ``--keep`` 字符串，就将文章标记为已读。
+    Usage examples::
+        ai-assistant-freshrss cleanup-unread --category tech --keep AI --keep LLM --dry-run
+        ai-assistant-freshrss cleanup-unread --category tech --keep AI --keep LLM --limit 20
+        ai-assistant-freshrss cleanup-unread --category twitter --keep OpenAI --keep Anthropic
+    """
+    normalized_keep = _normalise_keywords(keep, ignore_case)
+    if not normalized_keep:
+        typer.echo("请至少提供一个非空的 --keep 字符串", err=True)
+        raise typer.Exit(1)
+
+    typer.echo(f"正在登录 FreshRSS: {endpoint}")
+    account_info = _get_account_info(endpoint, user, token)
+    auth = account_info["auth"]
+
+    with httpx.Client(headers=_greader_headers(auth)) as client:
+        typer.echo(f"正在读取分类 `{category}` 下的未读文章")
+        entries = _get_unread_entries_by_category(client, endpoint, category)
+        all_to_mark_read = _entries_to_mark_read(entries, normalized_keep, ignore_case=ignore_case)
+        to_mark_read = _limit_entries(all_to_mark_read, limit)
+
+        typer.echo(f"未读文章总数: {len(entries)}")
+        typer.echo(f"命中保留关键字后跳过: {len(entries) - len(all_to_mark_read)}")
+        if limit > 0:
+            typer.echo(f"应用 limit 前待标记为已读: {len(all_to_mark_read)}")
+            typer.echo(f"本次最多处理: {limit}")
+        typer.echo(f"待标记为已读: {len(to_mark_read)}")
+
+        if not to_mark_read:
+            typer.echo("没有需要标记为已读的文章")
+            return
+
+        if dry_run:
+            typer.echo("以下文章将被标记为已读:")
+            for entry in to_mark_read:
+                typer.echo(f"- {entry['title']}")
+            return
+
+        write_token = _get_edit_token(client, endpoint)
+        _mark_entries_read(client, endpoint, write_token, to_mark_read)
+
+    typer.echo("已完成未读文章清理")
 
 
 @cmd.command("disable-priority")

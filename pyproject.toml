@@ -1,6 +1,6 @@
 [project]
 name = "ai-assistant"
-version = "0.1.21"
+version = "0.1.22"
 description = "Toolkit for ai usage."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -127,7 +127,6 @@ explicit_package_bases = true
 module = ["typer_utils.*", "browser-cookie3"]
 ignore_missing_imports = true
 follow_untyped_imports = true
-
 
 [tool.pytest.ini_options]
 markers = []
