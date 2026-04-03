@@ -34,6 +34,7 @@ class SelectOption(TypedDict):
 class EntryCandidate(TypedDict):
     id: str
     title: str
+    content: str
 
 
 def add_default_invoke():
@@ -285,19 +286,30 @@ def _get_edit_token(client: httpx.Client, endpoint: str) -> str:
 
 
 def _get_unread_entries_by_category(client: httpx.Client, endpoint: str, category: str) -> list[EntryCandidate]:
+    return _get_entries_by_stream(
+        client,
+        endpoint,
+        f"/reader/api/0/stream/contents/user/-/label/{quote(category, safe='')}",
+        extra_params={"xt": "user/-/state/com.google/read"},
+    )
+
+
+def _get_entries_by_stream(
+    client: httpx.Client,
+    endpoint: str,
+    stream_path: str,
+    extra_params: dict[str, str] | None = None,
+) -> list[EntryCandidate]:
     entries: list[EntryCandidate] = []
     continuation = ""
 
     while True:
         response = client.get(
-            _greader_url(
-                endpoint,
-                f"/reader/api/0/stream/contents/user/-/label/{quote(category, safe='')}",
-            ),
+            _greader_url(endpoint, stream_path),
             params={
                 "output": "json",
-                "xt": "user/-/state/com.google/read",
                 "n": 1000,
+                **(extra_params or {}),
                 **({"c": continuation} if continuation else {}),
             },
             timeout=60,
@@ -311,18 +323,61 @@ def _get_unread_entries_by_category(client: httpx.Client, endpoint: str, categor
 
             entry_id = item.get("id")
             title = item.get("title")
+            content = ""
             if not isinstance(entry_id, str) or entry_id == "":
                 continue
             if not isinstance(title, str):
                 title = ""
+            raw_content = item.get("content")
+            if isinstance(raw_content, dict):
+                content_value = raw_content.get("content")
+                if isinstance(content_value, str):
+                    content = _strip_tags(content_value)
+            elif isinstance(raw_content, str):
+                content = _strip_tags(raw_content)
 
-            entries.append(EntryCandidate(id=entry_id, title=title))
+            if content == "":
+                raw_summary = item.get("summary")
+                if isinstance(raw_summary, dict):
+                    summary_value = raw_summary.get("content")
+                    if isinstance(summary_value, str):
+                        content = _strip_tags(summary_value)
+                elif isinstance(raw_summary, str):
+                    content = _strip_tags(raw_summary)
+
+            entries.append(EntryCandidate(id=entry_id, title=title, content=content))
 
         continuation = payload.get("continuation", "")
         if not isinstance(continuation, str) or continuation == "":
             break
 
     return entries
+
+
+def _search_entries(
+    entries: list[EntryCandidate],
+    title: str = "",
+    keyword: str = "",
+    ignore_case: bool = True,
+) -> list[EntryCandidate]:
+    title_value = title.strip()
+    keyword_value = keyword.strip()
+    if title_value == "" and keyword_value == "":
+        typer.echo("请至少提供一个非空的 --title 或 --keyword", err=True)
+        raise typer.Exit(1)
+
+    normalized_title = title_value.casefold() if ignore_case else title_value
+    normalized_keyword = keyword_value.casefold() if ignore_case else keyword_value
+    matches: list[EntryCandidate] = []
+    for entry in entries:
+        entry_title = entry["title"].casefold() if ignore_case else entry["title"]
+        entry_content = entry["content"].casefold() if ignore_case else entry["content"]
+
+        title_matched = normalized_title == "" or normalized_title in entry_title
+        keyword_matched = normalized_keyword == "" or normalized_keyword in entry_content
+        if title_matched and keyword_matched:
+            matches.append(entry)
+    return matches
 
 
 def _normalise_keywords(keywords: list[str], ignore_case: bool) -> list[str]:
@@ -600,6 +655,68 @@ def cleanup_unread(
         _mark_entries_read(client, endpoint, write_token, to_mark_read)
 
     typer.echo("已完成未读文章清理")
+
+
+@cmd.command()
+def search(
+    title: str = typer.Option("", "-t", "--title", help="标题关键字；留空则不按标题过滤"),
+    keyword: str = typer.Option("", "-k", "--keyword", help="正文关键字；留空则不按正文过滤"),
+    category: str = typer.Option("", "--category", help="分类名；留空表示搜索全部分类"),
+    limit: int = typer.Option(10, "--limit", min=0, help="最多显示并处理多少篇命中文章；0 表示不限制"),
+    read: bool = typer.Option(False, "--read", help="是否将命中的文章标记为已读，默认不修改"),
+    endpoint: str = typer.Option(..., help="FreshRSS 端点地址", envvar="FRESHRSS_ENDPOINT"),
+    user: str = typer.Option(..., help="FreshRSS 用户名", envvar="FRESHRSS_USER"),
+    token: str = typer.Option(..., help="FreshRSS API Token", envvar="FRESHRSS_API_TOKEN"),
+):
+    """按标题或正文关键字搜索文章，可选标记命中结果为已读
+
+    默认通过 FreshRSS API 拉取文章，支持按 ``--title`` 搜标题、按 ``--keyword`` 搜正文内容，
+    也支持通过 ``--category`` 限定分类。
+    当传入 ``--read`` 时，会将命中的文章标记为已读。
+
+    Usage examples::
+        ai-assistant-freshrss search --title OpenAI
+    """
+    typer.echo(f"正在登录 FreshRSS: {endpoint}")
+    account_info = _get_account_info(endpoint, user, token)
+    auth = account_info["auth"]
+
+    with httpx.Client(headers=_greader_headers(auth)) as client:
+        if category.strip():
+            typer.echo(f"正在读取分类 `{category}` 下的文章")
+            entries = _get_entries_by_stream(
+                client,
+                endpoint,
+                f"/reader/api/0/stream/contents/user/-/label/{quote(category, safe='')}",
+            )
+        else:
+            typer.echo("正在读取全部文章")
+            entries = _get_entries_by_stream(client, endpoint, "/reader/api/0/stream/contents/user/-/state/com.google/reading-list")
+
+        all_matches = _search_entries(entries, title=title, keyword=keyword)
+        matches = _limit_entries(all_matches, limit)
+
+    typer.echo(f"文章总数: {len(entries)}")
+    typer.echo(f"命中文章总数: {len(all_matches)}")
+    if limit > 0:
+        typer.echo(f"应用 limit 前命中数: {len(all_matches)}")
+        typer.echo(f"本次最多显示/处理: {limit}")
+    typer.echo(f"本次命中文章数: {len(matches)}")
+    if not matches:
+        typer.echo("没有找到匹配的文章")
+        return
+
+    for entry in matches:
+        typer.echo(f"- {entry['title']} ({entry['id']})")
+
+    if not read:
+        return
+
+    with httpx.Client(headers=_greader_headers(auth)) as client:
+        write_token = _get_edit_token(client, endpoint)
+        _mark_entries_read(client, endpoint, write_token, matches)
+
+    typer.echo("已完成文章已读标记")
 
 
 @cmd.command("disable-priority")
