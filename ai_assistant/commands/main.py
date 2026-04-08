@@ -12,6 +12,7 @@ import ai_assistant.commands.mcp_cli
 import ai_assistant.commands.opml
 import ai_assistant.commands.similar_questions
 import ai_assistant.commands.ssl
+import ai_assistant.commands.stash_log
 from ai_assistant.commands import default_invoke_without_command
 
 helptext = """
@@ -33,6 +34,7 @@ for name, subcommand in (
     ("cf-tunnel-watcher", ai_assistant.commands.automation.cloudflare_tunnel_watcher.cmd),
     ("cursor-usage", ai_assistant.commands.cursor.usage.cmd),
     ("mcd", ai_assistant.commands.agent.mcd.cmd),
+    ("stash-log", ai_assistant.commands.stash_log.cmd),
 ):
     cmd.add_typer(subcommand, name=name)
 

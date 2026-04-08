@@ -1,6 +1,6 @@
 [project]
 name = "ai-assistant"
-version = "0.1.23"
+version = "0.1.24"
 description = "Toolkit for ai usage."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -35,6 +35,7 @@ ai-assistant-cf-tunnel-watcher = "ai_assistant.commands.automation.cloudflare_tu
 ai-assistant-cursor-usage = "ai_assistant.commands.cursor.usage:cmd"
 ai-assistant-cookies = "ai_assistant.commands.cookies:cmd"
 ai-assistant-freshrss = "ai_assistant.commands.automation.freshrss:cmd"
+ai-assistant-stash-log = "ai_assistant.commands.stash_log:cmd"
 
 [tool.hatch.build.targets.wheel]
 packages = ["ai_assistant"]
