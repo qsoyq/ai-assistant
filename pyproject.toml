@@ -1,6 +1,6 @@
 [project]
 name = "ai-assistant"
-version = "0.1.25"
+version = "0.1.26"
 description = "Toolkit for ai usage."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -22,6 +22,8 @@ dependencies = [
     "sqlalchemy>=2.0.48",
     "pymysql>=1.1.2",
     "psycopg[binary]>=3.3.3",
+    "pyobjc-framework-Cocoa>=10.3 ; sys_platform == 'darwin'",
+    "pyobjc-framework-ApplicationServices>=10.3 ; sys_platform == 'darwin'",
 ]
 
 [project.scripts]

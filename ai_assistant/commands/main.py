@@ -9,6 +9,7 @@ import ai_assistant.commands.cookies
 import ai_assistant.commands.cursor.usage
 import ai_assistant.commands.docker
 import ai_assistant.commands.greader
+import ai_assistant.commands.handoff
 import ai_assistant.commands.mcp_cli
 import ai_assistant.commands.opml
 import ai_assistant.commands.similar_questions
@@ -37,6 +38,7 @@ for name, subcommand in (
     ("cursor-usage", ai_assistant.commands.cursor.usage.cmd),
     ("mcd", ai_assistant.commands.agent.mcd.cmd),
     ("stash-log", ai_assistant.commands.stash_log.cmd),
+    ("handoff", ai_assistant.commands.handoff.cmd),
 ):
     cmd.add_typer(subcommand, name=name)
 
