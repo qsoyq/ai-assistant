@@ -1,15 +1,6 @@
 import sys
 
 import typer
-from ApplicationServices import (
-    AXIsProcessTrusted,
-    AXUIElementCopyAttributeValue,
-    AXUIElementCreateApplication,
-    AXUIElementPerformAction,
-    kAXChildrenAttribute,
-    kAXPressAction,
-    kAXSubroleAttribute,
-)
 
 from ai_assistant.commands import default_invoke_without_command
 
@@ -38,6 +29,13 @@ def _get_dock_pid() -> int | None:
 
 
 def _find_handoff_item():
+    from ApplicationServices import (
+        AXUIElementCopyAttributeValue,
+        AXUIElementCreateApplication,
+        kAXChildrenAttribute,
+        kAXSubroleAttribute,
+    )
+
     pid = _get_dock_pid()
     if pid is None:
         return None
@@ -81,6 +79,8 @@ def website():
     if sys.platform != "darwin":
         typer.echo("仅支持 macOS", err=True)
         raise typer.Exit(2)
+
+    from ApplicationServices import AXIsProcessTrusted, AXUIElementPerformAction, kAXPressAction
 
     if not AXIsProcessTrusted():
         typer.echo("缺少辅助功能权限, 请到 系统设置 → 隐私与安全性 → 辅助功能 授权当前终端", err=True)
