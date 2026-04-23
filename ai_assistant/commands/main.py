@@ -17,6 +17,7 @@ import ai_assistant.commands.requests_disable_verify
 import ai_assistant.commands.similar_questions
 import ai_assistant.commands.ssl
 import ai_assistant.commands.stash_log
+import ai_assistant.commands.udp
 from ai_assistant.commands import default_invoke_without_command
 
 helptext = """
@@ -43,6 +44,7 @@ for name, subcommand in (
     ("handoff", ai_assistant.commands.handoff.cmd),
     ("httpx-disable-verify", ai_assistant.commands.httpx_disable_verify.cmd),
     ("requests-disable-verify", ai_assistant.commands.requests_disable_verify.cmd),
+    ("udp", ai_assistant.commands.udp.cmd),
 ):
     cmd.add_typer(subcommand, name=name)
 
