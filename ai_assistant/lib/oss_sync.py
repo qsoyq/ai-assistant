@@ -98,6 +98,7 @@ class SyncItem:
     size: int
     local_path: Path | None = None
     oss_key: str | None = None
+    reason: str = ""  # 触发本次操作的原因, 用于 dry-run 显示
 
 
 @dataclasses.dataclass
@@ -124,8 +125,12 @@ def _walk_local(root: Path) -> dict[str, tuple[int, float]]:
     return out
 
 
-def _walk_oss(bucket: oss2.Bucket, prefix: str) -> dict[str, int]:
-    out: dict[str, int] = {}
+def _walk_oss(bucket: oss2.Bucket, prefix: str) -> dict[str, tuple[int, float]]:
+    """返回 {相对 key: (size, server_last_modified_epoch)}.
+
+    服务端 Last-Modified 在列举响应里就有, 不需额外 head_object.
+    """
+    out: dict[str, tuple[int, float]] = {}
     norm = prefix
     if norm and not norm.endswith("/"):
         norm = norm + "/"
@@ -134,7 +139,7 @@ def _walk_oss(bucket: oss2.Bucket, prefix: str) -> dict[str, int]:
         if key.endswith("/"):
             continue
         rel = key[len(norm) :] if norm else key
-        out[rel] = obj.size
+        out[rel] = (obj.size, float(obj.last_modified))
     return out
 
 
@@ -188,20 +193,30 @@ def _plan_upload(
 
     for rel, (size, mtime) in sorted(local_files.items()):
         oss_key = norm_prefix + rel
-        if force or rel not in remote_files:
-            items.append(SyncItem("upload", rel, size, local_root / rel, oss_key))
+        if force:
+            items.append(SyncItem("upload", rel, size, local_root / rel, oss_key, reason="force"))
             continue
-        if remote_files[rel] != size:
-            items.append(SyncItem("upload", rel, size, local_root / rel, oss_key))
+        if rel not in remote_files:
+            items.append(SyncItem("upload", rel, size, local_root / rel, oss_key, reason="new"))
+            continue
+        remote_size, remote_lm = remote_files[rel]
+        if remote_size != size:
+            items.append(SyncItem("upload", rel, size, local_root / rel, oss_key, reason="size-changed"))
             continue
         meta_mtime = _head_meta_mtime(bucket, oss_key)
-        if meta_mtime is None or abs(meta_mtime - mtime) > 1.0:
-            items.append(SyncItem("upload", rel, size, local_root / rel, oss_key))
+        if meta_mtime is not None:
+            if abs(meta_mtime - mtime) > 1.0:
+                items.append(SyncItem("upload", rel, size, local_root / rel, oss_key, reason="mtime-changed"))
+            continue
+        # 远端没有 x-oss-meta-mtime (非本 CLI 上传过的对象), 回退到 ossutil 风格:
+        # 比较本地 mtime 与服务端 Last-Modified, 仅当本地明显更新时才上传.
+        if mtime > remote_lm + 1.0:
+            items.append(SyncItem("upload", rel, size, local_root / rel, oss_key, reason="local-newer"))
 
     if delete:
-        for rel, size in sorted(remote_files.items()):
+        for rel, (size, _lm) in sorted(remote_files.items()):
             if rel not in local_files:
-                items.append(SyncItem("delete-remote", rel, size, None, norm_prefix + rel))
+                items.append(SyncItem("delete-remote", rel, size, None, norm_prefix + rel, reason="extra-on-remote"))
 
     total = len(items)
     truncated = False
@@ -226,23 +241,32 @@ def _plan_download(
 
     items: list[SyncItem] = []
 
-    for rel, size in sorted(remote_files.items()):
+    for rel, (size, remote_lm) in sorted(remote_files.items()):
         local_path = local_root / rel
-        if force or rel not in local_files:
-            items.append(SyncItem("download", rel, size, local_path, norm_prefix + rel))
+        oss_key = norm_prefix + rel
+        if force:
+            items.append(SyncItem("download", rel, size, local_path, oss_key, reason="force"))
             continue
-        if local_files[rel][0] != size:
-            items.append(SyncItem("download", rel, size, local_path, norm_prefix + rel))
+        if rel not in local_files:
+            items.append(SyncItem("download", rel, size, local_path, oss_key, reason="new"))
             continue
-        meta_mtime = _head_meta_mtime(bucket, norm_prefix + rel)
-        local_mtime = local_files[rel][1]
-        if meta_mtime is None or abs(meta_mtime - local_mtime) > 1.0:
-            items.append(SyncItem("download", rel, size, local_path, norm_prefix + rel))
+        local_size, local_mtime = local_files[rel]
+        if local_size != size:
+            items.append(SyncItem("download", rel, size, local_path, oss_key, reason="size-changed"))
+            continue
+        meta_mtime = _head_meta_mtime(bucket, oss_key)
+        if meta_mtime is not None:
+            if abs(meta_mtime - local_mtime) > 1.0:
+                items.append(SyncItem("download", rel, size, local_path, oss_key, reason="mtime-changed"))
+            continue
+        # 远端没有 x-oss-meta-mtime, 回退: 仅当服务端 Last-Modified 明显更新时下载.
+        if remote_lm > local_mtime + 1.0:
+            items.append(SyncItem("download", rel, size, local_path, oss_key, reason="remote-newer"))
 
     if delete:
         for rel, (size, _mtime) in sorted(local_files.items()):
             if rel not in remote_files:
-                items.append(SyncItem("delete-local", rel, size, local_root / rel, None))
+                items.append(SyncItem("delete-local", rel, size, local_root / rel, None, reason="extra-on-local"))
 
     total = len(items)
     truncated = False

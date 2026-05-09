@@ -443,12 +443,14 @@ def _print_dry_run(plan: SyncPlan) -> None:
     table.add_column("Action")
     table.add_column("Size", justify="right")
     table.add_column("Cumulative", justify="right")
+    table.add_column("Reason")
     table.add_column("Path")
 
     cumulative = 0
     upload_bytes = 0
     download_bytes = 0
     delete_count = 0
+    reason_counts: dict[str, int] = {}
     for item in plan.items:
         action_color = {
             "upload": "green",
@@ -456,6 +458,16 @@ def _print_dry_run(plan: SyncPlan) -> None:
             "delete-remote": "red",
             "delete-local": "red",
         }.get(item.action, "white")
+        reason_color = {
+            "new": "green",
+            "size-changed": "yellow",
+            "mtime-changed": "yellow",
+            "local-newer": "cyan",
+            "remote-newer": "cyan",
+            "force": "blue",
+            "extra-on-remote": "red",
+            "extra-on-local": "red",
+        }.get(item.reason, "white")
         if item.action == "upload":
             upload_bytes += item.size
             cumulative += item.size
@@ -464,10 +476,12 @@ def _print_dry_run(plan: SyncPlan) -> None:
             cumulative += item.size
         else:
             delete_count += 1
+        reason_counts[item.reason] = reason_counts.get(item.reason, 0) + 1
         table.add_row(
             f"[{action_color}]{item.action}[/{action_color}]",
             _humanize_bytes(item.size),
             _humanize_bytes(cumulative),
+            f"[{reason_color}]{item.reason}[/{reason_color}]",
             item.rel,
         )
     console.print(table)
@@ -479,6 +493,8 @@ def _print_dry_run(plan: SyncPlan) -> None:
         rich.print(f"  下载: {_humanize_bytes(download_bytes)}")
     if delete_count:
         rich.print(f"  删除: {delete_count} 项")
+    if reason_counts:
+        rich.print("[bold]按原因:[/bold] " + ", ".join(f"{r}={n}" for r, n in sorted(reason_counts.items())))
 
 
 def _run_sync_with_progress(bucket: oss2.Bucket, plan: SyncPlan, workers: int) -> None:
