@@ -68,11 +68,27 @@ def build_bucket(cfg: OssConfig) -> oss2.Bucket:
     return oss2.Bucket(auth, cfg.endpoint, cfg.bucket_name)
 
 
-def parse_oss_path(path: str) -> tuple[bool, str]:
-    """返回 (是否为 OSS 路径, 剥离前缀后的路径)。"""
-    if path.startswith(OSS_PREFIX):
-        return True, path[len(OSS_PREFIX) :]
-    return False, path
+def parse_oss_path(path: str) -> tuple[bool, str | None, str]:
+    """返回 (是否为 OSS 路径, URI 显式带的 bucket | None, 剥离前缀后的 key 前缀)。
+
+    支持两种形式:
+    - ``oss:prefix/``       → ``(True, None, "prefix/")``  使用 --bucket / OSS_BUCKET
+    - ``oss://bucket/path`` → ``(True, "bucket", "path")`` URI 内含 bucket
+    - ``oss://bucket``      → ``(True, "bucket", "")``     根前缀
+    本地路径               → ``(False, None, path)``      原样返回
+    """
+    if path.startswith("oss://"):
+        rest = path[len("oss://") :]
+        if "/" in rest:
+            bucket, prefix = rest.split("/", 1)
+        else:
+            bucket, prefix = rest, ""
+    elif path.startswith(OSS_PREFIX):
+        bucket = None
+        prefix = path[len(OSS_PREFIX) :]
+    else:
+        return False, None, path
+    return True, bucket, prefix.lstrip("/")
 
 
 @dataclasses.dataclass
@@ -141,11 +157,15 @@ def compute_sync_plan(
     force: bool = False,
     max_files: int | None = None,
 ) -> SyncPlan:
-    src_is_oss, src_path = parse_oss_path(src)
-    dst_is_oss, dst_path = parse_oss_path(dst)
+    src_is_oss, src_uri_bucket, src_path = parse_oss_path(src)
+    dst_is_oss, dst_uri_bucket, dst_path = parse_oss_path(dst)
 
     if src_is_oss == dst_is_oss:
         raise ValueError("sync 必须一端是本地路径、另一端是 oss: 路径")
+
+    for uri_bucket, label in ((src_uri_bucket, "源"), (dst_uri_bucket, "目标")):
+        if uri_bucket and uri_bucket != bucket.bucket_name:
+            raise ValueError(f"{label} URI 指定的 bucket={uri_bucket!r} 与当前配置 bucket={bucket.bucket_name!r} 不一致")
 
     if src_is_oss:
         return _plan_download(bucket, src_path, Path(dst_path), delete, force, max_files)

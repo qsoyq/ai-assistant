@@ -111,6 +111,31 @@ def with_auth(fn):
     return wrapper
 
 
+def _resolve_oss_key(ctx: typer.Context, raw: str) -> str:
+    """归一化 OSS 参数, 支持三种写法:
+
+    - ``key/path``                裸 key, 原样返回
+    - ``oss:key/path``            带前缀, 剥离后返回
+    - ``oss://bucket/key/path``   URI 含 bucket: 当前无 bucket 时作为 fallback,
+                                  已有 bucket 时校验一致, 不一致直接退出.
+
+    必须在 ``_get_bucket`` 之前调用, 否则 URI 里的 bucket 来不及参与配置解析.
+    """
+    _is_oss, uri_bucket, key = parse_oss_path(raw)
+    if uri_bucket:
+        cfg = ctx.obj["config_kwargs"]
+        existing = cfg.get("bucket_name")
+        if not existing:
+            cfg["bucket_name"] = uri_bucket
+        elif existing != uri_bucket:
+            typer.echo(
+                f"URI 指定的 bucket={uri_bucket!r} 与当前配置 bucket={existing!r} 不一致",
+                err=True,
+            )
+            raise typer.Exit(1)
+    return key
+
+
 def _get_bucket(ctx: typer.Context) -> oss2.Bucket:
     if "bucket" in ctx.obj:
         return ctx.obj["bucket"]
@@ -160,6 +185,7 @@ def upload(
         typer.echo(f"文件不存在或不是普通文件: {local_path}", err=True)
         raise typer.Exit(1)
 
+    oss_key = _resolve_oss_key(ctx, oss_key)
     bucket = _get_bucket(ctx)
 
     if not force:
@@ -201,6 +227,7 @@ def download(
     force: bool = typer.Option(False, "-f", "--force", help="本地已存在时仍下载 (覆盖)"),
 ) -> None:
     """从 OSS 下载单个文件, 大文件自动分片续传."""
+    oss_key = _resolve_oss_key(ctx, oss_key)
     bucket = _get_bucket(ctx)
 
     if local_path.exists() and not force:
@@ -243,6 +270,7 @@ def list_objects(
     long: bool = typer.Option(False, "-l", "--long", help="显示大小、修改时间、存储类型"),
 ) -> None:
     """列举 OSS 对象."""
+    prefix = _resolve_oss_key(ctx, prefix)
     bucket = _get_bucket(ctx)
     delimiter = "" if recursive else "/"
 
@@ -285,6 +313,7 @@ def rm(
     recursive: bool = typer.Option(False, "-r", "--recursive", help="按前缀递归删除"),
 ) -> None:
     """删除 OSS 对象, 支持多个 key 或前缀递归."""
+    keys = [_resolve_oss_key(ctx, k) for k in keys]
     bucket = _get_bucket(ctx)
 
     targets: list[str] = []
@@ -324,6 +353,7 @@ def rm(
 @with_auth
 def stat(ctx: typer.Context, oss_key: str = typer.Argument(..., help="OSS 对象 key")) -> None:
     """查看 OSS 对象元数据."""
+    oss_key = _resolve_oss_key(ctx, oss_key)
     bucket = _get_bucket(ctx)
     try:
         meta = bucket.head_object(oss_key)
@@ -356,6 +386,7 @@ def cat(
     max_size: int = typer.Option(1024 * 1024, "--max-size", help="允许打印的最大字节数, 防止误打印巨大文件"),
 ) -> None:
     """打印 OSS 对象内容到 stdout (受 --max-size 限制)."""
+    oss_key = _resolve_oss_key(ctx, oss_key)
     bucket = _get_bucket(ctx)
     try:
         meta = bucket.head_object(oss_key)
@@ -386,6 +417,7 @@ def sign(
     method: str = typer.Option("GET", "-m", "--method", help="HTTP 方法 (GET / PUT)"),
 ) -> None:
     """生成预签名 URL, 直接打印到 stdout."""
+    oss_key = _resolve_oss_key(ctx, oss_key)
     bucket = _get_bucket(ctx)
     method_upper = method.upper()
     if method_upper not in ("GET", "PUT"):
@@ -410,7 +442,13 @@ def _print_dry_run(plan: SyncPlan) -> None:
     table = Table(show_header=True, header_style="bold")
     table.add_column("Action")
     table.add_column("Size", justify="right")
+    table.add_column("Cumulative", justify="right")
     table.add_column("Path")
+
+    cumulative = 0
+    upload_bytes = 0
+    download_bytes = 0
+    delete_count = 0
     for item in plan.items:
         action_color = {
             "upload": "green",
@@ -418,8 +456,29 @@ def _print_dry_run(plan: SyncPlan) -> None:
             "delete-remote": "red",
             "delete-local": "red",
         }.get(item.action, "white")
-        table.add_row(f"[{action_color}]{item.action}[/{action_color}]", _humanize_bytes(item.size), item.rel)
+        if item.action == "upload":
+            upload_bytes += item.size
+            cumulative += item.size
+        elif item.action == "download":
+            download_bytes += item.size
+            cumulative += item.size
+        else:
+            delete_count += 1
+        table.add_row(
+            f"[{action_color}]{item.action}[/{action_color}]",
+            _humanize_bytes(item.size),
+            _humanize_bytes(cumulative),
+            item.rel,
+        )
     console.print(table)
+
+    rich.print(f"[bold]合计:[/bold] {len(plan.items)} 项, 总传输 {_humanize_bytes(cumulative)}")
+    if upload_bytes:
+        rich.print(f"  上传: {_humanize_bytes(upload_bytes)}")
+    if download_bytes:
+        rich.print(f"  下载: {_humanize_bytes(download_bytes)}")
+    if delete_count:
+        rich.print(f"  删除: {delete_count} 项")
 
 
 def _run_sync_with_progress(bucket: oss2.Bucket, plan: SyncPlan, workers: int) -> None:
@@ -484,8 +543,8 @@ def _run_sync_with_progress(bucket: oss2.Bucket, plan: SyncPlan, workers: int) -
 @with_auth
 def sync(
     ctx: typer.Context,
-    src: str = typer.Argument(..., help="源路径, 本地路径或 oss:<prefix>/"),
-    dst: str = typer.Argument(..., help="目标路径, 本地路径或 oss:<prefix>/"),
+    src: str = typer.Argument(..., help="源路径, 本地路径或 oss:<prefix>/ 或 oss://<bucket>/<prefix>/"),
+    dst: str = typer.Argument(..., help="目标路径, 本地路径或 oss:<prefix>/ 或 oss://<bucket>/<prefix>/"),
     delete: bool = typer.Option(False, "--delete", help="删除目标端不存在于源端的文件 (镜像同步)"),
     dry_run: bool = typer.Option(False, "--dry-run", help="只显示需要同步的文件列表, 不实际传输"),
     max_files: Optional[int] = typer.Option(None, "--max-files", help="本次最多同步多少个文件, 默认无限"),
@@ -494,18 +553,27 @@ def sync(
 ) -> None:
     """目录同步: 本地 ↔ OSS, 默认按 size + x-oss-meta-mtime 比对.
 
-    源端是 oss:<prefix>/ 时下载, 目标端是 oss:<prefix>/ 时上传.
+    OSS 端两种写法等价 (URI 内的 bucket 必须与 --bucket / OSS_BUCKET 一致):
+
+      oss:<prefix>/             从 --bucket 读取 bucket
+      oss://<bucket>/<prefix>/  s3 风格, bucket 写在 URI 里
 
     使用示例:
-      ai-assistant aliyun-oss sync ./dist/ oss:web/        # 上传
-      ai-assistant aliyun-oss sync oss:backup/ ./restore/  # 下载
+      ai-assistant aliyun-oss sync ./dist/ oss:web/                  # 上传
+      ai-assistant aliyun-oss sync ./dist/ oss://mybucket/web/       # 上传, 显式 bucket
+      ai-assistant aliyun-oss sync oss:backup/ ./restore/            # 下载
       ai-assistant aliyun-oss sync ./dist/ oss:web/ --dry-run --max-files 50
     """
-    src_is_oss, _ = parse_oss_path(src)
-    dst_is_oss, _ = parse_oss_path(dst)
+    src_is_oss, src_uri_bucket, _ = parse_oss_path(src)
+    dst_is_oss, dst_uri_bucket, _ = parse_oss_path(dst)
     if src_is_oss == dst_is_oss:
-        typer.echo("sync 必须一端是本地路径, 另一端用 oss:<prefix>/ 表示", err=True)
+        typer.echo("sync 必须一端是本地路径, 另一端用 oss:<prefix>/ 或 oss://<bucket>/<prefix>/", err=True)
         raise typer.Exit(1)
+
+    # 如果配置里没指定 bucket, 但 URI 里写了, 用 URI 里的作为 fallback.
+    uri_bucket = src_uri_bucket or dst_uri_bucket
+    if uri_bucket and not ctx.obj["config_kwargs"].get("bucket_name"):
+        ctx.obj["config_kwargs"]["bucket_name"] = uri_bucket
 
     bucket = _get_bucket(ctx)
 
