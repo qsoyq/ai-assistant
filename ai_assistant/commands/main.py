@@ -1,6 +1,7 @@
 import typer
 
 import ai_assistant.commands.agent.mcd
+import ai_assistant.commands.aliyun_oss
 import ai_assistant.commands.automation.cloudflare_tunnel_watcher
 import ai_assistant.commands.automation.docker_hub_runner
 import ai_assistant.commands.automation.file_change_runner
@@ -45,6 +46,7 @@ for name, subcommand in (
     ("httpx-disable-verify", ai_assistant.commands.httpx_disable_verify.cmd),
     ("requests-disable-verify", ai_assistant.commands.requests_disable_verify.cmd),
     ("udp", ai_assistant.commands.udp.cmd),
+    ("aliyun-oss", ai_assistant.commands.aliyun_oss.cmd),
 ):
     cmd.add_typer(subcommand, name=name)
 
