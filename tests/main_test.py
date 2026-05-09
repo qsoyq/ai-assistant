@@ -1,6 +1,5 @@
-from typer_utils.utils import is_cmd_exists
+import shutil
 
 
 def test_cmd():
-    result = is_cmd_exists("ai-assistant")
-    assert result is True
+    assert shutil.which("ai-assistant") is not None

@@ -1,6 +1,6 @@
 [project]
 name = "ai-assistant"
-version = "0.1.32"
+version = "0.1.33"
 description = "Toolkit for ai usage."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -14,7 +14,8 @@ dependencies = [
     "pre-commit>=4.5.1",
     "pydantic-settings>=2.12.0",
     "requests>=2.32.5",
-    "typer-utils@git+https://github.com/qsoyq/typer_utils",
+    "typer>=0.12",
+    "pytest>=8.0",
     "watchfiles>=1.1.1",
     "xmltodict>=1.0.2",
     "browser-cookie3>=0.16.6",
@@ -127,7 +128,7 @@ exclude = ['^venv/', '^__init__\.py$']
 explicit_package_bases = true
 
 [[tool.mypy.overrides]]
-module = ["typer_utils.*", "browser-cookie3"]
+module = ["browser-cookie3"]
 ignore_missing_imports = true
 follow_untyped_imports = true
 
@@ -136,4 +137,3 @@ markers = []
 
 [tool.isort]
 profile = "hug"
-src_paths = ["ai_assistant"]
