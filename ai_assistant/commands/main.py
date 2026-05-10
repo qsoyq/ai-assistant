@@ -14,6 +14,7 @@ import ai_assistant.commands.handoff
 import ai_assistant.commands.httpx_disable_verify
 import ai_assistant.commands.mcp_cli
 import ai_assistant.commands.opml
+import ai_assistant.commands.reality
 import ai_assistant.commands.requests_disable_verify
 import ai_assistant.commands.similar_questions
 import ai_assistant.commands.ssl
@@ -47,6 +48,7 @@ for name, subcommand in (
     ("requests-disable-verify", ai_assistant.commands.requests_disable_verify.cmd),
     ("udp", ai_assistant.commands.udp.cmd),
     ("aliyun-oss", ai_assistant.commands.aliyun_oss.cmd),
+    ("reality", ai_assistant.commands.reality.cmd),
 ):
     cmd.add_typer(subcommand, name=name)
 
