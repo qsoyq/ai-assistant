@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from pathlib import Path
 
 import pytest
@@ -16,6 +17,13 @@ from ai_assistant.commands.reality import (
 )
 
 runner = CliRunner()
+
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
+
+
+def _plain(text: str) -> str:
+    """Strip ANSI escape sequences so substring asserts survive rich's Panel rendering."""
+    return _ANSI_RE.sub("", text)
 
 
 def test_render_config_substitutes_required_fields():
@@ -209,7 +217,8 @@ def test_build_rejects_only_one_key_provided():
     )
 
     assert result.exit_code != 0
-    assert "public-key" in result.output.lower() or "private-key" in result.output.lower()
+    output = _plain(result.output).lower()
+    assert "public-key" in output or "private-key" in output
 
 
 def test_build_rejects_invalid_port():
