@@ -8,6 +8,7 @@ import ai_assistant.commands.automation.file_change_runner
 import ai_assistant.commands.automation.freshrss
 import ai_assistant.commands.cookies
 import ai_assistant.commands.cursor.usage
+import ai_assistant.commands.disable_ssl_verify
 import ai_assistant.commands.docker
 import ai_assistant.commands.greader
 import ai_assistant.commands.handoff
@@ -46,6 +47,7 @@ for name, subcommand in (
     ("handoff", ai_assistant.commands.handoff.cmd),
     ("httpx-disable-verify", ai_assistant.commands.httpx_disable_verify.cmd),
     ("requests-disable-verify", ai_assistant.commands.requests_disable_verify.cmd),
+    ("disable-ssl-verify", ai_assistant.commands.disable_ssl_verify.cmd),
     ("udp", ai_assistant.commands.udp.cmd),
     ("aliyun-oss", ai_assistant.commands.aliyun_oss.cmd),
     ("reality", ai_assistant.commands.reality.cmd),
