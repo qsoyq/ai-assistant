@@ -4,21 +4,13 @@ from datetime import datetime
 import rich
 import typer
 
-from ai_assistant.commands import default_invoke_without_command
+from ai_assistant.commands import make_typer
 
 helptext = """
 UDP 端口可达性验证工具
 """
 
-cmd = typer.Typer(help=helptext)
-
-
-def add_default_invoke():
-    for _cmd in (cmd,):
-        _cmd.callback(invoke_without_command=True)(default_invoke_without_command)
-
-
-add_default_invoke()
+cmd = make_typer(helptext)
 
 
 def _now() -> str:

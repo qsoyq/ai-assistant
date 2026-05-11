@@ -6,22 +6,14 @@ from openai import OpenAI
 from openai.types.responses.response_output_message import ResponseOutputMessage
 from openai.types.responses.response_output_text import ResponseOutputText
 
-from ai_assistant.commands import default_invoke_without_command
+from ai_assistant.commands import make_typer
 from ai_assistant.settings import OpenAISettings
 
 helptext = """
 Generate N similar questions by input query.
 """
 
-cmd = typer.Typer(help=helptext)
-
-
-def add_default_invoke():
-    for _cmd in (cmd,):
-        _cmd.callback(invoke_without_command=True)(default_invoke_without_command)
-
-
-add_default_invoke()
+cmd = make_typer(helptext)
 
 
 def get_similar_questions_by_query(query: str, topn: int, base_url: str, api_key: str, model: str) -> list[str] | None:

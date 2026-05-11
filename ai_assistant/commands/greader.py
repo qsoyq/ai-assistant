@@ -10,7 +10,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from ai_assistant.commands import default_invoke_without_command
+from ai_assistant.commands import make_typer
 
 _CONSOLE = Console()
 
@@ -55,17 +55,7 @@ Google Reader API 客户端工具
      └──────────────┴──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 """
 
-cmd = typer.Typer(help=helptext)
-
-
-def add_default_invoke():
-    for _cmd in (cmd,):
-        _cmd.callback(invoke_without_command=True)(default_invoke_without_command)
-
-
-add_default_invoke()
-
-
+cmd = make_typer(helptext)
 # ---------------------------------------------------------------------------
 # Data types
 # ---------------------------------------------------------------------------

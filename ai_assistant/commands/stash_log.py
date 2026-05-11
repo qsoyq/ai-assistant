@@ -10,22 +10,13 @@ import httpx
 import typer
 from pydantic import BaseModel, Field
 
-from ai_assistant.commands import default_invoke_without_command
+from ai_assistant.commands import make_typer
 
 helptext = """
 Stash 抓包日志解析工具
 """
 
-cmd = typer.Typer(help=helptext)
-
-
-def add_default_invoke():
-    for _cmd in (cmd,):
-        _cmd.callback(invoke_without_command=True)(default_invoke_without_command)
-
-
-add_default_invoke()
-
+cmd = make_typer(helptext)
 _USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36"
 
 

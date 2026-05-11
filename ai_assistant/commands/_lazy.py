@@ -1,3 +1,5 @@
+"""(import_path, extra_name). extra_name=None means dependency is in default install."""
+
 import ast
 import importlib
 import importlib.util
@@ -7,6 +9,8 @@ from pathlib import Path
 import click
 import typer
 from typer.core import TyperGroup
+
+LazyEntry = tuple[str, str | None]
 
 
 @lru_cache(maxsize=None)
@@ -44,17 +48,40 @@ class LazySubGroup(TyperGroup):
     avoiding any module import. Any other interaction (sub-help, parsing,
     invocation) triggers `_resolve()` which imports the real module exactly
     once and delegates the rest of the call lifecycle to it.
+
+    If `extra` is given and the import fails with `ModuleNotFoundError`, the
+    stub prints a friendly install hint instead of raising a raw traceback.
     """
 
-    def __init__(self, *, name: str, short_help: str, import_path: str) -> None:
+    def __init__(
+        self,
+        *,
+        name: str,
+        short_help: str,
+        import_path: str,
+        extra: str | None = None,
+    ) -> None:
         super().__init__(name=name, short_help=short_help)
         self._import_path = import_path
+        self._extra = extra
         self._real: click.Group | None = None
 
     def _resolve(self) -> click.Group:
         if self._real is None:
             mod_path, attr = self._import_path.split(":", 1)
-            mod = importlib.import_module(mod_path)
+            try:
+                mod = importlib.import_module(mod_path)
+            except ModuleNotFoundError as exc:
+                if self._extra is None:
+                    raise
+                typer.echo(
+                    f"command '{self.name}' requires the optional dependency group '{self._extra}'.\n"
+                    f"  install with:  pip install 'ai-assistant[{self._extra}]'\n"
+                    f"  or via uvx:    uvx 'ai-assistant[{self._extra}]' ai-assistant {self.name} ...\n"
+                    f"  underlying ImportError: {exc.msg}",
+                    err=True,
+                )
+                raise typer.Exit(code=1) from exc
             target = getattr(mod, attr)
             real = target if isinstance(target, click.Group) else typer.main.get_command(target)
             assert isinstance(real, click.Group), f"{self._import_path} did not resolve to a click.Group"
@@ -84,24 +111,26 @@ class LazySubGroup(TyperGroup):
 
 
 class LazyRootGroup(TyperGroup):
-    """Root group whose subcommands are described by an `import_path` registry.
+    """Root group whose subcommands are described by a registry of `(import_path, extra)`.
 
-    Subclasses populate `lazy_subcommands = {name: "module.path:attr"}`. On
-    root `--help`, only the AST-extracted short_help is read for each entry —
+    Subclasses populate `lazy_subcommands = {name: ("module.path:attr", extra_or_none)}`.
+    On root `--help`, only the AST-extracted short_help is read for each entry —
     no subcommand modules are imported.
     """
 
-    lazy_subcommands: dict[str, str] = {}
+    lazy_subcommands: dict[str, LazyEntry] = {}
 
     def list_commands(self, ctx: click.Context) -> list[str]:
         return sorted({*super().list_commands(ctx), *self.lazy_subcommands})
 
     def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command | None:
-        path = self.lazy_subcommands.get(cmd_name)
-        if path is None:
+        entry = self.lazy_subcommands.get(cmd_name)
+        if entry is None:
             return super().get_command(ctx, cmd_name)
+        import_path, extra = entry
         return LazySubGroup(
             name=cmd_name,
-            short_help=_extract_short_help(path),
-            import_path=path,
+            short_help=_extract_short_help(import_path),
+            import_path=import_path,
+            extra=extra,
         )

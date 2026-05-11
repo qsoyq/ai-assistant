@@ -8,7 +8,7 @@ from typing import Optional
 
 import typer
 
-from ai_assistant.commands import default_invoke_without_command
+from ai_assistant.commands import make_typer
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ helptext = """
     会同时读取 github.com 和 .github.com 的 Cookie
 """
 
-cmd = typer.Typer(help=helptext)
+cmd = make_typer(helptext)
 
 _TWITTER_DOMAINS = ("x.com", "twitter.com")
 _CURSOR_DOMAINS = ("cursor.com", "cursor.sh")
@@ -229,13 +229,6 @@ def cursor(
         typer.echo("未找到匹配的 Cookie 字段", err=True)
         raise typer.Exit(1)
 
-
-def add_default_invoke():
-    for _cmd in (cmd,):
-        _cmd.callback(invoke_without_command=True)(default_invoke_without_command)
-
-
-add_default_invoke()
 
 if __name__ == "__main__":
     cmd()

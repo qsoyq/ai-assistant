@@ -5,24 +5,14 @@ import typer
 from openai import Client
 from openai.types.responses import Response
 
-from ai_assistant.commands import default_invoke_without_command
+from ai_assistant.commands import make_typer
 from ai_assistant.settings import OpenAISettings
 
 helptext = """
 基于 OpenAI Responses API 的 mcp-mcd 工具
 """
 
-cmd = typer.Typer(help=helptext)
-
-
-def add_default_invoke():
-    for _cmd in (cmd,):
-        _cmd.callback(invoke_without_command=True)(default_invoke_without_command)
-
-
-add_default_invoke()
-
-
+cmd = make_typer(helptext)
 MCP_URL = "https://mcp.mcd.cn/mcp-servers/mcd-mcp"
 
 

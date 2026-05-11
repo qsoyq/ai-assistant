@@ -1,6 +1,4 @@
-import typer
-
-from ai_assistant.commands import default_invoke_without_command
+from ai_assistant.commands import make_typer
 from ai_assistant.commands._lazy import LazyRootGroup
 
 helptext = """
@@ -10,40 +8,30 @@ helptext = """
 
 class _Root(LazyRootGroup):
     lazy_subcommands = {
-        "docker": "ai_assistant.commands.docker:cmd",
-        "greader": "ai_assistant.commands.greader:cmd",
-        "ssl": "ai_assistant.commands.ssl:cmd",
-        "similar-questions": "ai_assistant.commands.similar_questions:cmd",
-        "opml": "ai_assistant.commands.opml:cmd",
-        "mcp-cli": "ai_assistant.commands.mcp_cli:cmd",
-        "cookies": "ai_assistant.commands.cookies:cmd",
-        "freshrss": "ai_assistant.commands.automation.freshrss:cmd",
-        "file-change-runner": "ai_assistant.commands.automation.file_change_runner:cmd",
-        "docker-hub-runner": "ai_assistant.commands.automation.docker_hub_runner:cmd",
-        "cf-tunnel-watcher": "ai_assistant.commands.automation.cloudflare_tunnel_watcher:cmd",
-        "cursor-usage": "ai_assistant.commands.cursor.usage:cmd",
-        "mcd": "ai_assistant.commands.agent.mcd:cmd",
-        "stash-log": "ai_assistant.commands.stash_log:cmd",
-        "handoff": "ai_assistant.commands.handoff:cmd",
-        "httpx-disable-verify": "ai_assistant.commands.httpx_disable_verify:cmd",
-        "requests-disable-verify": "ai_assistant.commands.requests_disable_verify:cmd",
-        "udp": "ai_assistant.commands.udp:cmd",
-        "aliyun-oss": "ai_assistant.commands.aliyun_oss:cmd",
-        "reality": "ai_assistant.commands.reality:cmd",
-        "disable-ssl-verify": "ai_assistant.commands.disable_ssl_verify:cmd",
+        "docker": ("ai_assistant.commands.docker:cmd", "docker"),
+        "greader": ("ai_assistant.commands.greader:cmd", None),
+        "ssl": ("ai_assistant.commands.ssl:cmd", None),
+        "similar-questions": ("ai_assistant.commands.similar_questions:cmd", "mcd"),
+        "opml": ("ai_assistant.commands.opml:cmd", None),
+        "mcp-cli": ("ai_assistant.commands.mcp_cli:cmd", None),
+        "cookies": ("ai_assistant.commands.cookies:cmd", "cookies"),
+        "freshrss": ("ai_assistant.commands.automation.freshrss:cmd", "freshrss"),
+        "file-change-runner": ("ai_assistant.commands.automation.file_change_runner:cmd", None),
+        "docker-hub-runner": ("ai_assistant.commands.automation.docker_hub_runner:cmd", None),
+        "cf-tunnel-watcher": ("ai_assistant.commands.automation.cloudflare_tunnel_watcher:cmd", None),
+        "cursor-usage": ("ai_assistant.commands.cursor.usage:cmd", "cursor"),
+        "mcd": ("ai_assistant.commands.agent.mcd:cmd", "mcd"),
+        "stash-log": ("ai_assistant.commands.stash_log:cmd", None),
+        "handoff": ("ai_assistant.commands.handoff:cmd", None),
+        "httpx-disable-verify": ("ai_assistant.commands.httpx_disable_verify:cmd", None),
+        "requests-disable-verify": ("ai_assistant.commands.requests_disable_verify:cmd", None),
+        "udp": ("ai_assistant.commands.udp:cmd", None),
+        "aliyun-oss": ("ai_assistant.commands.aliyun_oss:cmd", "oss"),
+        "reality": ("ai_assistant.commands.reality:cmd", None),
+        "disable-ssl-verify": ("ai_assistant.commands.disable_ssl_verify:cmd", None),
     }
 
 
-cmd = typer.Typer(cls=_Root, help=helptext)
-
-
-def add_default_invoke():
-    for _cmd in (cmd,):
-        _cmd.callback(invoke_without_command=True)(default_invoke_without_command)
-
-
-add_default_invoke()
-
-
+cmd = make_typer(helptext, cls=_Root)
 if __name__ == "__main__":
     cmd()

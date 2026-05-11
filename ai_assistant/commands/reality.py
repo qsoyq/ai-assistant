@@ -11,7 +11,7 @@ from uuid import uuid4
 import httpx
 import typer
 
-from ai_assistant.commands import default_invoke_without_command
+from ai_assistant.commands import make_typer
 
 helptext = """
 基于 Xray REALITY 协议生成服务端与客户端配置, 可选自动安装 xray 并启用 systemd 服务。
@@ -30,17 +30,7 @@ helptext = """
 - 启动服务依赖 systemd, 非 Linux 平台会自动跳过。
 """
 
-cmd = typer.Typer(help=helptext)
-
-
-def add_default_invoke():
-    for _cmd in (cmd,):
-        _cmd.callback(invoke_without_command=True)(default_invoke_without_command)
-
-
-add_default_invoke()
-
-
+cmd = make_typer(helptext)
 DEFAULT_CONFIG_PATH = Path("/usr/local/etc/xray/config.json")
 DEFAULT_CLIENT_INFO_PATH = Path("/usr/local/etc/xray/reclient.json")
 DEFAULT_ACCESS_LOG = "/var/log/xray/access.log"
@@ -142,18 +132,47 @@ def _detect_public_address() -> str:
     raise typer.Exit(code=2)
 
 
-def _install_xray() -> None:
+XRAY_INSTALLER_URL = "https://github.com/XTLS/Xray-install/raw/main/install-release.sh"
+
+
+def _run_steps(steps: list[list[str]], failure_msg: str, exit_code: int) -> None:
+    for step in steps:
+        result = subprocess.run(step, check=False)
+        if result.returncode != 0:
+            typer.echo(f"{failure_msg} (失败命令: {' '.join(step)})", err=True)
+            raise typer.Exit(code=exit_code)
+
+
+def _install_xray(*, yes: bool) -> None:
     if Path("/usr/bin/apt-get").exists():
-        prep_command = "apt-get update -y && apt-get upgrade -y && apt-get install -y gawk curl"
+        prep_steps: list[list[str]] = [
+            ["apt-get", "update", "-y"],
+            ["apt-get", "upgrade", "-y"],
+            ["apt-get", "install", "-y", "gawk", "curl"],
+        ]
     else:
-        prep_command = "yum update -y && yum upgrade -y && yum install -y epel-release && yum install -y gawk curl"
+        prep_steps = [
+            ["yum", "update", "-y"],
+            ["yum", "upgrade", "-y"],
+            ["yum", "install", "-y", "epel-release"],
+            ["yum", "install", "-y", "gawk", "curl"],
+        ]
+    _run_steps(prep_steps, "安装基础依赖失败 (gawk / curl)。", exit_code=5)
 
-    if os.system(prep_command) != 0:
-        typer.echo("安装基础依赖失败 (gawk / curl)。", err=True)
-        raise typer.Exit(code=5)
+    typer.echo(f"即将下载并以 root 身份执行第三方安装脚本: {XRAY_INSTALLER_URL}")
+    typer.echo("脚本内容由 XTLS/Xray-install 上游维护, 本命令不做校验。")
+    if not yes and not typer.confirm("继续安装 xray?", default=False):
+        typer.echo("已取消 xray 安装, 可追加 --skip-install 自行安装。", err=True)
+        raise typer.Exit(code=0)
 
-    install_command = 'bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install'
-    if os.system(install_command) != 0:
+    try:
+        installer = httpx.get(XRAY_INSTALLER_URL, follow_redirects=True, timeout=30).text
+    except httpx.HTTPError as exc:
+        typer.echo(f"下载 xray 安装脚本失败: {exc}", err=True)
+        raise typer.Exit(code=5) from exc
+
+    result = subprocess.run(["bash", "-s", "@", "install"], input=installer, text=True, check=False)
+    if result.returncode != 0:
         typer.echo("Xray 安装失败。", err=True)
         raise typer.Exit(code=5)
 
@@ -183,9 +202,14 @@ def _generate_x25519_keys() -> tuple[str, str]:
 
 
 def _enable_xray_service() -> None:
-    if os.system("systemctl enable xray.service && systemctl restart xray.service") != 0:
-        typer.echo("启用并重启 xray.service 失败。", err=True)
-        raise typer.Exit(code=6)
+    _run_steps(
+        [
+            ["systemctl", "enable", "xray.service"],
+            ["systemctl", "restart", "xray.service"],
+        ],
+        "启用并重启 xray.service 失败。",
+        exit_code=6,
+    )
 
 
 def _build_limit_fallback_section() -> dict:
@@ -267,6 +291,7 @@ def build(
     config_path: Path = typer.Option(DEFAULT_CONFIG_PATH, "--config-path", help="服务端配置写入路径"),
     client_info_path: Path = typer.Option(DEFAULT_CLIENT_INFO_PATH, "--client-info-path", help="客户端信息写入路径"),
     skip_install: bool = typer.Option(False, "--skip-install", help="跳过 xray 自动安装步骤"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="跳过 xray 安装的二次确认 (curl-bash)"),
     skip_enable: bool = typer.Option(False, "--skip-enable", help="跳过 systemctl enable / restart 步骤"),
     dry_run: bool = typer.Option(False, "--dry-run", help="仅渲染并打印配置, 不写盘 / 不安装 / 不操作 systemd"),
     interactive: bool = typer.Option(False, "--interactive", help="缺省值时通过交互式提示补齐"),
@@ -315,7 +340,7 @@ def build(
         if Path(XRAY_BINARY).exists():
             typer.echo(f"检测到 {XRAY_BINARY}, 跳过 Xray 安装。")
         else:
-            _install_xray()
+            _install_xray(yes=yes)
 
     if private_key is None or public_key is None:
         if dry_run:

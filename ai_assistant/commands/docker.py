@@ -9,7 +9,7 @@ from docker.errors import ContainerError, DockerException, ImageNotFound
 from rich.console import Console
 from rich.markdown import Markdown
 
-from ai_assistant.commands import default_invoke_without_command
+from ai_assistant.commands import make_typer
 
 _DAEMON_LOG_ROOT = PurePosixPath("/var/lib/docker/containers")
 _DEFAULT_HELPER_IMAGE = "alpine:3.20"
@@ -19,15 +19,7 @@ helptext = """
 Docker 相关工具
 """
 
-cmd = typer.Typer(help=helptext)
-
-
-def add_default_invoke():
-    for _cmd in (cmd,):
-        _cmd.callback(invoke_without_command=True)(default_invoke_without_command)
-
-
-add_default_invoke()
+cmd = make_typer(helptext)
 
 
 @dataclass(frozen=True)

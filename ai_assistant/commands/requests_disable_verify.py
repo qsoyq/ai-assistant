@@ -4,7 +4,7 @@ from pathlib import Path
 
 import typer
 
-from ai_assistant.commands import default_invoke_without_command
+from ai_assistant.commands import make_typer
 
 helptext = """
 通过 site-packages 下的 .pth 文件，对当前 Python 解释器全局禁用 requests 的 SSL verify。
@@ -22,17 +22,7 @@ helptext = """
   - 用户传入的 verify=True 或自定义 CA bundle 会被无声覆盖为 False，请仅在受控环境使用。
 """
 
-cmd = typer.Typer(help=helptext)
-
-
-def add_default_invoke():
-    for _cmd in (cmd,):
-        _cmd.callback(invoke_without_command=True)(default_invoke_without_command)
-
-
-add_default_invoke()
-
-
+cmd = make_typer(helptext)
 PTH_FILENAME = "ai_assistant_requests_disable_verify.pth"
 
 _PATCH_BODY = (

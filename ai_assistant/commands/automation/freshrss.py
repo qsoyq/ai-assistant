@@ -10,14 +10,14 @@ import typer
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 
-from ai_assistant.commands import default_invoke_without_command
+from ai_assistant.commands import make_typer
 from ai_assistant.commands.cookies import _extract_cookies_for_domain
 
 helptext = """
 FreshRSS 工具集.
 """
 
-cmd = typer.Typer(help=helptext)
+cmd = make_typer(helptext)
 
 
 class Account(TypedDict):
@@ -35,14 +35,6 @@ class EntryCandidate(TypedDict):
     id: str
     title: str
     content: str
-
-
-def add_default_invoke():
-    for _cmd in (cmd,):
-        _cmd.callback(invoke_without_command=True)(default_invoke_without_command)
-
-
-add_default_invoke()
 
 
 def _greader_url(endpoint: str, path: str) -> str:

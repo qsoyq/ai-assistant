@@ -9,7 +9,7 @@ from pathlib import Path
 
 import typer
 
-from ai_assistant.commands import default_invoke_without_command
+from ai_assistant.commands import make_typer
 
 _DOMAIN_LABEL_PATTERN = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$")
 
@@ -33,15 +33,7 @@ helptext = """
 命令执行前会自动检查依赖；如果缺失，会提示安装方法并退出。
 """
 
-cmd = typer.Typer(help=helptext)
-
-
-def add_default_invoke():
-    for _cmd in (cmd,):
-        _cmd.callback(invoke_without_command=True)(default_invoke_without_command)
-
-
-add_default_invoke()
+cmd = make_typer(helptext)
 
 
 def _split_multi_value_input(raw: str) -> list[str]:

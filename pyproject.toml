@@ -1,32 +1,44 @@
 [project]
 name = "ai-assistant"
-version = "0.1.38"
+version = "0.2.0"
 description = "Toolkit for ai usage."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "httpx[socks]>=0.28.1",
-    "ipython>=8.37.0",
-    "matplotlib>=3.10.8",
-    "openai>=2.14.0",
-    "pandas>=2.3.3",
-    "pandas-stubs>=2.3.3.260113",
-    "pre-commit>=4.5.1",
     "pydantic-settings>=2.12.0",
     "requests>=2.32.5",
     "typer>=0.12",
-    "pytest>=8.0",
     "watchfiles>=1.1.1",
     "xmltodict>=1.0.2",
-    "browser-cookie3>=0.16.6",
-    "docker>=7.1.0",
+    "rich>=13.0",
+    "pyobjc-framework-Cocoa>=10.3 ; sys_platform == 'darwin'",
+    "pyobjc-framework-ApplicationServices>=10.3 ; sys_platform == 'darwin'",
+]
+
+[project.optional-dependencies]
+mcd = ["openai>=2.14.0"]
+oss = ["oss2>=2.18.0"]
+freshrss = [
     "sqlalchemy>=2.0.48",
     "pymysql>=1.1.2",
     "psycopg[binary]>=3.3.3",
-    "pyobjc-framework-Cocoa>=10.3 ; sys_platform == 'darwin'",
-    "pyobjc-framework-ApplicationServices>=10.3 ; sys_platform == 'darwin'",
-    "oss2>=2.18.0",
-    "rich>=13.0",
+]
+docker = ["docker>=7.1.0"]
+cookies = ["browser-cookie3>=0.16.6"]
+cursor = ["matplotlib>=3.10.8", "pandas>=2.3.3"]
+all = [
+    "ai-assistant[mcd,oss,freshrss,docker,cookies,cursor]",
+]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.5.1",
+    "pytest>=8.0",
+    "mypy>=1.19",
+    "pandas-stubs>=2.3.3.260113",
+    "types-requests",
+    "types-xmltodict",
 ]
 
 [project.scripts]
@@ -44,6 +56,9 @@ ai-assistant-stash-log = "ai_assistant.commands.stash_log:cmd"
 
 [tool.hatch.build.targets.wheel]
 packages = ["ai_assistant"]
+exclude = [
+    "ai_assistant/example/**",
+]
 
 [tool.hatch.metadata]
 allow-direct-references = true
@@ -53,7 +68,6 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.ruff]
-# Exclude a variety of commonly ignored directories.
 exclude = [
     ".bzr",
     ".direnv",
@@ -81,8 +95,6 @@ exclude = [
     "node_modules",
     "site-packages",
     "venv",
-    "matplotlib",
-    "matplotlib.pyplot",
 ]
 # Same as Black.
 line-length = 200

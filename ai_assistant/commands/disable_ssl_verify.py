@@ -2,11 +2,7 @@ from pathlib import Path
 
 import typer
 
-from ai_assistant.commands import (
-    default_invoke_without_command,
-    httpx_disable_verify,
-    requests_disable_verify,
-)
+from ai_assistant.commands import httpx_disable_verify, make_typer, requests_disable_verify
 
 helptext = """
 聚合命令：同时管理 httpx 和 requests 的 SSL verify 禁用补丁。
@@ -19,15 +15,7 @@ helptext = """
 都会被聚合，返回值取最大值；但前一个失败不会中断后一个的执行。
 """
 
-cmd = typer.Typer(help=helptext)
-
-
-def add_default_invoke():
-    for _cmd in (cmd,):
-        _cmd.callback(invoke_without_command=True)(default_invoke_without_command)
-
-
-add_default_invoke()
+cmd = make_typer(helptext)
 
 
 def _run(label: str, func, **kwargs) -> int:
