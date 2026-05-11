@@ -13,6 +13,18 @@ from typer.core import TyperGroup
 LazyEntry = tuple[str, str | None]
 
 
+def print_extras_hint(*, command_label: str, entry_invocation: str, extra: str, exc: BaseException) -> None:
+    """Print a friendly install hint when an optional dependency is missing."""
+    underlying = getattr(exc, "msg", None) or str(exc)
+    typer.echo(
+        f"command '{command_label}' requires the optional dependency group '{extra}'.\n"
+        f"  install with:  pip install 'ai-assistant[{extra}]'\n"
+        f"  or via uvx:    uvx 'ai-assistant[{extra}]' {entry_invocation} ...\n"
+        f"  underlying ImportError: {underlying}",
+        err=True,
+    )
+
+
 @lru_cache(maxsize=None)
 def _extract_short_help(import_path: str) -> str:
     mod_name = import_path.split(":", 1)[0]
@@ -74,12 +86,11 @@ class LazySubGroup(TyperGroup):
             except ModuleNotFoundError as exc:
                 if self._extra is None:
                     raise
-                typer.echo(
-                    f"command '{self.name}' requires the optional dependency group '{self._extra}'.\n"
-                    f"  install with:  pip install 'ai-assistant[{self._extra}]'\n"
-                    f"  or via uvx:    uvx 'ai-assistant[{self._extra}]' ai-assistant {self.name} ...\n"
-                    f"  underlying ImportError: {exc.msg}",
-                    err=True,
+                print_extras_hint(
+                    command_label=self.name or "",
+                    entry_invocation=f"ai-assistant {self.name}",
+                    extra=self._extra,
+                    exc=exc,
                 )
                 raise typer.Exit(code=1) from exc
             target = getattr(mod, attr)

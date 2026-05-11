@@ -48,8 +48,15 @@ def _extract_cookies_for_domain(domain: str) -> dict[str, str]:
     """从本地浏览器提取指定域名的所有 Cookie。"""
     try:
         import browser_cookie3
-    except ImportError:
-        typer.echo("错误: 未安装 browser_cookie3，请执行: uv pip install browser-cookie3", err=True)
+    except ImportError as exc:
+        from ai_assistant.commands._lazy import print_extras_hint
+
+        print_extras_hint(
+            command_label="cookies",
+            entry_invocation="ai-assistant cookies",
+            extra="cookies",
+            exc=exc,
+        )
         raise typer.Exit(1)
 
     browsers = [
