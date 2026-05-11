@@ -127,16 +127,14 @@ def install(
     typer.echo(f"目标 .pth 路径: {pth_path}")
     typer.echo(f"当前解释器: {sys.executable}")
 
-    if pth_path.exists():
-        typer.echo("pth 已存在，请先 uninstall 再重试。", err=True)
-        raise typer.Exit(code=1)
+    already_exists = pth_path.exists()
 
     if not yes and not typer.confirm("确认写入并禁用 httpx verify？", default=False):
         typer.echo("已取消。")
         raise typer.Exit(code=0)
 
     pth_path.write_text(_build_pth_content(), encoding="utf-8")
-    typer.echo(f"已安装: {pth_path}")
+    typer.echo(f"已{'覆盖' if already_exists else '安装'}: {pth_path}")
 
 
 @cmd.command()
