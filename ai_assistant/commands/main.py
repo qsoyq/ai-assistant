@@ -29,6 +29,7 @@ class _Root(LazyRootGroup):
         "aliyun-oss": ("ai_assistant.commands.aliyun_oss:cmd", "oss"),
         "reality": ("ai_assistant.commands.reality:cmd", None),
         "disable-ssl-verify": ("ai_assistant.commands.disable_ssl_verify:cmd", None),
+        "bump-version": ("ai_assistant.commands.bump_version:cmd", None),
     }
 
 
