@@ -1,58 +1,40 @@
 import typer
 
-import ai_assistant.commands.agent.mcd
-import ai_assistant.commands.aliyun_oss
-import ai_assistant.commands.automation.cloudflare_tunnel_watcher
-import ai_assistant.commands.automation.docker_hub_runner
-import ai_assistant.commands.automation.file_change_runner
-import ai_assistant.commands.automation.freshrss
-import ai_assistant.commands.cookies
-import ai_assistant.commands.cursor.usage
-import ai_assistant.commands.disable_ssl_verify
-import ai_assistant.commands.docker
-import ai_assistant.commands.greader
-import ai_assistant.commands.handoff
-import ai_assistant.commands.httpx_disable_verify
-import ai_assistant.commands.mcp_cli
-import ai_assistant.commands.opml
-import ai_assistant.commands.reality
-import ai_assistant.commands.requests_disable_verify
-import ai_assistant.commands.similar_questions
-import ai_assistant.commands.ssl
-import ai_assistant.commands.stash_log
-import ai_assistant.commands.udp
 from ai_assistant.commands import default_invoke_without_command
+from ai_assistant.commands._lazy import LazyRootGroup
 
 helptext = """
 
 """
 
-cmd = typer.Typer(help=helptext)
 
-for name, subcommand in (
-    ("docker", ai_assistant.commands.docker.cmd),
-    ("greader", ai_assistant.commands.greader.cmd),
-    ("ssl", ai_assistant.commands.ssl.cmd),
-    ("similar-questions", ai_assistant.commands.similar_questions.cmd),
-    ("opml", ai_assistant.commands.opml.cmd),
-    ("mcp-cli", ai_assistant.commands.mcp_cli.cmd),
-    ("cookies", ai_assistant.commands.cookies.cmd),
-    ("freshrss", ai_assistant.commands.automation.freshrss.cmd),
-    ("file-change-runner", ai_assistant.commands.automation.file_change_runner.cmd),
-    ("docker-hub-runner", ai_assistant.commands.automation.docker_hub_runner.cmd),
-    ("cf-tunnel-watcher", ai_assistant.commands.automation.cloudflare_tunnel_watcher.cmd),
-    ("cursor-usage", ai_assistant.commands.cursor.usage.cmd),
-    ("mcd", ai_assistant.commands.agent.mcd.cmd),
-    ("stash-log", ai_assistant.commands.stash_log.cmd),
-    ("handoff", ai_assistant.commands.handoff.cmd),
-    ("httpx-disable-verify", ai_assistant.commands.httpx_disable_verify.cmd),
-    ("requests-disable-verify", ai_assistant.commands.requests_disable_verify.cmd),
-    ("disable-ssl-verify", ai_assistant.commands.disable_ssl_verify.cmd),
-    ("udp", ai_assistant.commands.udp.cmd),
-    ("aliyun-oss", ai_assistant.commands.aliyun_oss.cmd),
-    ("reality", ai_assistant.commands.reality.cmd),
-):
-    cmd.add_typer(subcommand, name=name)
+class _Root(LazyRootGroup):
+    lazy_subcommands = {
+        "docker": "ai_assistant.commands.docker:cmd",
+        "greader": "ai_assistant.commands.greader:cmd",
+        "ssl": "ai_assistant.commands.ssl:cmd",
+        "similar-questions": "ai_assistant.commands.similar_questions:cmd",
+        "opml": "ai_assistant.commands.opml:cmd",
+        "mcp-cli": "ai_assistant.commands.mcp_cli:cmd",
+        "cookies": "ai_assistant.commands.cookies:cmd",
+        "freshrss": "ai_assistant.commands.automation.freshrss:cmd",
+        "file-change-runner": "ai_assistant.commands.automation.file_change_runner:cmd",
+        "docker-hub-runner": "ai_assistant.commands.automation.docker_hub_runner:cmd",
+        "cf-tunnel-watcher": "ai_assistant.commands.automation.cloudflare_tunnel_watcher:cmd",
+        "cursor-usage": "ai_assistant.commands.cursor.usage:cmd",
+        "mcd": "ai_assistant.commands.agent.mcd:cmd",
+        "stash-log": "ai_assistant.commands.stash_log:cmd",
+        "handoff": "ai_assistant.commands.handoff:cmd",
+        "httpx-disable-verify": "ai_assistant.commands.httpx_disable_verify:cmd",
+        "requests-disable-verify": "ai_assistant.commands.requests_disable_verify:cmd",
+        "udp": "ai_assistant.commands.udp:cmd",
+        "aliyun-oss": "ai_assistant.commands.aliyun_oss:cmd",
+        "reality": "ai_assistant.commands.reality:cmd",
+        "disable-ssl-verify": "ai_assistant.commands.disable_ssl_verify:cmd",
+    }
+
+
+cmd = typer.Typer(cls=_Root, help=helptext)
 
 
 def add_default_invoke():
@@ -61,6 +43,7 @@ def add_default_invoke():
 
 
 add_default_invoke()
+
 
 if __name__ == "__main__":
     cmd()
