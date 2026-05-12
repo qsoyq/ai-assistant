@@ -76,6 +76,29 @@ def _package_name_from_filename(path: Path) -> str:
     return m.group(1) if m else stem
 
 
+# Server-specific "file already exists" patterns that twine 6.x's `skip_upload`
+# does NOT recognize. Each entry is a lowercase substring searched in the
+# response body + reason. Extend this list when a new private-index server is
+# discovered to use a different wording.
+_EXTRA_ALREADY_EXISTS_PATTERNS = (
+    "cannot be updated",  # Nexus pypi-hosted, Deployment Policy = Disable redeploy
+    "cannot be modified",  # Nexus, alt wording on some versions
+    "does not allow updating",  # Nexus, "Repository does not allow updating assets: ..."
+    "version already exists",  # GitLab Package Registry
+    "overwrite artifact",  # JFrog Artifactory (typically 403)
+)
+
+
+def _looks_like_already_exists(response) -> bool:
+    """Best-effort fallback for servers whose 'file already exists' wording
+    twine doesn't yet recognize. Conservative: only fires on the status codes
+    these servers actually use for duplicates (400 / 403 / 409)."""
+    if response.status_code not in (400, 403, 409):
+        return False
+    haystack = ((getattr(response, "text", "") or "") + " " + (getattr(response, "reason", "") or "")).lower()
+    return any(p in haystack for p in _EXTRA_ALREADY_EXISTS_PATTERNS)
+
+
 def _do_upload_sync(
     file: Path,
     repository_url: str,
@@ -112,7 +135,7 @@ def _do_upload_sync(
         status = f"{response.status_code} {response.reason}"
         if 200 <= response.status_code < 300:
             return UploadResult(file=file, package=package_label, ok=True, output=status)
-        if skip_existing and skip_upload(response, True, package):
+        if skip_existing and (skip_upload(response, True, package) or _looks_like_already_exists(response)):
             return UploadResult(file=file, package=package_label, ok=True, output=f"skipped: {status}")
         body = (response.text or "").strip().replace("\n", " ")[:300]
         return UploadResult(file=file, package=package_label, ok=False, output=f"{status} — {body}")
@@ -184,6 +207,7 @@ def main(
     username: str | None = typer.Option(None, "--username", "-u", help="HTTP Basic 用户名"),
     password: str | None = typer.Option(None, "--password", "-p", help="HTTP Basic 密码"),
     concurrency: int = typer.Option(4, "--concurrency", "-c", min=1, help="并发上限, 默认 4"),
+    max_files: int | None = typer.Option(None, "--max", min=1, help="本次最多上传 N 个文件; 默认不限"),
     force: bool = typer.Option(False, "--force", "-f", help="去掉 --skip-existing, 服务器对重复文件会报错"),
     ext: list[str] = typer.Option(
         ["whl", "tar.gz"],
@@ -204,6 +228,9 @@ def main(
     typer.echo(f"input: {path.resolve()}")
     typer.echo(f"target: {repository_url}")
     typer.echo(f"matched {len(files)} file(s) (ext={ext})")
+    if max_files is not None and len(files) > max_files:
+        typer.echo(f"limiting to first {max_files} of {len(files)} file(s) (--max)")
+        files = files[:max_files]
     if not files:
         typer.echo("nothing to upload.")
         return

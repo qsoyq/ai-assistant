@@ -203,6 +203,38 @@ def test_cli_concurrency_option_accepted(fake_twine, tmp_path):
     assert result.exit_code == 0, result.output
 
 
+def test_cli_max_caps_upload_count(fake_twine, tmp_path):
+    _make_dist_tree(tmp_path)  # 3 files
+    result = runner.invoke(
+        pypi_upload.cmd,
+        [str(tmp_path), "-r", "https://t/", "-u", "a", "-p", "b", "--max", "2"],
+    )
+    assert result.exit_code == 0, result.output
+    assert "limiting to first 2 of 3" in result.output
+    assert len(fake_twine.calls) == 2
+    assert "done: 2/2 succeeded" in result.output
+
+
+def test_cli_max_no_op_when_below_limit(fake_twine, tmp_path):
+    _make_dist_tree(tmp_path)  # 3 files
+    result = runner.invoke(
+        pypi_upload.cmd,
+        [str(tmp_path), "-r", "https://t/", "-u", "a", "-p", "b", "--max", "10"],
+    )
+    assert result.exit_code == 0, result.output
+    assert "limiting to" not in result.output
+    assert len(fake_twine.calls) == 3
+
+
+def test_cli_max_must_be_positive(tmp_path):
+    _touch(tmp_path / "foo-1.0.tar.gz")
+    result = runner.invoke(
+        pypi_upload.cmd,
+        [str(tmp_path), "-r", "https://t/", "-u", "a", "-p", "b", "--max", "0"],
+    )
+    assert result.exit_code != 0
+
+
 def test_cli_concurrency_must_be_positive(tmp_path):
     _make_dist_tree(tmp_path)
     result = runner.invoke(
@@ -351,6 +383,51 @@ def test_do_upload_sync_pre_check_skip(fake_repository, tmp_path):
     r = pypi_upload._do_upload_sync(f, "https://t/", "u", "p", skip_existing=True)
     assert r.ok is True
     assert "skipped" in r.output and "pre-check" in r.output
+
+
+@pytest.mark.parametrize(
+    "status, body",
+    [
+        # Nexus pypi-hosted: Disable redeploy. Status 400 + "cannot be updated" — twine misses this.
+        (400, "pypi-hosted/packages/foo/1.0/foo-1.0.whl cannot be updated"),
+        # Nexus alt wording.
+        (400, "Repository does not allow updating assets: pypi-hosted"),
+        # Nexus another phrasing seen on some versions.
+        (400, "Asset cannot be modified"),
+        # GitLab Package Registry.
+        (400, "version already exists"),
+        # JFrog Artifactory typically uses 403.
+        (403, "Not enough permissions to overwrite artifact"),
+    ],
+)
+def test_looks_like_already_exists_recognizes_extra_patterns(status, body):
+    """Our extension layer covers what twine 6.x's skip_upload misses."""
+    assert pypi_upload._looks_like_already_exists(_FakeResponse(status, body)) is True
+
+
+@pytest.mark.parametrize(
+    "status, body",
+    [
+        (200, "ok"),  # success
+        (500, "boom"),  # server error
+        (404, "not found"),  # wrong endpoint
+        (400, "bad metadata"),  # genuine 400 unrelated to existence
+        (403, "auth failed"),  # auth, not overwrite
+    ],
+)
+def test_looks_like_already_exists_does_not_overreach(status, body):
+    assert pypi_upload._looks_like_already_exists(_FakeResponse(status, body)) is False
+
+
+def test_do_upload_sync_recognizes_nexus_cannot_be_updated(fake_repository, tmp_path):
+    """End-to-end check on the exact response shape the user observed in the wild."""
+    nexus_html_body = "<!DOCTYPE html><html><body>pypi-hosted/packages/analyze-data-parser/0.1.0/analyze_data_parser-0.1.0-py3-none-any.whl cannot be updated</body></html>"
+    fake_repository.upload_response = _FakeResponse(400, nexus_html_body, "Bad Request")
+    fake_repository.skip_upload_returns = False  # twine's matcher misses this case
+    f = _touch(tmp_path / "analyze_data_parser-0.1.0-py3-none-any.whl")
+    r = pypi_upload._do_upload_sync(f, "http://nexus/repository/pypi-hosted/", "u", "p", skip_existing=True)
+    assert r.ok is True
+    assert "skipped" in r.output and "400" in r.output
 
 
 def test_do_upload_sync_post_error_recognized_as_skip(fake_repository, tmp_path):
