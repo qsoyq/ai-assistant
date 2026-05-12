@@ -31,6 +31,7 @@ class _Root(LazyRootGroup):
         "disable-ssl-verify": ("ai_assistant.commands.disable_ssl_verify:cmd", None),
         "bump-version": ("ai_assistant.commands.bump_version:cmd", None),
         "pypi-mirror": ("ai_assistant.commands.pypi_mirror:cmd", None),
+        "pypi-upload": ("ai_assistant.commands.pypi_upload:cmd", None),
     }
 
 
