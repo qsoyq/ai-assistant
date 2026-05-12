@@ -45,6 +45,17 @@ URL 应指向 simple 索引根, 例如 https://pypi.org/simple/ 或私有源的 
 cmd = typer.Typer(help=helptext, context_settings={"allow_interspersed_args": True})
 
 
+_PACKAGE_EXTENSIONS: tuple[str, ...] = (".whl", ".tar.gz", ".tar.bz2", ".zip", ".egg")
+
+
+def _is_package_file(filename: str) -> bool:
+    """True iff the name looks like a Python distribution artifact.
+    Filters out version-directory anchors served by Nexus/Artifactory browse views,
+    which would otherwise be saved to disk as files containing HTML."""
+    name = filename.lower()
+    return any(name.endswith(ext) for ext in _PACKAGE_EXTENSIONS)
+
+
 @dataclass(frozen=True)
 class FileTask:
     package: str
@@ -118,21 +129,54 @@ async def _list_packages(client: httpx.AsyncClient, base: str) -> tuple[list[str
     return out, resp.text
 
 
-async def _list_package_files(client: httpx.AsyncClient, base: str, name: str, sem: asyncio.Semaphore) -> list[FileTask]:
-    pkg_url = urljoin(base, f"{name}/")
+async def _collect_package_files(
+    client: httpx.AsyncClient,
+    package: str,
+    page_url: str,
+    sem: asyncio.Semaphore,
+    depth: int,
+) -> list[FileTask]:
+    """Walk a package page, then optionally descend into version subdirectories.
+
+    PEP 503 indexes ship file links directly on the package page; depth-0 listing
+    suffices. Nexus/Artifactory browse views nest files under per-version
+    subdirectories (`mypkg/0.1.0/mypkg-0.1.0.tar.gz`) — recursing one level lets
+    the same code handle both layouts. To stay safe, recursion only follows
+    anchors that resolve **within** the current page URL (skips parent-dir links,
+    sort headers, and off-site links)."""
     async with sem:
         try:
-            resp = await client.get(pkg_url)
+            resp = await client.get(page_url)
             resp.raise_for_status()
         except httpx.HTTPError as exc:
-            tqdm.write(f"  ! list {name}: {exc}")
+            tqdm.write(f"  ! list {package} {page_url}: {exc}")
             return []
     out: list[FileTask] = []
+    sub_urls: list[str] = []
     for href, text in parse_anchors(resp.text):
-        file_url = urljoin(pkg_url, href)
-        fname = filename_from_url(file_url, fallback=text or "unknown")
-        out.append(FileTask(package=name, filename=fname, url=file_url))
+        target = urljoin(page_url, href)
+        fname = filename_from_url(target, fallback=text or "unknown")
+        if _is_package_file(fname):
+            out.append(FileTask(package=package, filename=fname, url=target))
+            continue
+        if depth > 0 and target.endswith("/") and target.startswith(page_url) and target != page_url:
+            sub_urls.append(target)
+    if sub_urls:
+        nested = await asyncio.gather(*[_collect_package_files(client, package, u, sem, depth - 1) for u in sub_urls])
+        for sub in nested:
+            out.extend(sub)
     return out
+
+
+async def _list_package_files(
+    client: httpx.AsyncClient,
+    base: str,
+    name: str,
+    sem: asyncio.Semaphore,
+    max_depth: int = 1,
+) -> list[FileTask]:
+    pkg_url = urljoin(base, f"{name}/")
+    return await _collect_package_files(client, name, pkg_url, sem, max_depth)
 
 
 async def _download_one(
@@ -178,6 +222,7 @@ async def _run(
     force: bool,
     max_files: int | None,
     dry_run: bool,
+    max_depth: int,
 ) -> None:
     output.mkdir(parents=True, exist_ok=True)
     output_abs = output.resolve()
@@ -202,10 +247,13 @@ async def _run(
             packages = [p for p in packages if p.lower() in wanted]
         tqdm.write(f"found {len(packages)} package(s); fetching file lists...")
 
-        list_tasks = [_list_package_files(client, base, n, sem) for n in packages]
+        list_tasks = [_list_package_files(client, base, n, sem, max_depth) for n in packages]
         results = await tqdm.gather(*list_tasks, desc="index", unit="pkg")
         all_files: list[FileTask] = [f for sub in results for f in sub]
         tqdm.write(f"collected {len(all_files)} file(s) across {len(packages)} package(s)")
+        if not all_files:
+            tqdm.write("no .whl/.tar.gz/.zip/.egg files found on any package page. Package pages may be nested deeper than --max-depth allows; try raising it (e.g. `--max-depth 3`).")
+            return
 
         if force:
             todo = list(all_files)
@@ -259,6 +307,12 @@ def main(
     timeout: float = typer.Option(60.0, "--timeout", help="单次请求超时秒数"),
     concurrency: int = typer.Option(16, "--concurrency", "-c", min=1, help="并发上限, 默认 16"),
     max_files: int | None = typer.Option(None, "--max", help="去重后最多下载的文件数; 默认不限"),
+    max_depth: int = typer.Option(
+        1,
+        "--max-depth",
+        min=0,
+        help="包页面递归层数, 默认 1; PEP 503 simple 索引文件直挂在包页面, 0 即可; Nexus/Artifactory browse 视图把文件嵌在 pkg/version/ 子目录, 需 1 层向下钻取。",
+    ),
     force: bool = typer.Option(False, "--force", "-f", help="强制下载, 跳过本地去重"),
     dry_run: bool = typer.Option(False, "--dry-run", help="只列出将要下载的文件, 不真正下载"),
 ) -> None:
@@ -285,6 +339,7 @@ def main(
             force=force,
             max_files=max_files,
             dry_run=dry_run,
+            max_depth=max_depth,
         )
     )
 

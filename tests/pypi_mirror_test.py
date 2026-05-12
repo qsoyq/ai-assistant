@@ -241,3 +241,101 @@ def test_cli_reports_404_on_index(monkeypatch, tmp_path):
 
 def test_main_module_path_exists():
     assert Path(pypi_mirror.__file__).name == "pypi_mirror.py"
+
+
+@pytest.mark.parametrize(
+    "name, expected",
+    [
+        ("foo-1.0-py3-none-any.whl", True),
+        ("foo-1.0.tar.gz", True),
+        ("foo-1.0.tar.bz2", True),
+        ("foo-1.0.zip", True),
+        ("foo-1.0.egg", True),
+        ("0.1.0", False),
+        ("0.1.0/", False),
+        ("index.html", False),
+        ("", False),
+    ],
+)
+def test_is_package_file_filters_by_extension(name, expected):
+    assert pypi_mirror._is_package_file(name) is expected
+
+
+_NEXUS_BROWSE_INDEX = """<!DOCTYPE html><html><body>
+<a href="mypkg/">mypkg</a>
+</body></html>"""
+
+# Nexus/Artifactory browse view: package pages list version *directories*, not files.
+_NEXUS_BROWSE_PKG = """<!DOCTYPE html><html><body>
+<a href="../">Parent Directory</a>
+<a href="0.1.0/">0.1.0</a>
+<a href="0.2.0/">0.2.0</a>
+</body></html>"""
+
+_NEXUS_BROWSE_VER = """<!DOCTYPE html><html><body>
+<a href="../">Parent Directory</a>
+<a href="mypkg-{ver}.tar.gz">mypkg-{ver}.tar.gz</a>
+<a href="mypkg-{ver}-py3-none-any.whl">mypkg-{ver}-py3-none-any.whl</a>
+</body></html>"""
+
+
+def _nexus_browse_handler():
+    """Nexus 3-layer browse: index → pkg (version dirs) → version (real files)."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path == "/browse/":
+            return httpx.Response(200, text=_NEXUS_BROWSE_INDEX)
+        if path == "/browse/mypkg/":
+            return httpx.Response(200, text=_NEXUS_BROWSE_PKG)
+        if path == "/browse/mypkg/0.1.0/":
+            return httpx.Response(200, text=_NEXUS_BROWSE_VER.format(ver="0.1.0"))
+        if path == "/browse/mypkg/0.2.0/":
+            return httpx.Response(200, text=_NEXUS_BROWSE_VER.format(ver="0.2.0"))
+        if path.endswith(".whl"):
+            return httpx.Response(200, content=b"WHEEL_BYTES")
+        if path.endswith(".tar.gz"):
+            return httpx.Response(200, content=b"SDIST_BYTES")
+        return httpx.Response(404)
+
+    return handler
+
+
+@pytest.fixture
+def nexus_browse_client(monkeypatch):
+    real_cls = httpx.AsyncClient
+    handler = _nexus_browse_handler()
+
+    def factory(**kw):
+        kw["transport"] = httpx.MockTransport(handler)
+        return real_cls(**kw)
+
+    monkeypatch.setattr(pypi_mirror.httpx, "AsyncClient", factory)
+    return handler
+
+
+def test_cli_recurses_into_nexus_version_subdirs(nexus_browse_client, tmp_path):
+    """Default --max-depth=1 lets the mirror walk Nexus pkg/version/ layouts."""
+    result = runner.invoke(
+        pypi_mirror.cmd,
+        ["https://example.com/browse/", "-o", str(tmp_path)],
+    )
+    assert result.exit_code == 0, result.output
+    # No directory-named bogus files written.
+    assert not (tmp_path / "mypkg" / "0.1.0").is_file()
+    assert not (tmp_path / "mypkg" / "0.2.0").is_file()
+    # Real package files are downloaded under the package directory.
+    assert (tmp_path / "mypkg" / "mypkg-0.1.0.tar.gz").read_bytes() == b"SDIST_BYTES"
+    assert (tmp_path / "mypkg" / "mypkg-0.1.0-py3-none-any.whl").read_bytes() == b"WHEEL_BYTES"
+    assert (tmp_path / "mypkg" / "mypkg-0.2.0.tar.gz").read_bytes() == b"SDIST_BYTES"
+
+
+def test_cli_max_depth_zero_disables_recursion(nexus_browse_client, tmp_path):
+    """--max-depth 0 keeps the old PEP 503 behavior; no version dirs are followed."""
+    result = runner.invoke(
+        pypi_mirror.cmd,
+        ["https://example.com/browse/", "-o", str(tmp_path), "--max-depth", "0"],
+    )
+    assert result.exit_code == 0, result.output
+    assert not (tmp_path / "mypkg").exists() or not list((tmp_path / "mypkg").iterdir())
+    assert "max-depth" in result.output  # hint mentions raising depth
