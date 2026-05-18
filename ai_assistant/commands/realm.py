@@ -20,10 +20,12 @@ helptext = """
 
 子命令:
 
-- generate: 渲染配置 TOML, 默认打印到 stdout, 可用 --output 写入文件。
-- show:     读取并展示已有配置 (endpoints 表格 + log/network 块)。
-- validate: 解析 TOML 并校验关键字段, 失败时打印具体路径并以非零退出。
-- install:  从 GitHub releases 下载 realm 二进制并解压到 --prefix, 仅 Linux 可用。
+- generate:          渲染配置 TOML, 默认打印到 stdout, 可用 --output 写入文件。
+- show:              读取并展示已有配置 (endpoints 表格 + log/network 块)。
+- validate:          解析 TOML 并校验关键字段, 失败时打印具体路径并以非零退出。
+- install:           从 GitHub releases 下载 realm 二进制并解压到 --prefix, 仅 Linux 可用。
+- install-service:   写入 systemd unit 文件到 --unit-path, 不调 systemctl。
+- uninstall-service: 删除 systemd unit 文件, 不调 systemctl。
 
 show / validate 未传路径时, 按 ./config.toml -> /etc/realm/config.toml 顺序解析。
 """
@@ -38,6 +40,25 @@ REALM_REPO = "zhboner/realm"
 REALM_LATEST_API = f"https://api.github.com/repos/{REALM_REPO}/releases/latest"
 REALM_DOWNLOAD_TMPL = f"https://github.com/{REALM_REPO}/releases/download/{{tag}}/realm-{{arch}}-unknown-linux-gnu.tar.gz"
 SUPPORTED_ARCHES = {"x86_64", "aarch64"}
+
+DEFAULT_UNIT_PATH = Path("/etc/systemd/system/realm.service")
+DEFAULT_BINARY_PATH = Path("/usr/local/bin/realm")
+DEFAULT_SERVICE_CONFIG = Path("/etc/realm/config.toml")
+UNIT_TEMPLATE = """[Unit]
+Description=Realm Port Forwarding
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart={binary} -c {config}
+Restart=always
+RestartSec=3
+LimitNOFILE=1048576
+
+[Install]
+WantedBy=multi-user.target
+"""
 
 
 def _now() -> str:
@@ -301,6 +322,96 @@ def install(
         raise typer.Exit(1)
     version_line = (out.stdout or out.stderr).strip().splitlines()[0] if (out.stdout or out.stderr) else ""
     _echo(f"校验: {version_line or '(无输出)'}")
+
+
+@cmd.command("install-service")
+def install_service(
+    config: Path = typer.Option(DEFAULT_SERVICE_CONFIG, help="ExecStart -c 指向的配置文件路径"),
+    binary: Path = typer.Option(DEFAULT_BINARY_PATH, help="ExecStart 使用的 realm 二进制路径"),
+    unit_path: Path = typer.Option(DEFAULT_UNIT_PATH, help="systemd unit 文件写入路径"),
+    force: bool = typer.Option(False, help="已存在时覆盖, 避免误盖手改过的 unit"),
+    dry_run: bool = typer.Option(False, help="只打印将写入的内容, 不写盘"),
+):
+    """写入 systemd unit 文件 (不调用 systemctl)。
+
+    写入完成后请手动执行:
+
+      sudo systemctl daemon-reload
+      sudo systemctl enable --now realm
+
+    校验状态:
+
+      systemctl status realm
+    """
+    if sys.platform != "linux":
+        _echo(f"install-service 仅支持 Linux, 当前平台 {sys.platform}")
+        raise typer.Exit(1)
+
+    content = UNIT_TEMPLATE.format(binary=binary, config=config)
+
+    _echo(f"unit:   {unit_path}")
+    _echo(f"binary: {binary}")
+    _echo(f"config: {config}")
+
+    if not binary.exists():
+        _echo(f"提示: 二进制不存在 {binary} (启动 service 前需先安装, 见 `realm install`)")
+    if not config.exists():
+        _echo(f"提示: 配置不存在 {config} (启动 service 前需先生成, 见 `realm generate --output {config}`)")
+
+    if unit_path.exists() and not force:
+        _echo(f"已存在 {unit_path}, 加 --force 覆盖, 或先手动删除")
+        raise typer.Exit(1)
+
+    if dry_run:
+        _echo("dry-run: 将写入以下内容")
+        rich.print(content)
+        return
+
+    if not os.access(unit_path.parent, os.W_OK):
+        _echo(f"无写入权限: {unit_path.parent} (用 sudo 重试)")
+        raise typer.Exit(1)
+
+    unit_path.write_text(content)
+    _echo(f"已写入: {unit_path}")
+    _echo("下一步: sudo systemctl daemon-reload && sudo systemctl enable --now realm")
+
+
+@cmd.command("uninstall-service")
+def uninstall_service(
+    unit_path: Path = typer.Option(DEFAULT_UNIT_PATH, help="待删除的 systemd unit 文件路径"),
+    dry_run: bool = typer.Option(False, help="只打印将删除的文件, 不实际删除"),
+):
+    """删除 systemd unit 文件 (不调用 systemctl)。
+
+    删除前请先停用 service:
+
+      sudo systemctl disable --now realm
+
+    删除后请手动执行:
+
+      sudo systemctl daemon-reload
+    """
+    if sys.platform != "linux":
+        _echo(f"uninstall-service 仅支持 Linux, 当前平台 {sys.platform}")
+        raise typer.Exit(1)
+
+    if not unit_path.exists():
+        _echo(f"unit 文件不存在, 无需删除: {unit_path}")
+        return
+
+    _echo(f"unit:   {unit_path}")
+
+    if dry_run:
+        _echo("dry-run: 跳过删除")
+        return
+
+    if not os.access(unit_path.parent, os.W_OK):
+        _echo(f"无写入权限: {unit_path.parent} (用 sudo 重试)")
+        raise typer.Exit(1)
+
+    unit_path.unlink()
+    _echo(f"已删除: {unit_path}")
+    _echo("下一步: sudo systemctl daemon-reload")
 
 
 if __name__ == "__main__":
