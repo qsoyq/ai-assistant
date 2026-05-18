@@ -28,6 +28,7 @@ class _Root(LazyRootGroup):
         "udp": ("ai_assistant.commands.udp:cmd", None),
         "aliyun-oss": ("ai_assistant.commands.aliyun_oss:cmd", "oss"),
         "reality": ("ai_assistant.commands.reality:cmd", None),
+        "realm": ("ai_assistant.commands.realm:cmd", None),
         "disable-ssl-verify": ("ai_assistant.commands.disable_ssl_verify:cmd", None),
         "bump-version": ("ai_assistant.commands.bump_version:cmd", None),
         "pypi-mirror": ("ai_assistant.commands.pypi_mirror:cmd", None),
