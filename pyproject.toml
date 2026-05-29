@@ -1,6 +1,6 @@
 [project]
 name = "ai-assistant"
-version = "0.2.10"
+version = "0.2.11"
 description = "Toolkit for ai usage."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -57,6 +57,7 @@ ai-assistant-cursor-usage = "ai_assistant.commands._entry:cursor_usage"
 ai-assistant-cookies = "ai_assistant.commands.cookies:cmd"
 ai-assistant-freshrss = "ai_assistant.commands._entry:freshrss"
 ai-assistant-stash-log = "ai_assistant.commands.stash_log:cmd"
+ai-assistant-ghi = "ai_assistant.commands.ghi.main:cmd"
 
 [tool.hatch.build.targets.wheel]
 packages = ["ai_assistant"]

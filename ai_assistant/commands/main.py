@@ -35,6 +35,7 @@ class _Root(LazyRootGroup):
         "pypi-upload": ("ai_assistant.commands.pypi_upload:cmd", None),
         "win-env": ("ai_assistant.commands.win_env:cmd", None),
         "adb": ("ai_assistant.commands.adb:cmd", None),
+        "ghi": ("ai_assistant.commands.ghi.main:cmd", None),
     }
 
 
