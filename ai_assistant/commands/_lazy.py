@@ -1,12 +1,14 @@
 """(import_path, extra_name). extra_name=None means dependency is in default install."""
 
+from __future__ import annotations
+
 import ast
 import importlib
 import importlib.util
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
-import click
 import typer
 from typer.core import TyperGroup
 
@@ -76,9 +78,9 @@ class LazySubGroup(TyperGroup):
         super().__init__(name=name, short_help=short_help)
         self._import_path = import_path
         self._extra = extra
-        self._real: click.Group | None = None
+        self._real: Any = None
 
-    def _resolve(self) -> click.Group:
+    def _resolve(self) -> Any:
         if self._real is None:
             mod_path, attr = self._import_path.split(":", 1)
             try:
@@ -94,30 +96,22 @@ class LazySubGroup(TyperGroup):
                 )
                 raise typer.Exit(code=1) from exc
             target = getattr(mod, attr)
-            real = target if isinstance(target, click.Group) else typer.main.get_command(target)
-            assert isinstance(real, click.Group), f"{self._import_path} did not resolve to a click.Group"
-            self._real = real
+            self._real = typer.main.get_command(target) if isinstance(target, typer.Typer) else target
         return self._real
 
-    def list_commands(self, ctx: click.Context) -> list[str]:
+    def list_commands(self, ctx):
         return self._resolve().list_commands(ctx)
 
-    def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command | None:
+    def get_command(self, ctx, cmd_name):
         return self._resolve().get_command(ctx, cmd_name)
 
-    def make_context(
-        self,
-        info_name: str | None,
-        args: list[str],
-        parent: click.Context | None = None,
-        **extra,
-    ) -> click.Context:
+    def make_context(self, info_name, args, parent=None, **extra):
         return self._resolve().make_context(info_name, args, parent=parent, **extra)
 
-    def invoke(self, ctx: click.Context):
+    def invoke(self, ctx):
         return self._resolve().invoke(ctx)
 
-    def get_help(self, ctx: click.Context) -> str:
+    def get_help(self, ctx):
         return self._resolve().get_help(ctx)
 
 
@@ -131,10 +125,10 @@ class LazyRootGroup(TyperGroup):
 
     lazy_subcommands: dict[str, LazyEntry] = {}
 
-    def list_commands(self, ctx: click.Context) -> list[str]:
+    def list_commands(self, ctx):
         return sorted({*super().list_commands(ctx), *self.lazy_subcommands})
 
-    def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command | None:
+    def get_command(self, ctx, cmd_name):
         entry = self.lazy_subcommands.get(cmd_name)
         if entry is None:
             return super().get_command(ctx, cmd_name)

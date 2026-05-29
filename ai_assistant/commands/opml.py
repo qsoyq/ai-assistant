@@ -64,7 +64,7 @@ async def fetch_rss(
 
     async with semaphore:
         try:
-            resp = await client.get(url, timeout=60, follow_redirects=True)
+            resp = await client.get(url, timeout=60)
             if resp.status_code == 429:
                 expires_at = time.time() + rate_limit_minutes * 60
                 RATE_LIMIT_CACHE[url] = expires_at
@@ -102,7 +102,7 @@ async def fetch_all_rss(
     """并发获取所有 RSS，最大并发数为 max_concurrent"""
     semaphore = asyncio.Semaphore(max_concurrent)
 
-    async with httpx.AsyncClient(verify=False) as client:
+    async with httpx.AsyncClient(verify=False, follow_redirects=True) as client:
         tasks = [
             fetch_rss(
                 client,
