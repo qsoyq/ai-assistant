@@ -35,7 +35,7 @@ def _resolve_tag_from_pyproject() -> str:
     if not isinstance(version, str) or not version:
         typer.echo("version is not found in pyproject.toml (looked at project.version and tool.poetry.version)", err=True)
         raise typer.Exit(1)
-    return version if version.startswith("v") else f"v{version}"
+    return version
 
 
 def _run(args: list[str], *, verbose: bool) -> subprocess.CompletedProcess[str]:
@@ -46,7 +46,7 @@ def _run(args: list[str], *, verbose: bool) -> subprocess.CompletedProcess[str]:
 
 @cmd.command()
 def create(
-    tag: str | None = typer.Option(None, "--tag", help="Tag name, default to pyproject.toml version prefixed with v"),
+    tag: str | None = typer.Option(None, "--tag", help="Tag name, default to pyproject.toml version"),
     title: str = typer.Option("", "-t", "--title", help="Release title"),
     target: str = typer.Option("", "--target", help="Target branch or full commit SHA (default: main branch)"),
     notes: str = typer.Option("", "--notes", "-n", help="Release notes"),
@@ -78,7 +78,7 @@ def create(
 
 @cmd.command()
 def delete(
-    tag: str | None = typer.Option(None, "--tag", help="Tag name, default to pyproject.toml version prefixed with v"),
+    tag: str | None = typer.Option(None, "--tag", help="Tag name, default to pyproject.toml version"),
     verbose: bool = typer.Option(False, "--verbose"),
     skip_prompt: bool = typer.Option(True, "-y", "--yes", help="Skip the confirmation prompt"),
     delete_tag: bool = typer.Option(True, "--delete-tag/--no-delete-tag", help="Also delete the local and remote git tag"),
