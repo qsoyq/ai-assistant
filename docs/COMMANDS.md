@@ -15,7 +15,9 @@ $ ai-assistant [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
+* `adb`: 管理 adb server。
 * `aliyun-oss`: 阿里云 OSS 工具集
+* `bump-version`: 对当前目录的 pyproject.toml 的 project.version 加一。
 * `cf-tunnel-watcher`: 监听 Cloudflare Tunnel 连接状态变化并执行命令
 * `cookies`: 从本地浏览器中提取指定域名的 Cookie。
 * `cursor-usage`: Get usage of Cursor.
@@ -24,18 +26,59 @@ $ ai-assistant [OPTIONS] COMMAND [ARGS]...
 * `docker-hub-runner`: 监听 Docker Hub 镜像最新推送并执行命令
 * `file-change-runner`: 监听文件变化并执行命令
 * `freshrss`: FreshRSS 工具集.
+* `ghi`: A Wrapper for github cli (https://cli.github.com/).
 * `greader`: Google Reader API 客户端工具
 * `handoff`: macOS Handoff 操作工具
 * `httpx-disable-verify`: 通过 site-packages 下的 .pth 文件，对当前 Python 解释器全局禁用 httpx 的 SSL verify。
+* `lan-ddns`: 根据局域网设备的 MAC 地址定位其 IP, 并更新 Cloudflare 上的 A 记录 (DDNS)
 * `mcd`: 基于 OpenAI Responses API 的 mcp-mcd 工具
 * `mcp-cli`: MCP Client
 * `opml`: Fetch RSS feeds from OPML file periodically.
+* `pypi-mirror`: 按 PEP 503 simple 索引镜像下载 (asyncio 驱动): 拉取索引页 -&gt; 并发抓取所有文件清单 -&gt;
+* `pypi-upload`: 把本地的 whl / tar.gz 上传到指定仓库 (asyncio 并发, 直接调用 twine 库内 API)。
 * `reality`: 基于 Xray REALITY 协议生成服务端与客户端配置, 可选自动安装 xray 并启用 systemd 服务。
+* `realm`: 生成、查看、校验、安装 realm (https://github.com/zhboner/realm) TCP/UDP 中继。
 * `requests-disable-verify`: 通过 site-packages 下的 .pth 文件，对当前 Python 解释器全局禁用 requests 的 SSL verify。
 * `similar-questions`: Generate N similar questions by input query.
 * `ssl`: 生成和管理 SSL 证书
 * `stash-log`: Stash 抓包日志解析工具
 * `udp`: UDP 端口可达性验证工具
+* `uv-tool`: 管理通过 `uv tool` 安装的 CLI 工具。
+* `win-env`: 查看/添加/修改 Windows 环境变量, 直接读写注册表 (HKCU / HKLM)。
+
+## `ai-assistant adb`
+
+**Usage**:
+
+```console
+$ ai-assistant adb [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `restart-all`: 强制重启 adb server, 以 -a 模式监听 0.0.0.0:&lt;port&gt;。
+
+### `ai-assistant adb restart-all`
+
+强制重启 adb server, 以 -a 模式监听 0.0.0.0:&lt;port&gt;。
+
+**Usage**:
+
+```console
+$ ai-assistant adb restart-all [OPTIONS]
+```
+
+**Options**:
+
+* `-P, --port INTEGER`: adb server 端口 (探测 + 启动均使用)  [default: 5037]
+* `-t, --timeout FLOAT`: adb devices 探活超时 (秒)  [default: 5.0]
+* `-f, --force`: 无视当前状态强制重启
+* `-v, --verbose`: 打印 adb 详细输出
+* `--help`: Show this message and exit.
 
 ## `ai-assistant aliyun-oss`
 
@@ -279,6 +322,18 @@ $ ai-assistant aliyun-oss sync [OPTIONS] SRC DST
 * `--region TEXT`: OSS 区域, 如 cn-hangzhou; 与 --endpoint 二选一  [env var: OSS_REGION]
 * `--bucket TEXT`: Bucket 名称  [env var: OSS_BUCKET]
 * `--security-token TEXT`: STS 临时凭证 Token, 可选  [env var: OSS_SESSION_TOKEN]
+* `--help`: Show this message and exit.
+
+## `ai-assistant bump-version`
+
+**Usage**:
+
+```console
+$ ai-assistant bump-version [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
 * `--help`: Show this message and exit.
 
 ## `ai-assistant cf-tunnel-watcher`
@@ -935,6 +990,80 @@ $ ai-assistant freshrss disable-priority [OPTIONS] TARGET
 
 * `--help`: Show this message and exit.
 
+## `ai-assistant ghi`
+
+**Usage**:
+
+```console
+$ ai-assistant ghi [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `release`: A Wrapper for github cli release command.
+
+### `ai-assistant ghi release`
+
+A Wrapper for github cli release command.
+
+**Usage**:
+
+```console
+$ ai-assistant ghi release [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `-v, -V, --version`
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `create`: Create a new GitHub Release for a repository.
+* `delete`: Delete a release.
+
+#### `ai-assistant ghi release create`
+
+Create a new GitHub Release for a repository.
+
+**Usage**:
+
+```console
+$ ai-assistant ghi release create [OPTIONS]
+```
+
+**Options**:
+
+* `--tag TEXT`: Tag name, default to pyproject.toml version
+* `-t, --title TEXT`: Release title
+* `--target TEXT`: Target branch or full commit SHA (default: main branch)
+* `-n, --notes TEXT`: Release notes
+* `-p, --prerelease`: Mark the release as a prerelease
+* `--verbose`
+* `--help`: Show this message and exit.
+
+#### `ai-assistant ghi release delete`
+
+Delete a release.
+
+**Usage**:
+
+```console
+$ ai-assistant ghi release delete [OPTIONS]
+```
+
+**Options**:
+
+* `--tag TEXT`: Tag name, default to pyproject.toml version
+* `--verbose`
+* `-y, --yes`: Skip the confirmation prompt  [default: True]
+* `--delete-tag / --no-delete-tag`: Also delete the local and remote git tag  [default: delete-tag]
+* `--help`: Show this message and exit.
+
 ## `ai-assistant greader`
 
 **Usage**:
@@ -1366,6 +1495,57 @@ $ ai-assistant httpx-disable-verify status [OPTIONS]
 * `-t, --target DIRECTORY`: 自定义 .pth 所在目录，默认使用 site.getsitepackages()[0]
 * `--help`: Show this message and exit.
 
+## `ai-assistant lan-ddns`
+
+**Usage**:
+
+```console
+$ ai-assistant lan-ddns [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `update`: 用 MAC 定位局域网设备 IP 并更新 Cloudflare A 记录
+
+### `ai-assistant lan-ddns update`
+
+用 MAC 定位局域网设备 IP 并更新 Cloudflare A 记录
+
+默认只读本机 ARP 缓存 (零网络流量); 缓存里没有该 MAC 时直接跳过。
+需要主动 ping 扫描全网段来补全缓存时, 显式加 --sweep。
+
+使用示例:
+- 单次 (仅查 ARP): `ai-assistant lan-ddns update -m aa:bb:cc:dd:ee:ff -d nas.example.com`
+- 允许扫描:        `ai-assistant lan-ddns update -m aa:bb:cc:dd:ee:ff -d nas.example.com --sweep`
+- 守护:            `ai-assistant lan-ddns update -m aa:bb:cc:dd:ee:ff -d nas.example.com -i 300`
+
+**Usage**:
+
+```console
+$ ai-assistant lan-ddns update [OPTIONS]
+```
+
+**Options**:
+
+* `-m, --mac TEXT`: 目标设备的 MAC 地址  [required]
+* `-d, --domain TEXT`: 要更新的 A 记录 FQDN, 如 nas.example.com  [required]
+* `-t, --token TEXT`: Cloudflare API Token, 缺省读环境变量 CLOUDFLARE_API_TOKEN
+* `-z, --zone TEXT`: Cloudflare zone 名, 缺省按域名自动匹配
+* `--sweep / --no-sweep`: ARP 缓存里没有时, 是否主动 ping 扫描全网段补全 (公司内网慎用, 默认关闭)  [default: no-sweep]
+* `--subnet TEXT`: --sweep 时指定扫描网段 CIDR, 如 192.168.1.0/24; 缺省自动推导
+* `--interface TEXT`: --sweep 时限定使用的网卡名
+* `--ttl INTEGER`: DNS TTL, 1 表示 auto  [default: 1]
+* `--proxied / --no-proxied`: 是否经 Cloudflare 代理 (橙云)  [default: no-proxied]
+* `--ping-timeout FLOAT`: --sweep 时单个地址 ping 超时, 秒  [default: 1.0]
+* `--workers INTEGER`: --sweep 时并发扫描线程数  [default: 64]
+* `-i, --interval FLOAT`: 循环间隔秒数, 0 表示只执行一次  [default: 0]
+* `--dry-run`: 只打印将要执行的变更, 不真正调用 API
+* `--help`: Show this message and exit.
+
 ## `ai-assistant mcd`
 
 **Usage**:
@@ -1538,6 +1718,30 @@ $ ai-assistant opml fetch [OPTIONS] OPML_PATH
 * `--rate-limit-minutes INTEGER RANGE`: 遇到 429 后跳过该 URL 的分钟数，也可通过环境变量 OPML_429_SKIP_MINUTES 设置  [env var: OPML_429_SKIP_MINUTES; default: 5; x&gt;=1]
 * `--help`: Show this message and exit.
 
+## `ai-assistant pypi-mirror`
+
+**Usage**:
+
+```console
+$ ai-assistant pypi-mirror [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+## `ai-assistant pypi-upload`
+
+**Usage**:
+
+```console
+$ ai-assistant pypi-upload [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
 ## `ai-assistant reality`
 
 **Usage**:
@@ -1597,6 +1801,157 @@ $ ai-assistant reality build [OPTIONS]
 * `--skip-enable`: 跳过 systemctl enable / restart 步骤
 * `--dry-run`: 仅渲染并打印配置, 不写盘 / 不安装 / 不操作 systemd
 * `--interactive`: 缺省值时通过交互式提示补齐
+* `--help`: Show this message and exit.
+
+## `ai-assistant realm`
+
+**Usage**:
+
+```console
+$ ai-assistant realm [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `generate`: 生成 realm 配置 TOML。
+* `show`: 展示已有 realm 配置。
+* `validate`: 校验配置文件结构, 失败时打印字段路径并以非零退出。
+* `install`: 从 GitHub releases 下载 realm 二进制并安装到...
+* `install-service`: 写入 systemd unit 文件 (不调用 systemctl)。
+* `uninstall-service`: 删除 systemd unit 文件 (不调用 systemctl)。
+
+### `ai-assistant realm generate`
+
+生成 realm 配置 TOML。
+
+**Usage**:
+
+```console
+$ ai-assistant realm generate [OPTIONS]
+```
+
+**Options**:
+
+* `--log-level TEXT`: 日志级别, off/error/warn/info/debug/trace  [default: off]
+* `--log-output TEXT`: 日志输出路径  [default: /var/log/realm.log]
+* `--no-tcp / --no-no-tcp`: 禁用 TCP 转发  [default: no-no-tcp]
+* `--use-udp / --no-use-udp`: 启用 UDP 转发  [default: use-udp]
+* `--listen-host TEXT`: 本地监听主机地址  [default: [::0]]
+* `--listen-port TEXT`: 本地监听端口, 支持单端口或范围, 如 443,8110-8113  [default: 443]
+* `--remote-host TEXT`: 远程主机地址  [default: 127.0.0.1]
+* `--remote-port TEXT`: 远程主机端口  [default: 443]
+* `--output TEXT`: 配置输出路径, 默认 - 输出到 stdout  [default: -]
+* `--help`: Show this message and exit.
+
+### `ai-assistant realm show`
+
+展示已有 realm 配置。
+
+**Usage**:
+
+```console
+$ ai-assistant realm show [OPTIONS] [PATH]
+```
+
+**Arguments**:
+
+* `[PATH]`: 配置路径, 留空时按 ./config.toml -&gt; /etc/realm/config.toml 顺序查找
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+### `ai-assistant realm validate`
+
+校验配置文件结构, 失败时打印字段路径并以非零退出。
+
+**Usage**:
+
+```console
+$ ai-assistant realm validate [OPTIONS] [PATH]
+```
+
+**Arguments**:
+
+* `[PATH]`: 配置路径, 留空时按 ./config.toml -&gt; /etc/realm/config.toml 顺序查找
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+### `ai-assistant realm install`
+
+从 GitHub releases 下载 realm 二进制并安装到 --prefix (仅 Linux)。
+
+**Usage**:
+
+```console
+$ ai-assistant realm install [OPTIONS]
+```
+
+**Options**:
+
+* `--version TEXT`: realm 版本标签, latest 自动解析 GitHub 最新; 显式形如 v2.9.3  [default: latest]
+* `--arch TEXT`: CPU 架构, 可选 [&#x27;aarch64&#x27;, &#x27;x86_64&#x27;]  [default: x86_64]
+* `--prefix PATH`: 二进制安装目录  [default: /usr/local/bin]
+* `--force / --no-force`: 目标已存在时覆盖  [default: no-force]
+* `--dry-run / --no-dry-run`: 只打印将执行的步骤, 不下载也不写盘  [default: no-dry-run]
+* `--help`: Show this message and exit.
+
+### `ai-assistant realm install-service`
+
+写入 systemd unit 文件 (不调用 systemctl)。
+
+写入完成后请手动执行:
+
+  sudo systemctl daemon-reload
+  sudo systemctl enable --now realm
+
+校验状态:
+
+  systemctl status realm
+
+**Usage**:
+
+```console
+$ ai-assistant realm install-service [OPTIONS]
+```
+
+**Options**:
+
+* `--config PATH`: ExecStart -c 指向的配置文件路径  [default: /etc/realm/config.toml]
+* `--binary PATH`: ExecStart 使用的 realm 二进制路径  [default: /usr/local/bin/realm]
+* `--unit-path PATH`: systemd unit 文件写入路径  [default: /etc/systemd/system/realm.service]
+* `--force / --no-force`: 已存在时覆盖, 避免误盖手改过的 unit  [default: no-force]
+* `--dry-run / --no-dry-run`: 只打印将写入的内容, 不写盘  [default: no-dry-run]
+* `--help`: Show this message and exit.
+
+### `ai-assistant realm uninstall-service`
+
+删除 systemd unit 文件 (不调用 systemctl)。
+
+删除前请先停用 service:
+
+  sudo systemctl disable --now realm
+
+删除后请手动执行:
+
+  sudo systemctl daemon-reload
+
+**Usage**:
+
+```console
+$ ai-assistant realm uninstall-service [OPTIONS]
+```
+
+**Options**:
+
+* `--unit-path PATH`: 待删除的 systemd unit 文件路径  [default: /etc/systemd/system/realm.service]
+* `--dry-run / --no-dry-run`: 只打印将删除的文件, 不实际删除  [default: no-dry-run]
 * `--help`: Show this message and exit.
 
 ## `ai-assistant requests-disable-verify`
@@ -1734,6 +2089,7 @@ $ ai-assistant ssl [OPTIONS] COMMAND [ARGS]...
 * `info`: 查看证书信息并打印。
 * `generate`: 通过交互方式生成自签名 SSL 证书。
 * `trust`: 将证书加入系统信任存储。
+* `merge`: 合并多个证书文件为一个 PEM bundle。
 
 ### `ai-assistant ssl info`
 
@@ -1806,6 +2162,55 @@ $ ai-assistant ssl trust [OPTIONS] CERT_PATH
 **Options**:
 
 * `--scope TEXT`: 证书信任范围：system 表示系统级，user 表示当前用户（Linux 仅支持 system）  [default: system]
+* `--help`: Show this message and exit.
+
+### `ai-assistant ssl merge`
+
+合并多个证书文件为一个 PEM bundle。
+
+自动按文件内容识别 PEM、DER、PKCS#7（PEM/DER）和 PKCS#12 格式。
+输出始终是 PEM bundle。
+
+生成 bundle 后，可通过环境变量让常见工具识别新的 CA 文件
+（以 `~/.ca-bundle.pem` 为例，按需替换路径）：
+
+
+- OpenSSL / Python `ssl` / httpx: export SSL_CERT_FILE=~/.ca-bundle.pem
+- requests: export REQUESTS_CA_BUNDLE=~/.ca-bundle.pem
+- curl: export CURL_CA_BUNDLE=~/.ca-bundle.pem
+- git: git config --global http.sslCAInfo ~/.ca-bundle.pem
+- Node.js: export NODE_EXTRA_CA_CERTS=~/.ca-bundle.pem
+- AWS CLI / boto3: export AWS_CA_BUNDLE=~/.ca-bundle.pem
+
+Windows PowerShell 可用 `setx SSL_CERT_FILE &quot;%USERPROFILE%\.ca-bundle.pem&quot;` 等价写法。
+
+Usage examples::
+
+    # 合并 certifi 自带的 CA 与自签 CA，写入文件
+    ai-assistant ssl merge $(python -m certifi) ~/certs/my-root-ca.cer -o ~/.ca-bundle.pem
+
+    # 从标准输入追加一个证书
+    cat extra.crt | ai-assistant ssl merge cacert.pem -
+
+    # 合并 PKCS#12（需要密码）
+    ai-assistant ssl merge bundle.pem client.p12 --password secret -o merged.pem
+
+**Usage**:
+
+```console
+$ ai-assistant ssl merge [OPTIONS] FILES...
+```
+
+**Arguments**:
+
+* `FILES...`: 证书文件路径，可传多个；使用 `-` 表示从标准输入读取  [required]
+
+**Options**:
+
+* `-o, --output FILE`: 输出文件路径，未指定则写入标准输出
+* `--dedup / --no-dedup`: 按 SHA-256 指纹去重，默认开启  [default: dedup]
+* `--headers / --no-headers`: 在每个证书前输出 Subject/Issuer 注释  [default: headers]
+* `--password TEXT`: PKCS#12 文件密码，留空表示无密码
 * `--help`: Show this message and exit.
 
 ## `ai-assistant stash-log`
@@ -1932,4 +2337,213 @@ $ ai-assistant udp echo-server [OPTIONS]
 
 * `-h, --host TEXT`: 监听地址  [default: 0.0.0.0]
 * `-p, --port INTEGER`: 监听端口  [default: 8000]
+* `--help`: Show this message and exit.
+
+## `ai-assistant uv-tool`
+
+**Usage**:
+
+```console
+$ ai-assistant uv-tool [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `upgrade-all`: 升级所有通过 uv tool 安装的工具, 逐个执行并汇总结果。
+
+### `ai-assistant uv-tool upgrade-all`
+
+升级所有通过 uv tool 安装的工具, 逐个执行并汇总结果。
+
+**Usage**:
+
+```console
+$ ai-assistant uv-tool upgrade-all [OPTIONS]
+```
+
+**Options**:
+
+* `--dry-run`: 只列出会被升级的工具, 不执行
+* `--prerelease TEXT`: 透传 uv tool upgrade --prerelease 的取值, 例如 allow / if-necessary / explicit
+* `--reinstall`: 透传 uv tool upgrade --reinstall, 强制重装
+* `--help`: Show this message and exit.
+
+## `ai-assistant win-env`
+
+**Usage**:
+
+```console
+$ ai-assistant win-env [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `list`: 列出环境变量。
+* `get`: 查看变量值。默认 --scope all 同时打印 user / system /...
+* `set`: 新增或修改变量 (覆盖写入)。
+* `unset`: 删除变量。
+* `path`: PATH 专用操作 (add / remove / show)
+
+### `ai-assistant win-env list`
+
+列出环境变量。
+
+**Usage**:
+
+```console
+$ ai-assistant win-env list [OPTIONS]
+```
+
+**Options**:
+
+* `-s, --scope [user|system|process|all]`: user / system / process / all  [default: user]
+* `--json`: JSON 输出
+* `--help`: Show this message and exit.
+
+### `ai-assistant win-env get`
+
+查看变量值。默认 --scope all 同时打印 user / system / process 三个源。
+
+**Usage**:
+
+```console
+$ ai-assistant win-env get [OPTIONS] NAME
+```
+
+**Arguments**:
+
+* `NAME`: 变量名  [required]
+
+**Options**:
+
+* `-s, --scope [user|system|process|all]`: [default: all]
+* `--json`
+* `--help`: Show this message and exit.
+
+### `ai-assistant win-env set`
+
+新增或修改变量 (覆盖写入)。
+
+**Usage**:
+
+```console
+$ ai-assistant win-env set [OPTIONS] NAME VALUE
+```
+
+**Arguments**:
+
+* `NAME`: 变量名  [required]
+* `VALUE`: 变量值  [required]
+
+**Options**:
+
+* `-s, --scope [user|system]`: [default: user]
+* `--type [sz|expand]`: sz | expand; 不传时沿用现值或自动推断
+* `--dry-run`
+* `--help`: Show this message and exit.
+
+### `ai-assistant win-env unset`
+
+删除变量。
+
+**Usage**:
+
+```console
+$ ai-assistant win-env unset [OPTIONS] NAME
+```
+
+**Arguments**:
+
+* `NAME`: 变量名  [required]
+
+**Options**:
+
+* `-s, --scope [user|system]`: [default: user]
+* `--dry-run`
+* `--help`: Show this message and exit.
+
+### `ai-assistant win-env path`
+
+PATH 专用操作 (add / remove / show)
+
+**Usage**:
+
+```console
+$ ai-assistant win-env path [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `show`: 显示 PATH 各 entry。effective = 当前进程实际生效的 PATH。
+* `add`: 向 PATH 加入一个目录, 自动去重并保留 REG_EXPAND_SZ 类型。
+* `remove`: 从 PATH 移除一个目录 (大小写不敏感, normpath 比较)。
+
+#### `ai-assistant win-env path show`
+
+显示 PATH 各 entry。effective = 当前进程实际生效的 PATH。
+
+**Usage**:
+
+```console
+$ ai-assistant win-env path show [OPTIONS]
+```
+
+**Options**:
+
+* `-s, --scope [user|system|effective]`: [default: effective]
+* `--help`: Show this message and exit.
+
+#### `ai-assistant win-env path add`
+
+向 PATH 加入一个目录, 自动去重并保留 REG_EXPAND_SZ 类型。
+
+**Usage**:
+
+```console
+$ ai-assistant win-env path add [OPTIONS] ENTRY
+```
+
+**Arguments**:
+
+* `ENTRY`: 要加入的目录  [required]
+
+**Options**:
+
+* `-s, --scope [user|system]`: [default: user]
+* `--prepend`: 加到最前; 默认追加到末尾
+* `--backup-dir PATH`: 备份目录, 默认 %LOCALAPPDATA%/ai-assistant/win-env-backup
+* `--dry-run`
+* `--help`: Show this message and exit.
+
+#### `ai-assistant win-env path remove`
+
+从 PATH 移除一个目录 (大小写不敏感, normpath 比较)。
+
+**Usage**:
+
+```console
+$ ai-assistant win-env path remove [OPTIONS] ENTRY
+```
+
+**Arguments**:
+
+* `ENTRY`: 要移除的目录  [required]
+
+**Options**:
+
+* `-s, --scope [user|system]`: [default: user]
+* `--backup-dir PATH`
+* `--dry-run`
 * `--help`: Show this message and exit.
