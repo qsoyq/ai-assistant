@@ -16,9 +16,10 @@ resolution-markers = [
 
 [[package]]
 name = "ai-assistant"
-version = "0.3.1"
+version = "0.3.2"
 source = { editable = "." }
 dependencies = [
+    { name = "cryptography" },
     { name = "httpx", extra = ["socks"] },
     { name = "psutil" },
     { name = "pydantic-settings" },
@@ -85,6 +86,7 @@ dev = [
 requires-dist = [
     { name = "ai-assistant", extras = ["mcd", "oss", "freshrss", "docker", "cookies", "cursor"], marker = "extra == 'all'" },
     { name = "browser-cookie3", marker = "extra == 'cookies'", specifier = ">=0.16.6" },
+    { name = "cryptography", specifier = ">=42.0" },
     { name = "docker", marker = "extra == 'docker'", specifier = ">=7.1.0" },
     { name = "httpx", extras = ["socks"], specifier = ">=0.28.1" },
     { name = "matplotlib", marker = "extra == 'cursor'", specifier = ">=3.10.8" },

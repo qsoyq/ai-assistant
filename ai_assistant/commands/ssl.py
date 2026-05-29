@@ -1,9 +1,11 @@
+import hashlib
 import ipaddress
 import os
 import platform
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -23,6 +25,20 @@ helptext = """
   - Windows: `winget install ShiningLight.OpenSSL.Light` 或 `choco install openssl`
   - Debian / Ubuntu: `sudo apt install openssl`
   - Fedora / RHEL / CentOS: `sudo dnf install openssl`
+
+- `ssl merge` 依赖 `cryptography`（已在项目依赖中声明，无需手动安装）
+
+  生成 bundle 后，可通过环境变量让常见工具识别新的 CA 文件
+  （以 `~/.ca-bundle.pem` 为例，按需替换路径）：
+
+  - OpenSSL / Python `ssl` / httpx: `export SSL_CERT_FILE=~/.ca-bundle.pem`
+  - requests: `export REQUESTS_CA_BUNDLE=~/.ca-bundle.pem`
+  - curl: `export CURL_CA_BUNDLE=~/.ca-bundle.pem`
+  - git: `git config --global http.sslCAInfo ~/.ca-bundle.pem`
+  - Node.js: `export NODE_EXTRA_CA_CERTS=~/.ca-bundle.pem`
+  - AWS CLI / boto3: `export AWS_CA_BUNDLE=~/.ca-bundle.pem`
+
+  Windows PowerShell 可用 `setx SSL_CERT_FILE "%USERPROFILE%\\.ca-bundle.pem"` 等价写法。
 
 - `ssl trust` 会按系统使用不同命令
   - macOS: 使用系统自带 `security`，通常无需额外安装
@@ -490,6 +506,149 @@ def trust(
 
     typer.echo("")
     typer.echo("证书已成功加入系统信任存储。")
+
+
+@cmd.command()
+def merge(
+    files: list[str] = typer.Argument(
+        ...,
+        help="证书文件路径，可传多个；使用 `-` 表示从标准输入读取",
+    ),
+    output: Path | None = typer.Option(
+        None,
+        "-o",
+        "--output",
+        help="输出文件路径，未指定则写入标准输出",
+        file_okay=True,
+        dir_okay=False,
+    ),
+    dedup: bool = typer.Option(True, "--dedup/--no-dedup", help="按 SHA-256 指纹去重，默认开启"),
+    headers: bool = typer.Option(True, "--headers/--no-headers", help="在每个证书前输出 Subject/Issuer 注释"),
+    password: str | None = typer.Option(None, "--password", help="PKCS#12 文件密码，留空表示无密码"),
+):
+    """合并多个证书文件为一个 PEM bundle。
+
+    自动按文件内容识别 PEM、DER、PKCS#7（PEM/DER）和 PKCS#12 格式。
+    输出始终是 PEM bundle。
+
+    生成 bundle 后，可通过环境变量让常见工具识别新的 CA 文件
+    （以 `~/.ca-bundle.pem` 为例，按需替换路径）：
+
+    \b
+    - OpenSSL / Python `ssl` / httpx: export SSL_CERT_FILE=~/.ca-bundle.pem
+    - requests: export REQUESTS_CA_BUNDLE=~/.ca-bundle.pem
+    - curl: export CURL_CA_BUNDLE=~/.ca-bundle.pem
+    - git: git config --global http.sslCAInfo ~/.ca-bundle.pem
+    - Node.js: export NODE_EXTRA_CA_CERTS=~/.ca-bundle.pem
+    - AWS CLI / boto3: export AWS_CA_BUNDLE=~/.ca-bundle.pem
+
+    Windows PowerShell 可用 `setx SSL_CERT_FILE "%USERPROFILE%\\.ca-bundle.pem"` 等价写法。
+
+    Usage examples::
+
+        # 合并 certifi 自带的 CA 与自签 CA，写入文件
+        ai-assistant ssl merge $(python -m certifi) ~/certs/my-root-ca.cer -o ~/.ca-bundle.pem
+
+        # 从标准输入追加一个证书
+        cat extra.crt | ai-assistant ssl merge cacert.pem -
+
+        # 合并 PKCS#12（需要密码）
+        ai-assistant ssl merge bundle.pem client.p12 --password secret -o merged.pem
+    """
+    try:
+        from cryptography import x509
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.serialization import pkcs7, pkcs12
+    except ImportError:
+        typer.echo("缺少依赖 `cryptography`，请安装后再使用 `ssl merge`。", err=True)
+        raise typer.Exit(code=1) from None
+
+    pwd = password.encode() if password is not None else None
+
+    def _load(data: bytes, source: str) -> list["x509.Certificate"]:
+        if not data:
+            raise ValueError(f"文件为空: {source}")
+        if b"-----BEGIN" in data:
+            try:
+                certs = x509.load_pem_x509_certificates(data)
+                if certs:
+                    return list(certs)
+            except ValueError:
+                pass
+            try:
+                return list(pkcs7.load_pem_pkcs7_certificates(data))
+            except ValueError:
+                pass
+            raise ValueError(f"无法解析 PEM 内容: {source}")
+        try:
+            return [x509.load_der_x509_certificate(data)]
+        except ValueError:
+            pass
+        try:
+            return list(pkcs7.load_der_pkcs7_certificates(data))
+        except ValueError:
+            pass
+        try:
+            _, cert, extra = pkcs12.load_key_and_certificates(data, pwd)
+            collected: list["x509.Certificate"] = []
+            if cert is not None:
+                collected.append(cert)
+            if extra:
+                collected.extend(extra)
+            if collected:
+                return collected
+        except (ValueError, TypeError):
+            pass
+        raise ValueError(f"无法识别证书格式: {source}（已尝试 DER X.509 / PKCS#7 / PKCS#12）")
+
+    pieces: list[bytes] = []
+    seen: set[str] = set()
+
+    for raw in files:
+        if raw == "-":
+            data = sys.stdin.buffer.read()
+            source = "<stdin>"
+        else:
+            path = Path(raw).expanduser()
+            if not path.exists():
+                typer.echo(f"文件不存在: {path}", err=True)
+                raise typer.Exit(code=1)
+            if not path.is_file():
+                typer.echo(f"路径不是文件: {path}", err=True)
+                raise typer.Exit(code=1)
+            data = path.read_bytes()
+            source = str(path)
+
+        try:
+            certs = _load(data, source)
+        except ValueError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=1) from exc
+
+        for cert in certs:
+            der = cert.public_bytes(serialization.Encoding.DER)
+            fingerprint = hashlib.sha256(der).hexdigest()
+            if dedup and fingerprint in seen:
+                continue
+            seen.add(fingerprint)
+            pem = cert.public_bytes(serialization.Encoding.PEM)
+            if headers:
+                subject = cert.subject.rfc4514_string()
+                issuer = cert.issuer.rfc4514_string()
+                pieces.append(f"# Subject: {subject}\n# Issuer: {issuer}\n".encode() + pem)
+            else:
+                pieces.append(pem)
+
+    blob = b"".join(pieces)
+
+    if output is None:
+        sys.stdout.buffer.write(blob)
+        sys.stdout.buffer.flush()
+    else:
+        out_path = output.expanduser()
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_bytes(blob)
+        typer.echo(f"已写入 {len(seen)} 个证书到: {out_path}", err=True)
 
 
 if __name__ == "__main__":
