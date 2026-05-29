@@ -129,15 +129,15 @@ def watch(
 
     示例:
     - 监听镜像最近推送:
-            ai-assistant-docker-hub-runner watch nginx 'echo "$DOCKERHUB_IMAGE_WITH_TAG"'
+            ai-assistant docker-hub-runner watch nginx 'echo "$DOCKERHUB_IMAGE_WITH_TAG"'
     - 监听镜像最近推送并立即执行:
-            ai-assistant-docker-hub-runner watch nginx 'echo "$DOCKERHUB_IMAGE_WITH_TAG"' --run-on-start
+            ai-assistant docker-hub-runner watch nginx 'echo "$DOCKERHUB_IMAGE_WITH_TAG"' --run-on-start
     - 只监听固定 tag:
-            ai-assistant-docker-hub-runner watch nginx 'echo "$DOCKERHUB_DIGEST"' --tag latest
+            ai-assistant docker-hub-runner watch nginx 'echo "$DOCKERHUB_DIGEST"' --tag latest
     - 只监听固定 tag 并立即执行:
-            ai-assistant-docker-hub-runner watch nginx 'echo "$DOCKERHUB_DIGEST"' --tag latest --run-on-start
+            ai-assistant docker-hub-runner watch nginx 'echo "$DOCKERHUB_DIGEST"' --tag latest --run-on-start
     - 调整轮询和请求超时:
-            ai-assistant-docker-hub-runner watch nginx 'your-command' --interval 30 --request-timeout 5
+            ai-assistant docker-hub-runner watch nginx 'your-command' --interval 30 --request-timeout 5
     """
     namespace, repository = parse_image(image)
 

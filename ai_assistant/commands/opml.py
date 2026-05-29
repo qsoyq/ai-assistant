@@ -164,19 +164,19 @@ def fetch(
     使用示例::
 
         # 基本用法：抓取一次
-        ai-assistant-opml fetch ~/feeds.opml
+        ai-assistant opml fetch ~/feeds.opml
 
         # 设置最大并发数为 10
-        ai-assistant-opml fetch ~/feeds.opml -m 10
+        ai-assistant opml fetch ~/feeds.opml -m 10
 
         # 循环抓取
-        ai-assistant-opml fetch ~/feeds.opml --loop
+        ai-assistant opml fetch ~/feeds.opml --loop
 
         # 遇到 429 后跳过该 URL 60 分钟
-        ai-assistant-opml fetch ~/feeds.opml --rate-limit-minutes 60
+        ai-assistant opml fetch ~/feeds.opml --rate-limit-minutes 60
 
         # 组合使用：并发 10、循环抓取、DEBUG 日志
-        ai-assistant-opml fetch ~/feeds.opml -m 10 --loop --log-level DEBUG
+        ai-assistant opml fetch ~/feeds.opml -m 10 --loop --log-level DEBUG
     """
     logging.basicConfig(level=getattr(logging, log_level.upper()), format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     asyncio.run(async_fetch(opml_path, max_concurrent, loop, rate_limit_minutes))

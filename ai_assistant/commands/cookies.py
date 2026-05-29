@@ -18,7 +18,7 @@ helptext = """
 对于指定的单个域名, 会同时读取 . 域名。
 
 例如:
-    $ ai-assistant-cookies get github.com
+    $ ai-assistant cookies get github.com
     会同时读取 github.com 和 .github.com 的 Cookie
 """
 
@@ -131,19 +131,19 @@ def get(
     Usage::
 
         # 提取 github.com 的所有 Cookie（默认 string 格式: a=b; c=d）
-        $ ai-assistant-cookies get github.com
+        $ ai-assistant cookies get github.com
 
         # 同时提取多个域名的 Cookie
-        $ ai-assistant-cookies get github.com api.github.com
+        $ ai-assistant cookies get github.com api.github.com
 
         # 以 JSON 格式输出
-        $ ai-assistant-cookies get github.com -f json
+        $ ai-assistant cookies get github.com -f json
 
         # 以 Python dict 格式输出
-        $ ai-assistant-cookies get github.com -f dict
+        $ ai-assistant cookies get github.com -f dict
 
         # 只提取指定字段
-        $ ai-assistant-cookies get github.com -F session_id -F user_id
+        $ ai-assistant cookies get github.com -F session_id -F user_id
     """
     all_cookies: dict[str, str] = {}
     for domain in domains:
@@ -171,16 +171,16 @@ def twitter(
     Usage::
 
         # 提取所有 Twitter Cookie（默认 string 格式: a=b; c=d）
-        $ ai-assistant-cookies twitter
+        $ ai-assistant cookies twitter
 
         # 以 JSON 格式输出
-        $ ai-assistant-cookies twitter -f json
+        $ ai-assistant cookies twitter -f json
 
         # 以 Python dict 格式输出
-        $ ai-assistant-cookies twitter -f dict
+        $ ai-assistant cookies twitter -f dict
 
         # 只提取 auth_token 和 ct0
-        $ ai-assistant-cookies twitter -F auth_token -F ct0
+        $ ai-assistant cookies twitter -F auth_token -F ct0
     """
     all_cookies: dict[str, str] = {}
     for domain in _TWITTER_DOMAINS:
@@ -209,16 +209,16 @@ def cursor(
     Usage::
 
         # 提取所有 Cursor Cookie（默认 string 格式: a=b; c=d）
-        $ ai-assistant-cookies cursor
+        $ ai-assistant cookies cursor
 
         # 以 JSON 格式输出
-        $ ai-assistant-cookies cursor -f json
+        $ ai-assistant cookies cursor -f json
 
         # 以 Python dict 格式输出
-        $ ai-assistant-cookies cursor -f dict
+        $ ai-assistant cookies cursor -f dict
 
         # 只提取 WorkosCursorSessionToken
-        $ ai-assistant-cookies cursor -F WorkosCursorSessionToken
+        $ ai-assistant cookies cursor -F WorkosCursorSessionToken
     """
     all_cookies: dict[str, str] = {}
     for domain in _CURSOR_DOMAINS:

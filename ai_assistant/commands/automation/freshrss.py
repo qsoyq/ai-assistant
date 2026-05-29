@@ -497,8 +497,8 @@ def subscribe(
         25             -> 直接使用 FreshRSS 表单值 25
 
     Usage examples::
-        FRESHRSS_ENDPOINT=https://rss.example.com/api/greader.php ai-assistant-freshrss subscribe https://example.com/feed.json --category twitter --feed-kind jsonfeed
-        ai-assistant-freshrss subscribe https://example.com/feed.json --endpoint https://rss.example.com/api/greader.php --feed-kind 4 --cookies "FreshRSS=..."
+        FRESHRSS_ENDPOINT=https://rss.example.com/api/greader.php ai-assistant freshrss subscribe https://example.com/feed.json --category twitter --feed-kind jsonfeed
+        ai-assistant freshrss subscribe https://example.com/feed.json --endpoint https://rss.example.com/api/greader.php --feed-kind 4 --cookies "FreshRSS=..."
     """
     resolved_cookies = _cookies_for_endpoint(endpoint, cookies)
     typer.echo(f"使用 {len(resolved_cookies)} 个 Cookie 访问 FreshRSS")
@@ -568,8 +568,8 @@ def refresh(
     通过 Google Reader API 获取订阅列表，然后逐个请求 stream/contents 触发服务端刷新。
 
     Usage examples::
-        ai-assistant-freshrss refresh
-        ai-assistant-freshrss refresh http://freshrss.example.org/api/greader.php  --user <user> --token <token>
+        ai-assistant freshrss refresh
+        ai-assistant freshrss refresh http://freshrss.example.org/api/greader.php  --user <user> --token <token>
     """
     typer.echo(f"正在获取订阅列表: {endpoint}")
     account_info = _get_account_info(endpoint, user, token)
@@ -607,9 +607,9 @@ def cleanup_unread(
 
     读取指定分类中的所有未读文章；如果标题不包含任一 ``--keep`` 字符串，就将文章标记为已读。
     Usage examples::
-        ai-assistant-freshrss cleanup-unread --category tech --keep AI --keep LLM --dry-run
-        ai-assistant-freshrss cleanup-unread --category tech --keep AI --keep LLM --limit 20
-        ai-assistant-freshrss cleanup-unread --category twitter --keep OpenAI --keep Anthropic
+        ai-assistant freshrss cleanup-unread --category tech --keep AI --keep LLM --dry-run
+        ai-assistant freshrss cleanup-unread --category tech --keep AI --keep LLM --limit 20
+        ai-assistant freshrss cleanup-unread --category twitter --keep OpenAI --keep Anthropic
     """
     normalized_keep = _normalise_keywords(keep, ignore_case)
     if not normalized_keep:
@@ -667,7 +667,7 @@ def search(
     当传入 ``--read`` 时，会将命中的文章标记为已读。
 
     Usage examples::
-        ai-assistant-freshrss search --title OpenAI
+        ai-assistant freshrss search --title OpenAI
     """
     typer.echo(f"正在登录 FreshRSS: {endpoint}")
     account_info = _get_account_info(endpoint, user, token)
@@ -720,10 +720,10 @@ def disable_priority(
     支持 SQLite 文件路径或数据库 DSN，适用于 sqlite/mysql/postgresql。
 
     Usage examples::
-        ai-assistant-freshrss disable-priority /path/to/db.sqlite
-        ai-assistant-freshrss disable-priority sqlite:////path/to/db.sqlite
-        ai-assistant-freshrss disable-priority mysql://user:pass@127.0.0.1:3306/freshrss
-        ai-assistant-freshrss disable-priority postgresql://user:pass@127.0.0.1:5432/freshrss
+        ai-assistant freshrss disable-priority /path/to/db.sqlite
+        ai-assistant freshrss disable-priority sqlite:////path/to/db.sqlite
+        ai-assistant freshrss disable-priority mysql://user:pass@127.0.0.1:3306/freshrss
+        ai-assistant freshrss disable-priority postgresql://user:pass@127.0.0.1:5432/freshrss
     """
     database_url = _database_url(target)
     typer.echo(f"连接数据库: {_masked_database_url(database_url)}")

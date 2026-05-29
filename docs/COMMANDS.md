@@ -316,15 +316,15 @@ cloudflared 默认在 `127.0.0.1:20241` 暴露 metrics 服务，
 
 示例:
 - 监听状态变化:
-        ai-assistant-cf-tunnel-watcher watch &#x27;echo &quot;status=$CF_TUNNEL_STATUS&quot;&#x27; --run-on-start
+        ai-assistant cf-tunnel-watcher watch &#x27;echo &quot;status=$CF_TUNNEL_STATUS&quot;&#x27; --run-on-start
 - 自定义 metrics 地址:
-        ai-assistant-cf-tunnel-watcher watch &#x27;echo &quot;$CF_TUNNEL_STATUS&quot;&#x27; -m http://127.0.0.1:12345
+        ai-assistant cf-tunnel-watcher watch &#x27;echo &quot;$CF_TUNNEL_STATUS&quot;&#x27; -m http://127.0.0.1:12345
 - 启动时立即执行:
-        ai-assistant-cf-tunnel-watcher watch &#x27;notify.sh&#x27; --run-on-start
+        ai-assistant cf-tunnel-watcher watch &#x27;notify.sh&#x27; --run-on-start
 - 仅在不健康时执行:
-        ai-assistant-cf-tunnel-watcher watch &#x27;alert.sh&#x27; --run-on-unhealthy
+        ai-assistant cf-tunnel-watcher watch &#x27;alert.sh&#x27; --run-on-unhealthy
 - 调整轮询间隔:
-        ai-assistant-cf-tunnel-watcher watch &#x27;your-command&#x27; --interval 10
+        ai-assistant cf-tunnel-watcher watch &#x27;your-command&#x27; --interval 10
 
 **Usage**:
 
@@ -371,19 +371,19 @@ $ ai-assistant cookies [OPTIONS] COMMAND [ARGS]...
 Usage::
 
     # 提取 github.com 的所有 Cookie（默认 string 格式: a=b; c=d）
-    $ ai-assistant-cookies get github.com
+    $ ai-assistant cookies get github.com
 
     # 同时提取多个域名的 Cookie
-    $ ai-assistant-cookies get github.com api.github.com
+    $ ai-assistant cookies get github.com api.github.com
 
     # 以 JSON 格式输出
-    $ ai-assistant-cookies get github.com -f json
+    $ ai-assistant cookies get github.com -f json
 
     # 以 Python dict 格式输出
-    $ ai-assistant-cookies get github.com -f dict
+    $ ai-assistant cookies get github.com -f dict
 
     # 只提取指定字段
-    $ ai-assistant-cookies get github.com -F session_id -F user_id
+    $ ai-assistant cookies get github.com -F session_id -F user_id
 
 **Usage**:
 
@@ -408,16 +408,16 @@ $ ai-assistant cookies get [OPTIONS] DOMAINS...
 Usage::
 
     # 提取所有 Twitter Cookie（默认 string 格式: a=b; c=d）
-    $ ai-assistant-cookies twitter
+    $ ai-assistant cookies twitter
 
     # 以 JSON 格式输出
-    $ ai-assistant-cookies twitter -f json
+    $ ai-assistant cookies twitter -f json
 
     # 以 Python dict 格式输出
-    $ ai-assistant-cookies twitter -f dict
+    $ ai-assistant cookies twitter -f dict
 
     # 只提取 auth_token 和 ct0
-    $ ai-assistant-cookies twitter -F auth_token -F ct0
+    $ ai-assistant cookies twitter -F auth_token -F ct0
 
 **Usage**:
 
@@ -438,16 +438,16 @@ $ ai-assistant cookies twitter [OPTIONS]
 Usage::
 
     # 提取所有 Cursor Cookie（默认 string 格式: a=b; c=d）
-    $ ai-assistant-cookies cursor
+    $ ai-assistant cookies cursor
 
     # 以 JSON 格式输出
-    $ ai-assistant-cookies cursor -f json
+    $ ai-assistant cookies cursor -f json
 
     # 以 Python dict 格式输出
-    $ ai-assistant-cookies cursor -f dict
+    $ ai-assistant cookies cursor -f dict
 
     # 只提取 WorkosCursorSessionToken
-    $ ai-assistant-cookies cursor -F WorkosCursorSessionToken
+    $ ai-assistant cookies cursor -F WorkosCursorSessionToken
 
 **Usage**:
 
@@ -689,15 +689,15 @@ $ ai-assistant docker-hub-runner [OPTIONS] COMMAND [ARGS]...
 
 示例:
 - 监听镜像最近推送:
-        ai-assistant-docker-hub-runner watch nginx &#x27;echo &quot;$DOCKERHUB_IMAGE_WITH_TAG&quot;&#x27;
+        ai-assistant docker-hub-runner watch nginx &#x27;echo &quot;$DOCKERHUB_IMAGE_WITH_TAG&quot;&#x27;
 - 监听镜像最近推送并立即执行:
-        ai-assistant-docker-hub-runner watch nginx &#x27;echo &quot;$DOCKERHUB_IMAGE_WITH_TAG&quot;&#x27; --run-on-start
+        ai-assistant docker-hub-runner watch nginx &#x27;echo &quot;$DOCKERHUB_IMAGE_WITH_TAG&quot;&#x27; --run-on-start
 - 只监听固定 tag:
-        ai-assistant-docker-hub-runner watch nginx &#x27;echo &quot;$DOCKERHUB_DIGEST&quot;&#x27; --tag latest
+        ai-assistant docker-hub-runner watch nginx &#x27;echo &quot;$DOCKERHUB_DIGEST&quot;&#x27; --tag latest
 - 只监听固定 tag 并立即执行:
-        ai-assistant-docker-hub-runner watch nginx &#x27;echo &quot;$DOCKERHUB_DIGEST&quot;&#x27; --tag latest --run-on-start
+        ai-assistant docker-hub-runner watch nginx &#x27;echo &quot;$DOCKERHUB_DIGEST&quot;&#x27; --tag latest --run-on-start
 - 调整轮询和请求超时:
-        ai-assistant-docker-hub-runner watch nginx &#x27;your-command&#x27; --interval 30 --request-timeout 5
+        ai-assistant docker-hub-runner watch nginx &#x27;your-command&#x27; --interval 30 --request-timeout 5
 
 **Usage**:
 
@@ -741,13 +741,13 @@ $ ai-assistant file-change-runner [OPTIONS] COMMAND [ARGS]...
 Usage examples::
 
     # 监听单个文件变化后重启服务
-    ai-assistant-file-change-runner watch ./config.yaml &quot;systemctl restart myapp&quot;
+    ai-assistant file-change-runner watch ./config.yaml &quot;systemctl restart myapp&quot;
 
     # 监听整个目录，启动时先执行一次
-    ai-assistant-file-change-runner watch ./src &quot;make build&quot; --run-on-start
+    ai-assistant file-change-runner watch ./src &quot;make build&quot; --run-on-start
 
     # 自定义轮询间隔和防抖时长
-    ai-assistant-file-change-runner watch ./data &quot;python process.py&quot; -i 1.0 -d 3.0
+    ai-assistant file-change-runner watch ./data &quot;python process.py&quot; -i 1.0 -d 3.0
 
 **Usage**:
 
@@ -805,8 +805,8 @@ $ ai-assistant freshrss [OPTIONS] COMMAND [ARGS]...
     25             -&gt; 直接使用 FreshRSS 表单值 25
 
 Usage examples::
-    FRESHRSS_ENDPOINT=https://rss.example.com/api/greader.php ai-assistant-freshrss subscribe https://example.com/feed.json --category twitter --feed-kind jsonfeed
-    ai-assistant-freshrss subscribe https://example.com/feed.json --endpoint https://rss.example.com/api/greader.php --feed-kind 4 --cookies &quot;FreshRSS=...&quot;
+    FRESHRSS_ENDPOINT=https://rss.example.com/api/greader.php ai-assistant freshrss subscribe https://example.com/feed.json --category twitter --feed-kind jsonfeed
+    ai-assistant freshrss subscribe https://example.com/feed.json --endpoint https://rss.example.com/api/greader.php --feed-kind 4 --cookies &quot;FreshRSS=...&quot;
 
 **Usage**:
 
@@ -833,8 +833,8 @@ $ ai-assistant freshrss subscribe [OPTIONS] FEED_URL
 通过 Google Reader API 获取订阅列表，然后逐个请求 stream/contents 触发服务端刷新。
 
 Usage examples::
-    ai-assistant-freshrss refresh
-    ai-assistant-freshrss refresh http://freshrss.example.org/api/greader.php  --user &lt;user&gt; --token &lt;token&gt;
+    ai-assistant freshrss refresh
+    ai-assistant freshrss refresh http://freshrss.example.org/api/greader.php  --user &lt;user&gt; --token &lt;token&gt;
 
 **Usage**:
 
@@ -858,9 +858,9 @@ $ ai-assistant freshrss refresh [OPTIONS] ENDPOINT
 
 读取指定分类中的所有未读文章；如果标题不包含任一 ``--keep`` 字符串，就将文章标记为已读。
 Usage examples::
-    ai-assistant-freshrss cleanup-unread --category tech --keep AI --keep LLM --dry-run
-    ai-assistant-freshrss cleanup-unread --category tech --keep AI --keep LLM --limit 20
-    ai-assistant-freshrss cleanup-unread --category twitter --keep OpenAI --keep Anthropic
+    ai-assistant freshrss cleanup-unread --category tech --keep AI --keep LLM --dry-run
+    ai-assistant freshrss cleanup-unread --category tech --keep AI --keep LLM --limit 20
+    ai-assistant freshrss cleanup-unread --category twitter --keep OpenAI --keep Anthropic
 
 **Usage**:
 
@@ -889,7 +889,7 @@ $ ai-assistant freshrss cleanup-unread [OPTIONS]
 当传入 ``--read`` 时，会将命中的文章标记为已读。
 
 Usage examples::
-    ai-assistant-freshrss search --title OpenAI
+    ai-assistant freshrss search --title OpenAI
 
 **Usage**:
 
@@ -916,10 +916,10 @@ $ ai-assistant freshrss search [OPTIONS]
 支持 SQLite 文件路径或数据库 DSN，适用于 sqlite/mysql/postgresql。
 
 Usage examples::
-    ai-assistant-freshrss disable-priority /path/to/db.sqlite
-    ai-assistant-freshrss disable-priority sqlite:////path/to/db.sqlite
-    ai-assistant-freshrss disable-priority mysql://user:pass@127.0.0.1:3306/freshrss
-    ai-assistant-freshrss disable-priority postgresql://user:pass@127.0.0.1:5432/freshrss
+    ai-assistant freshrss disable-priority /path/to/db.sqlite
+    ai-assistant freshrss disable-priority sqlite:////path/to/db.sqlite
+    ai-assistant freshrss disable-priority mysql://user:pass@127.0.0.1:3306/freshrss
+    ai-assistant freshrss disable-priority postgresql://user:pass@127.0.0.1:5432/freshrss
 
 **Usage**:
 
@@ -1506,19 +1506,19 @@ $ ai-assistant opml [OPTIONS] COMMAND [ARGS]...
 使用示例::
 
     # 基本用法：抓取一次
-    ai-assistant-opml fetch ~/feeds.opml
+    ai-assistant opml fetch ~/feeds.opml
 
     # 设置最大并发数为 10
-    ai-assistant-opml fetch ~/feeds.opml -m 10
+    ai-assistant opml fetch ~/feeds.opml -m 10
 
     # 循环抓取
-    ai-assistant-opml fetch ~/feeds.opml --loop
+    ai-assistant opml fetch ~/feeds.opml --loop
 
     # 遇到 429 后跳过该 URL 60 分钟
-    ai-assistant-opml fetch ~/feeds.opml --rate-limit-minutes 60
+    ai-assistant opml fetch ~/feeds.opml --rate-limit-minutes 60
 
     # 组合使用：并发 10、循环抓取、DEBUG 日志
-    ai-assistant-opml fetch ~/feeds.opml -m 10 --loop --log-level DEBUG
+    ai-assistant opml fetch ~/feeds.opml -m 10 --loop --log-level DEBUG
 
 **Usage**:
 

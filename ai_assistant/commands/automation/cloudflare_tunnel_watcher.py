@@ -115,15 +115,15 @@ def watch(
 
     示例:
     - 监听状态变化:
-            ai-assistant-cf-tunnel-watcher watch 'echo "status=$CF_TUNNEL_STATUS"' --run-on-start
+            ai-assistant cf-tunnel-watcher watch 'echo "status=$CF_TUNNEL_STATUS"' --run-on-start
     - 自定义 metrics 地址:
-            ai-assistant-cf-tunnel-watcher watch 'echo "$CF_TUNNEL_STATUS"' -m http://127.0.0.1:12345
+            ai-assistant cf-tunnel-watcher watch 'echo "$CF_TUNNEL_STATUS"' -m http://127.0.0.1:12345
     - 启动时立即执行:
-            ai-assistant-cf-tunnel-watcher watch 'notify.sh' --run-on-start
+            ai-assistant cf-tunnel-watcher watch 'notify.sh' --run-on-start
     - 仅在不健康时执行:
-            ai-assistant-cf-tunnel-watcher watch 'alert.sh' --run-on-unhealthy
+            ai-assistant cf-tunnel-watcher watch 'alert.sh' --run-on-unhealthy
     - 调整轮询间隔:
-            ai-assistant-cf-tunnel-watcher watch 'your-command' --interval 10
+            ai-assistant cf-tunnel-watcher watch 'your-command' --interval 10
     """
     typer.echo(f"开始监听 Cloudflare Tunnel 状态: {metrics_url}")
     typer.echo(f"轮询间隔: {interval} 秒")

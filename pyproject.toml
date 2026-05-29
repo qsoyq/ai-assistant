@@ -1,6 +1,6 @@
 [project]
 name = "ai-assistant"
-version = "0.2.11"
+version = "0.3.0"
 description = "Toolkit for ai usage."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -23,17 +23,11 @@ dependencies = [
 [project.optional-dependencies]
 mcd = ["openai>=2.14.0"]
 oss = ["oss2>=2.18.0"]
-freshrss = [
-    "sqlalchemy>=2.0.48",
-    "pymysql>=1.1.2",
-    "psycopg[binary]>=3.3.3",
-]
+freshrss = ["sqlalchemy>=2.0.48", "pymysql>=1.1.2", "psycopg[binary]>=3.3.3"]
 docker = ["docker>=7.1.0"]
 cookies = ["browser-cookie3>=0.16.6"]
 cursor = ["matplotlib>=3.10.8", "pandas>=2.3.3"]
-all = [
-    "ai-assistant[mcd,oss,freshrss,docker,cookies,cursor]",
-]
+all = ["ai-assistant[mcd,oss,freshrss,docker,cookies,cursor]"]
 
 [dependency-groups]
 dev = [
@@ -47,24 +41,11 @@ dev = [
 
 [project.scripts]
 ai-assistant = "ai_assistant.commands.main:cmd"
-ai-assistant-similar-questions = "ai_assistant.commands._entry:similar_questions"
-ai-assistant-opml = "ai_assistant.commands.opml:cmd"
-ai-assistant-mcp-cli = "ai_assistant.commands.mcp_cli:cmd"
-ai-assistant-file-change-runner = "ai_assistant.commands.automation.file_change_runner:cmd"
-ai-assistant-docker-hub-runner = "ai_assistant.commands.automation.docker_hub_runner:cmd"
-ai-assistant-cf-tunnel-watcher = "ai_assistant.commands.automation.cloudflare_tunnel_watcher:cmd"
-ai-assistant-cursor-usage = "ai_assistant.commands._entry:cursor_usage"
-ai-assistant-cookies = "ai_assistant.commands.cookies:cmd"
-ai-assistant-freshrss = "ai_assistant.commands._entry:freshrss"
-ai-assistant-stash-log = "ai_assistant.commands.stash_log:cmd"
-ai-assistant-ghi = "ai_assistant.commands.ghi.main:cmd"
-ai-assistant-uv-tool = "ai_assistant.commands.uv_tool:cmd"
+ghi = "ai_assistant.commands.ghi.main:cmd"
 
 [tool.hatch.build.targets.wheel]
 packages = ["ai_assistant"]
-exclude = [
-    "ai_assistant/example/**",
-]
+exclude = ["ai_assistant/example/**"]
 
 [tool.hatch.metadata]
 allow-direct-references = true

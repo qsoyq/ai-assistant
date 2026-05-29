@@ -37,13 +37,13 @@ def watch(
     Usage examples::
 
         # 监听单个文件变化后重启服务
-        ai-assistant-file-change-runner watch ./config.yaml "systemctl restart myapp"
+        ai-assistant file-change-runner watch ./config.yaml "systemctl restart myapp"
 
         # 监听整个目录，启动时先执行一次
-        ai-assistant-file-change-runner watch ./src "make build" --run-on-start
+        ai-assistant file-change-runner watch ./src "make build" --run-on-start
 
         # 自定义轮询间隔和防抖时长
-        ai-assistant-file-change-runner watch ./data "python process.py" -i 1.0 -d 3.0
+        ai-assistant file-change-runner watch ./data "python process.py" -i 1.0 -d 3.0
     """
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
