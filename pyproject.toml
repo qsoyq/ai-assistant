@@ -58,6 +58,7 @@ ai-assistant-cookies = "ai_assistant.commands.cookies:cmd"
 ai-assistant-freshrss = "ai_assistant.commands._entry:freshrss"
 ai-assistant-stash-log = "ai_assistant.commands.stash_log:cmd"
 ai-assistant-ghi = "ai_assistant.commands.ghi.main:cmd"
+ai-assistant-uv-tool = "ai_assistant.commands.uv_tool:cmd"
 
 [tool.hatch.build.targets.wheel]
 packages = ["ai_assistant"]
