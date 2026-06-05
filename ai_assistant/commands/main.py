@@ -36,6 +36,7 @@ class _Root(LazyRootGroup):
         "win-env": ("ai_assistant.commands.win_env:cmd", None),
         "adb": ("ai_assistant.commands.adb:cmd", None),
         "lan-ddns": ("ai_assistant.commands.lan_ddns:cmd", None),
+        "cloudflare-dns": ("ai_assistant.commands.cloudflare_dns:cmd", None),
         "ghi": ("ai_assistant.commands.ghi.main:cmd", None),
         "uv-tool": ("ai_assistant.commands.uv_tool:cmd", None),
         "git-download": ("ai_assistant.commands.git_download:cmd", None),

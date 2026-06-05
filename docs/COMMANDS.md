@@ -19,6 +19,7 @@ $ ai-assistant [OPTIONS] COMMAND [ARGS]...
 * `aliyun-oss`: 阿里云 OSS 工具集
 * `bump-version`: 对当前目录的 pyproject.toml 的 project.version 加一。
 * `cf-tunnel-watcher`: 监听 Cloudflare Tunnel 连接状态变化并执行命令
+* `cloudflare-dns`: 管理 Cloudflare DNS 记录, 支持添加/修改 A 和 CNAME 记录
 * `cookies`: 从本地浏览器中提取指定域名的 Cookie。
 * `cursor-usage`: Get usage of Cursor.
 * `disable-ssl-verify`: 聚合命令：同时管理 httpx 和 requests 的 SSL verify 禁用补丁。
@@ -399,6 +400,101 @@ $ ai-assistant cf-tunnel-watcher watch [OPTIONS] RUN_CMD
 * `--run-on-start`: 启动时立即执行一次命令
 * `--run-on-unhealthy`: 仅在状态变为不健康时执行命令（默认任何状态变化都执行）
 * `-s, --sleep-after-run FLOAT RANGE`: 执行命令后等待时间（秒）  [default: 60; x&gt;=0]
+* `--help`: Show this message and exit.
+
+## `ai-assistant cloudflare-dns`
+
+**Usage**:
+
+```console
+$ ai-assistant cloudflare-dns [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `upsert`: 添加或修改 Cloudflare DNS 记录
+* `a`: 添加或修改 Cloudflare A 记录
+* `cname`: 添加或修改 Cloudflare CNAME 记录
+
+### `ai-assistant cloudflare-dns upsert`
+
+添加或修改 Cloudflare DNS 记录
+
+使用示例:
+- A 记录:     `ai-assistant cloudflare-dns upsert --type A -n nas.example.com -c 1.2.3.4`
+- CNAME 记录: `ai-assistant cloudflare-dns upsert --type CNAME -n www.example.com -c target.example.com`
+- 指定 zone:  `ai-assistant cloudflare-dns upsert --type A -n nas.example.com -c 1.2.3.4 -z example.com`
+
+**Usage**:
+
+```console
+$ ai-assistant cloudflare-dns upsert [OPTIONS]
+```
+
+**Options**:
+
+* `-T, --type [a|cname]`: 记录类型: A 或 CNAME  [required]
+* `-n, --name TEXT`: 记录名/FQDN, 如 nas.example.com  [required]
+* `-c, --content TEXT`: 记录内容: A 为 IPv4 地址, CNAME 为目标域名  [required]
+* `-t, --token TEXT`: Cloudflare API Token, 缺省读环境变量 CLOUDFLARE_API_TOKEN
+* `-z, --zone TEXT`: Cloudflare zone 名, 缺省按记录名自动匹配
+* `--ttl INTEGER`: DNS TTL, 1 表示 auto  [default: 1]
+* `--proxied / --no-proxied`: 是否经 Cloudflare 代理 (橙云)  [default: no-proxied]
+* `--dry-run`: 只打印将要执行的变更, 不真正调用 API
+* `--help`: Show this message and exit.
+
+### `ai-assistant cloudflare-dns a`
+
+添加或修改 Cloudflare A 记录
+
+使用示例:
+- `ai-assistant cloudflare-dns a -n nas.example.com -i 1.2.3.4`
+- `ai-assistant cloudflare-dns a -n nas.example.com -i 1.2.3.4 --proxied`
+
+**Usage**:
+
+```console
+$ ai-assistant cloudflare-dns a [OPTIONS]
+```
+
+**Options**:
+
+* `-n, --name TEXT`: A 记录名/FQDN, 如 nas.example.com  [required]
+* `-i, --ip TEXT`: IPv4 地址  [required]
+* `-t, --token TEXT`: Cloudflare API Token, 缺省读环境变量 CLOUDFLARE_API_TOKEN
+* `-z, --zone TEXT`: Cloudflare zone 名, 缺省按记录名自动匹配
+* `--ttl INTEGER`: DNS TTL, 1 表示 auto  [default: 1]
+* `--proxied / --no-proxied`: 是否经 Cloudflare 代理 (橙云)  [default: no-proxied]
+* `--dry-run`: 只打印将要执行的变更, 不真正调用 API
+* `--help`: Show this message and exit.
+
+### `ai-assistant cloudflare-dns cname`
+
+添加或修改 Cloudflare CNAME 记录
+
+使用示例:
+- `ai-assistant cloudflare-dns cname -n www.example.com -c target.example.com`
+- `ai-assistant cloudflare-dns cname -n www.example.com -c target.example.com --proxied`
+
+**Usage**:
+
+```console
+$ ai-assistant cloudflare-dns cname [OPTIONS]
+```
+
+**Options**:
+
+* `-n, --name TEXT`: CNAME 记录名/FQDN, 如 www.example.com  [required]
+* `-c, --target TEXT`: CNAME 目标域名, 如 target.example.com  [required]
+* `-t, --token TEXT`: Cloudflare API Token, 缺省读环境变量 CLOUDFLARE_API_TOKEN
+* `-z, --zone TEXT`: Cloudflare zone 名, 缺省按记录名自动匹配
+* `--ttl INTEGER`: DNS TTL, 1 表示 auto  [default: 1]
+* `--proxied / --no-proxied`: 是否经 Cloudflare 代理 (橙云)  [default: no-proxied]
+* `--dry-run`: 只打印将要执行的变更, 不真正调用 API
 * `--help`: Show this message and exit.
 
 ## `ai-assistant cookies`
