@@ -1,6 +1,6 @@
 [project]
 name = "ai-assistant"
-version = "0.3.4"
+version = "0.3.5"
 description = "Toolkit for ai usage."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -43,6 +43,7 @@ dev = [
 [project.scripts]
 ai-assistant = "ai_assistant.commands.main:cmd"
 ghi = "ai_assistant.commands.ghi.main:cmd"
+uv-tool = "ai_assistant.commands.uv_tool:cmd"
 
 [tool.hatch.build.targets.wheel]
 packages = ["ai_assistant"]
