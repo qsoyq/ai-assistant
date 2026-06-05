@@ -38,6 +38,7 @@ class _Root(LazyRootGroup):
         "lan-ddns": ("ai_assistant.commands.lan_ddns:cmd", None),
         "ghi": ("ai_assistant.commands.ghi.main:cmd", None),
         "uv-tool": ("ai_assistant.commands.uv_tool:cmd", None),
+        "git-download": ("ai_assistant.commands.git_download:cmd", None),
     }
 
 
