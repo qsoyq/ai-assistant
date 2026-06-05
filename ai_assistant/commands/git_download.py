@@ -22,10 +22,11 @@ helptext = """
 不依赖本地 git / gh 命令, 也不内置 git 客户端; 实现方式是下载 GitHub 分支 zip archive,
 再用 Python 标准库只解压 REMOTE_PATH 对应内容。
 
-默认不加前缀。目录下载时, 若指定 --prefix 或 --prefix-from, 会把前缀加到远程目录 basename 前:
-- tools-plugin/skills/jq-json-processing -> ./skills/jq-json-processing
-- --prefix-from owner                  -> ./skills/tw93-jq-json-processing
-- --prefix waza                        -> ./skills/waza-jq-json-processing
+默认不加前缀。目录下载时:
+- 直接子目录保存到 LOCAL_PATH 下; 前缀加到子目录名上:
+  skills/health -> ./skills/health, --prefix-from repo -> ./skills/waza-health
+- 顶层文件默认不下载: skills/RESOLVER.md 会被跳过
+- --top-files 可下载顶层文件; --prefix-top-files 可把顶层文件保存为 waza-RESOLVER.md
 
 使用示例:
 - ai-assistant git-download tw93/waza skills ./skills          # 未指定 --branch 时按 main -> master 探测
@@ -61,6 +62,9 @@ class DownloadPlan:
     is_file: bool
     source_prefix: str
     target_root: Path
+    prefix: str | None = None
+    include_top_files: bool = False
+    prefix_top_files: bool = False
     target_file: Path | None = None
 
 
@@ -168,9 +172,23 @@ def detect_remote_kind(members: list[ArchiveMember], remote_path: str) -> Litera
     raise FileNotFoundError(f"path not found in archive: {remote_path}")
 
 
-def build_plan(remote_path: str, local_path: Path, prefix: str | None, kind: Literal["file", "dir"]) -> DownloadPlan:
+def build_plan(
+    remote_path: str,
+    local_path: Path,
+    prefix: str | None,
+    kind: Literal["file", "dir"],
+    include_top_files: bool = False,
+    prefix_top_files: bool = False,
+) -> DownloadPlan:
     if kind == "dir":
-        return DownloadPlan(is_file=False, source_prefix=remote_path.rstrip("/") + "/", target_root=local_path / target_dir_name(remote_path, prefix))
+        return DownloadPlan(
+            is_file=False,
+            source_prefix=remote_path.rstrip("/") + "/",
+            target_root=local_path,
+            prefix=prefix,
+            include_top_files=include_top_files,
+            prefix_top_files=prefix_top_files,
+        )
 
     filename = PurePosixPath(remote_path).name
     target = local_path / filename if _looks_like_directory_target(local_path) else local_path
@@ -180,6 +198,22 @@ def build_plan(remote_path: str, local_path: Path, prefix: str | None, kind: Lit
 def _looks_like_directory_target(path: Path) -> bool:
     raw = str(path)
     return path.exists() and path.is_dir() or raw.endswith(("/", "\\"))
+
+
+def map_directory_member(rel: str, prefix: str | None, include_top_files: bool, prefix_top_files: bool) -> str | None:
+    path = PurePosixPath(rel)
+    parts = path.parts
+    if not parts:
+        return None
+    if len(parts) == 1:
+        if not include_top_files:
+            return None
+        if prefix and prefix_top_files:
+            return f"{prefix}-{parts[0]}"
+        return rel
+    if prefix:
+        return "/".join((f"{prefix}-{parts[0]}", *parts[1:]))
+    return rel
 
 
 def _safe_join(root: Path, rel: str) -> Path:
@@ -210,7 +244,10 @@ def extract_remote_path(zip_path: Path, plan: DownloadPlan) -> tuple[int, Path]:
                 dest_rel = rel[len(plan.source_prefix) :]
                 if not dest_rel:
                     continue
-                dest = _safe_join(plan.target_root, dest_rel)
+                mapped = map_directory_member(dest_rel, plan.prefix, plan.include_top_files, plan.prefix_top_files)
+                if mapped is None:
+                    continue
+                dest = _safe_join(plan.target_root, mapped)
 
             dest.parent.mkdir(parents=True, exist_ok=True)
             with zf.open(info) as src, dest.open("wb") as out:
@@ -226,7 +263,17 @@ def candidate_branches(branch: str | None) -> list[str]:
     return [branch] if branch else ["main", "master"]
 
 
-def download_path(repo_arg: str, remote_path_arg: str, local_path: Path, branch: str | None, prefix: str | None, prefix_from: PrefixFrom | None, token: str | None) -> tuple[int, Path, str]:
+def download_path(
+    repo_arg: str,
+    remote_path_arg: str,
+    local_path: Path,
+    branch: str | None,
+    prefix: str | None,
+    prefix_from: PrefixFrom | None,
+    token: str | None,
+    include_top_files: bool = False,
+    prefix_top_files: bool = False,
+) -> tuple[int, Path, str]:
     repo = parse_github_repo(repo_arg)
     remote_path = normalize_remote_path(remote_path_arg)
     actual_prefix = resolve_prefix(repo, prefix, prefix_from)
@@ -243,7 +290,7 @@ def download_path(repo_arg: str, remote_path_arg: str, local_path: Path, branch:
                 continue
             members = list_archive_members(zip_path)
             kind = detect_remote_kind(members, remote_path)
-            plan = build_plan(remote_path, local_path, actual_prefix, kind)
+            plan = build_plan(remote_path, local_path, actual_prefix, kind, include_top_files, prefix_top_files)
             count, target = extract_remote_path(zip_path, plan)
             return count, target, candidate
 
@@ -261,6 +308,8 @@ def main(
     branch: str | None = typer.Option(None, "--branch", "-b", help="远程分支名; 不指定时按 main -> master 顺序探测"),
     prefix: str | None = typer.Option(None, "--prefix", help="目录下载时给目标目录名加此前缀, 如 --prefix waza -> waza-think"),
     prefix_from: PrefixFrom | None = typer.Option(None, "--prefix-from", help="目录下载时从 repo 信息推导前缀: owner 或 repo。默认不加前缀"),
+    include_top_files: bool = typer.Option(False, "--top-files/--no-top-files", help="目录下载时是否包含 REMOTE_PATH 顶层文件, 默认不包含"),
+    prefix_top_files: bool = typer.Option(False, "--prefix-top-files/--no-prefix-top-files", help="目录下载时是否也给 REMOTE_PATH 顶层文件加前缀, 默认不加"),
     token: str | None = typer.Option(None, "--token", envvar="GITHUB_TOKEN", help="GitHub token, 可用于私有仓库或提高 rate limit; 默认读 GITHUB_TOKEN"),
 ) -> None:
     """Download REMOTE_PATH from a GitHub branch archive.
@@ -277,7 +326,7 @@ def main(
     if ctx.invoked_subcommand is not None:
         return
     try:
-        count, target, resolved_branch = download_path(repo, remote_path, local_path, branch, prefix, prefix_from, token)
+        count, target, resolved_branch = download_path(repo, remote_path, local_path, branch, prefix, prefix_from, token, include_top_files, prefix_top_files)
     except (RuntimeError, FileNotFoundError, zipfile.BadZipFile, typer.BadParameter) as exc:
         typer.echo(f"git-download failed: {exc}", err=True)
         raise typer.Exit(1) from exc
