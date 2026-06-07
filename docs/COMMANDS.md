@@ -416,9 +416,38 @@ $ ai-assistant cloudflare-dns [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
+* `list`: 列出/筛选 Cloudflare DNS 记录
 * `upsert`: 添加或修改 Cloudflare DNS 记录
 * `a`: 添加或修改 Cloudflare A 记录
 * `cname`: 添加或修改 Cloudflare CNAME 记录
+
+### `ai-assistant cloudflare-dns list`
+
+列出/筛选 Cloudflare DNS 记录
+
+使用示例:
+- 查询 A 记录:        `ai-assistant cloudflare-dns list -z example.com --type A`
+- 按记录值查询:      `ai-assistant cloudflare-dns list -z example.com --type A -c 1.2.3.4`
+- 删除筛选结果预览:  `ai-assistant cloudflare-dns list -z example.com --type CNAME --search old --delete --dry-run`
+- 删除筛选结果:      `ai-assistant cloudflare-dns list -z example.com --name old.example.com --delete`
+
+**Usage**:
+
+```console
+$ ai-assistant cloudflare-dns list [OPTIONS]
+```
+
+**Options**:
+
+* `-T, --type [a|cname]`: 按记录类型筛选: A 或 CNAME
+* `-n, --name TEXT`: 按记录名/FQDN 精确筛选
+* `-c, --content TEXT`: 按记录值/内容精确筛选, 如 A 的 IP 或 CNAME 目标
+* `-s, --search TEXT`: 在记录名或内容中做本地子串筛选
+* `-t, --token TEXT`: Cloudflare API Token, 缺省读环境变量 CLOUDFLARE_API_TOKEN
+* `-z, --zone TEXT`: Cloudflare zone 名, list 必须指定  [required]
+* `--delete`: 删除筛选出来的记录
+* `--dry-run`: 配合 --delete 时只打印将删除的记录, 不真正调用 API
+* `--help`: Show this message and exit.
 
 ### `ai-assistant cloudflare-dns upsert`
 
