@@ -71,6 +71,48 @@ uv run typer --app cmd ai_assistant.commands.main utils docs \
     --name ai-assistant --output docs/COMMANDS.md
 ```
 
+本地检查：
+
+```shell
+uv run pre-commit run --all-files
+uv run pytest -q
+uv build
+```
+
+## 构建与发布
+
+本项目使用 Hatchling 构建 wheel，版本号维护在 `pyproject.toml`。
+
+```shell
+uv build
+```
+
+发布前需要确认：
+
+- `uv run pre-commit run --all-files` 通过。
+- `uv run pytest -q` 通过。
+- `uv build` 能生成 wheel/sdist。
+- README、`docs/COMMANDS.md` 和版本号已按实际变更更新。
+
+发布到包仓库时使用仓库配置的凭据，不要把 token、密码或 `.pypirc` 提交到仓库。
+
+## 分支与协作
+
+仓库使用 GitHub Flow：
+
+- `main` 是默认分支，保持可发布状态。
+- 所有变更通过 issue 跟踪，并从 `main` 创建工作分支。
+- PR 必须说明关联 issue、影响范围、验证方式、风险和回滚方案。
+- `main` 分支保护期望见 `.github/settings.yml`；平台实际状态以 GitHub Branch Protection / Rulesets 为准。
+
+## 维护与安全
+
+当前维护人：@qsoyq。
+
+安全问题不要提交公开 issue。请按 `SECURITY.md` 进行私下报告，并在确认影响前避免公开复现细节。
+
+本地开发可以复制 `.env.example` 为 `.env`。`.env` 只用于本地，不能提交真实密钥、token、密码、证书或私钥。
+
 ### 推荐的渐进 mypy 严格化
 
 当前 `pyproject.toml` 的 mypy 配置较松（仅 `warn_return_any` + `warn_unused_configs`）。建议按下列顺序逐步提严：
