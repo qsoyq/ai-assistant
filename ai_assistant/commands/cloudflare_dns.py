@@ -1,8 +1,9 @@
+import sys
 from enum import Enum
 
 import httpx
-import rich
 import typer
+from rich.console import Console
 
 from ai_assistant.commands import make_typer
 from ai_assistant.settings import CloudflareSettings
@@ -26,7 +27,7 @@ class DnsRecordType(str, Enum):
 
 
 def _echo(msg: str) -> None:
-    rich.print(msg)
+    Console(file=sys.stdout, highlight=False, force_terminal=sys.stdout.isatty()).print(msg)
 
 
 def _cf_request(client: httpx.Client, method: str, path: str, **kwargs) -> dict:
