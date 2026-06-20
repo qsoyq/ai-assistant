@@ -23,6 +23,7 @@ class _Root(LazyRootGroup):
         "mcd": ("ai_assistant.commands.agent.mcd:cmd", "mcd"),
         "stash-log": ("ai_assistant.commands.stash_log:cmd", None),
         "handoff": ("ai_assistant.commands.handoff:cmd", None),
+        "httpx-rfc-cache": ("ai_assistant.commands.httpx_rfc_cache:cmd", None),
         "httpx-disable-verify": ("ai_assistant.commands.httpx_disable_verify:cmd", None),
         "requests-disable-verify": ("ai_assistant.commands.requests_disable_verify:cmd", None),
         "udp": ("ai_assistant.commands.udp:cmd", None),
