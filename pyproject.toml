@@ -7,7 +7,7 @@ requires-python = ">=3.10"
 dependencies = [
     "httpx[socks]>=0.28.1",
     "pydantic-settings>=2.14.2",
-    "requests>=2.32.5",
+    "requests>=2.34.2",
     "typer>=0.12",
     "watchfiles>=1.1.1",
     "xmltodict>=1.0.2",
