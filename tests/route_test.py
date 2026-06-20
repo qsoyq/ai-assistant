@@ -106,6 +106,33 @@ def test_cli_list_empty_state(tmp_path):
     assert "No managed routes found" in result.output
 
 
+def test_cli_delete_rejects_multiple_dest_matches_without_all_matching(tmp_path):
+    state_file = tmp_path / "routes.json"
+    store = route.RouteStore(state_file)
+    store.upsert(route.parse_route_spec("10.0.0.0/8", "192.168.1.1"))
+    store.upsert(route.parse_route_spec("10.0.0.0/8", "192.168.2.1"))
+
+    result = runner.invoke(route.cmd, ["delete", "--dest", "10.0.0.0/8", "--state-file", str(state_file)])
+
+    assert result.exit_code != 0
+    assert "multiple managed routes matched" in result.output
+    assert len(store.load()) == 2
+
+
+def test_cli_delete_all_matching_removes_multiple_managed_routes_from_state(tmp_path):
+    state_file = tmp_path / "routes.json"
+    store = route.RouteStore(state_file)
+    first = store.upsert(route.parse_route_spec("10.0.0.0/8", "192.168.1.1"))
+    second = store.upsert(route.parse_route_spec("10.0.0.0/8", "192.168.2.1"))
+
+    result = runner.invoke(route.cmd, ["delete", "--dest", "10.0.0.0/8", "--all-matching", "--force-state", "--state-file", str(state_file)])
+
+    assert result.exit_code == 0, result.output
+    assert first.id in result.output
+    assert second.id in result.output
+    assert store.load() == []
+
+
 @pytest.mark.skipif(sys.platform != "linux", reason="registration smoke uses installed command on CI host")
 def test_root_command_registers_route():
     from ai_assistant.commands.main import cmd as root_cmd

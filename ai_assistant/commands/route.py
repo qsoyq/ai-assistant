@@ -194,6 +194,13 @@ class RouteStore:
         self.save([route for route in routes if route.id != route_id])
         return target
 
+    def remove_many(self, route_ids: set[str]) -> list[ManagedRoute]:
+        routes = self.load()
+        removed = [route for route in routes if route.id in route_ids]
+        if removed:
+            self.save([route for route in routes if route.id not in route_ids])
+        return removed
+
 
 class RouteBackend:
     def __init__(self, platform: Platform | None = None) -> None:
@@ -381,8 +388,9 @@ def add(
 @cmd.command()
 def delete(
     route_id: str | None = typer.Argument(None, help="managed route ID, 可从 `ai-assistant route list` 获取。"),
-    dest: str | None = typer.Option(None, "--dest", help="按目标网段删除 managed route; 多条匹配时请改用 route ID。"),
+    dest: str | None = typer.Option(None, "--dest", help="按目标网段删除 managed route; 多条匹配时请改用 route ID 或显式加 --all-matching。"),
     gateway: str | None = typer.Option(None, "--gateway", help="和 --dest 一起精确匹配下一跳网关。"),
+    all_matching: bool = typer.Option(False, "--all-matching", help="当 --dest/--gateway 匹配多条 managed routes 时, 显式删除全部匹配项。"),
     unmanaged: bool = typer.Option(False, "--unmanaged", help="允许删除未记录在状态文件中的系统路由。危险选项, 必须同时提供 --dest 和 --gateway。"),
     force_state: bool = typer.Option(False, "--force-state", help="只清理状态文件中的 managed route, 不执行系统 delete。用于系统路由已手动删除的 stale 记录。"),
     dry_run: bool = typer.Option(False, "--dry-run", help="只打印将执行的平台命令, 不修改系统路由表或状态文件。"),
@@ -397,50 +405,65 @@ def delete(
     使用示例:
     - sudo ai-assistant route delete 7bb0e5a99a2c
     - sudo ai-assistant route delete --dest 10.0.0.0/8 --gateway 192.168.1.1
+    - sudo ai-assistant route delete --dest 10.0.0.0/8 --all-matching
     - ai-assistant route delete 7bb0e5a99a2c --force-state
     - sudo ai-assistant route delete --unmanaged --dest 10.0.0.0/8 --gateway 192.168.1.1
     """
+    if unmanaged and all_matching:
+        raise typer.BadParameter("--all-matching only applies to managed routes")
     store = RouteStore(_state_file_option(state_file))
     managed_routes = store.load()
-    route = _select_route_for_delete(managed_routes, route_id, dest, gateway)
+    routes = _select_routes_for_delete(managed_routes, route_id, dest, gateway, all_matching)
 
-    if route is None and not unmanaged:
+    if not routes and not unmanaged:
         rich.print("[red]No matching managed route found. Use --unmanaged with --dest and --gateway to delete an unmanaged system route.[/red]")
         raise typer.Exit(1)
 
-    if route is None:
+    if not routes:
         if dest is None or gateway is None:
             raise typer.BadParameter("--unmanaged requires --dest and --gateway")
-        spec = parse_route_spec(dest=dest, gateway=gateway)
+        routes_and_specs: list[tuple[ManagedRoute | None, RouteSpec]] = [(None, parse_route_spec(dest=dest, gateway=gateway))]
     else:
-        spec = route.spec
+        routes_and_specs = [(route, route.spec) for route in routes]
 
     backend = RouteBackend()
-    args = backend.delete_args(spec)
+    planned = [(route, spec, backend.delete_args(spec)) for route, spec in routes_and_specs]
     if dry_run:
-        rich.print(f"[cyan](dry-run)[/cyan] {shell_join(args)}")
+        for _route, _spec, args in planned:
+            rich.print(f"[cyan](dry-run)[/cyan] {shell_join(args)}")
         return
-    if not force_state:
-        result = backend.run(args)
-        if result.returncode != 0:
-            rich.print(f"[red]route delete failed:[/red] {result.stderr.strip() or result.stdout.strip()}")
-            raise typer.Exit(result.returncode)
-    if route is not None:
-        store.remove(route.id)
-        rich.print(f"[green]removed managed route[/green] {route.id}: {route.dest} via {route.gateway}")
-    else:
-        rich.print(f"[green]deleted unmanaged system route[/green] {spec.dest} via {spec.gateway}")
+
+    removed_ids: set[str] = set()
+    for route, spec, args in planned:
+        if force_state and route is None:
+            raise typer.BadParameter("--force-state only applies to managed routes")
+        if not force_state:
+            result = backend.run(args)
+            if result.returncode != 0:
+                rich.print(f"[red]route delete failed:[/red] {result.stderr.strip() or result.stdout.strip()}")
+                raise typer.Exit(result.returncode)
+        if route is None:
+            rich.print(f"[green]deleted unmanaged system route[/green] {spec.dest} via {spec.gateway}")
+        else:
+            removed_ids.add(route.id)
+            rich.print(f"[green]removed managed route[/green] {route.id}: {route.dest} via {route.gateway}")
+    if removed_ids:
+        store.remove_many(removed_ids)
 
 
-def _select_route_for_delete(routes: list[ManagedRoute], route_id: str | None, dest: str | None, gateway: str | None) -> ManagedRoute | None:
+def _select_routes_for_delete(routes: list[ManagedRoute], route_id: str | None, dest: str | None, gateway: str | None, all_matching: bool) -> list[ManagedRoute]:
     if route_id:
-        return next((route for route in routes if route.id == route_id), None)
+        if all_matching:
+            raise typer.BadParameter("--all-matching cannot be used with route ID")
+        return [route] if (route := next((route for route in routes if route.id == route_id), None)) else []
     if dest is None:
-        return None
-    matches = [route for route in routes if route.dest == str(ipaddress.ip_network(dest, strict=False)) and (gateway is None or route.gateway == str(ipaddress.ip_address(gateway)))]
-    if len(matches) > 1:
-        raise typer.BadParameter("multiple managed routes matched; delete by route ID instead")
-    return matches[0] if matches else None
+        return []
+    target_dest = str(ipaddress.ip_network(dest, strict=False))
+    target_gateway = str(ipaddress.ip_address(gateway)) if gateway is not None else None
+    matches = [route for route in routes if route.dest == target_dest and (target_gateway is None or route.gateway == target_gateway)]
+    if len(matches) > 1 and not all_matching:
+        raise typer.BadParameter("multiple managed routes matched; delete by route ID or pass --all-matching")
+    return matches
 
 
 @cmd.command()
