@@ -10,7 +10,7 @@ import shlex
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 
@@ -179,7 +179,7 @@ class RouteStore:
             interface=spec.interface,
             metric=spec.metric,
             family=spec.family,
-            created_at=datetime.now(UTC).isoformat(timespec="seconds"),
+            created_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
         )
         routes = [item for item in self.load() if item.id != route.id]
         routes.append(route)
