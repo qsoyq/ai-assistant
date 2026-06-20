@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 20
     strategy:
       matrix:
-        python-version: ["3.10", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v7
 
@@ -27,11 +27,11 @@ jobs:
       - name: Set up Python ${{ matrix.python-version }}
         run: uv python install ${{ matrix.python-version }}
 
-      - name: Install all extras + dev group
-        run: uv sync --all-extras --group dev
+      - name: Install dev group
+        run: uv sync --group dev --no-install-project
 
-      - name: Run pytest
-        run: uv run pytest -q
+      - name: Run tox
+        run: uv run tox -e ${{ matrix.python-version }}
 
   lint:
     runs-on: ubuntu-latest
