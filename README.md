@@ -32,6 +32,7 @@ uvx 'ai-assistant[mcd]' ai-assistant mcd quickstart
 | `docker` | `docker` | `docker` SDK |
 | `cookies` | `cookies` | `browser-cookie3` |
 | `cursor` | `cursor-usage` | `matplotlib` + `pandas` |
+| `telegram` | `tg-bot-click` | `telethon` |
 | `all` | 全部 | 上述并集 |
 
 ## ⚠️ 安全提示

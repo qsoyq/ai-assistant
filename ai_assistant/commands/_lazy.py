@@ -12,7 +12,7 @@ from typing import Any
 import typer
 from typer.core import TyperGroup
 
-LazyEntry = tuple[str, str | None]
+LazyEntry = tuple[str, str | None] | tuple[str, str | None, str]
 
 
 def print_extras_hint(*, command_label: str, entry_invocation: str, extra: str, exc: BaseException) -> None:
@@ -100,10 +100,16 @@ class LazySubGroup(TyperGroup):
         return self._real
 
     def list_commands(self, ctx):
-        return self._resolve().list_commands(ctx)
+        resolved = self._resolve()
+        if not hasattr(resolved, "list_commands"):
+            return []
+        return resolved.list_commands(ctx)
 
     def get_command(self, ctx, cmd_name):
-        return self._resolve().get_command(ctx, cmd_name)
+        resolved = self._resolve()
+        if not hasattr(resolved, "get_command"):
+            return None
+        return resolved.get_command(ctx, cmd_name)
 
     def make_context(self, info_name, args, parent=None, **extra):
         return self._resolve().make_context(info_name, args, parent=parent, **extra)
@@ -132,7 +138,24 @@ class LazyRootGroup(TyperGroup):
         entry = self.lazy_subcommands.get(cmd_name)
         if entry is None:
             return super().get_command(ctx, cmd_name)
-        import_path, extra = entry
+        import_path, extra = entry[:2]
+        kind = entry[2] if len(entry) > 2 else "group"
+        if kind == "command":
+            mod_path, attr = import_path.split(":", 1)
+            try:
+                mod = importlib.import_module(mod_path)
+            except ModuleNotFoundError as exc:
+                if extra is None:
+                    raise
+                print_extras_hint(
+                    command_label=cmd_name,
+                    entry_invocation=f"ai-assistant {cmd_name}",
+                    extra=extra,
+                    exc=exc,
+                )
+                raise typer.Exit(code=1) from exc
+            target = getattr(mod, attr)
+            return typer.main.get_command(target) if isinstance(target, typer.Typer) else target
         return LazySubGroup(
             name=cmd_name,
             short_help=_extract_short_help(import_path),
