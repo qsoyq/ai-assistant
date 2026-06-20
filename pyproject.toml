@@ -7,7 +7,7 @@ requires-python = ">=3.10"
 dependencies = [
     "httpx[socks]>=0.28.1",
     "pydantic-settings>=2.14.2",
-    "requests>=2.32.5",
+    "requests>=2.34.2",
     "typer>=0.12",
     "watchfiles>=1.1.1",
     "xmltodict>=1.0.2",
@@ -33,7 +33,7 @@ all = ["ai-assistant[mcd,oss,freshrss,docker,cookies,cursor]"]
 [dependency-groups]
 dev = [
     "pre-commit>=4.5.1",
-    "pytest>=8.0",
+    "pytest>=9.1.1",
     "mypy>=1.19",
     "pandas-stubs>=2.3.3.260113",
     "types-requests",
