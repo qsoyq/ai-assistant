@@ -28,9 +28,11 @@ $ ai-assistant [OPTIONS] COMMAND [ARGS]...
 * `file-change-runner`: 监听文件变化并执行命令
 * `freshrss`: FreshRSS 工具集.
 * `ghi`: A Wrapper for github cli (https://cli.github.com/).
+* `git-download`: 从 GitHub 仓库的某个分支下载单个文件或目录到本地路径。
 * `greader`: Google Reader API 客户端工具
 * `handoff`: macOS Handoff 操作工具
 * `httpx-disable-verify`: 通过 site-packages 下的 .pth 文件，对当前 Python 解释器全局禁用 httpx 的 SSL verify。
+* `httpx-rfc-cache`: 通过 site-packages 下的 .pth 文件，为指定 Python 解释器全局启用 httpx 的 RFC 9111 HTTP cache。
 * `lan-ddns`: 根据局域网设备的 MAC 地址定位其 IP, 并更新 Cloudflare 上的 A 记录 (DDNS)
 * `mcd`: 基于 OpenAI Responses API 的 mcp-mcd 工具
 * `mcp-cli`: MCP Client
@@ -1189,6 +1191,18 @@ $ ai-assistant ghi release delete [OPTIONS]
 * `--delete-tag / --no-delete-tag`: Also delete the local and remote git tag  [default: delete-tag]
 * `--help`: Show this message and exit.
 
+## `ai-assistant git-download`
+
+**Usage**:
+
+```console
+$ ai-assistant git-download [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
 ## `ai-assistant greader`
 
 **Usage**:
@@ -1618,6 +1632,90 @@ $ ai-assistant httpx-disable-verify status [OPTIONS]
 **Options**:
 
 * `-t, --target DIRECTORY`: 自定义 .pth 所在目录，默认使用 site.getsitepackages()[0]
+* `--help`: Show this message and exit.
+
+## `ai-assistant httpx-rfc-cache`
+
+**Usage**:
+
+```console
+$ ai-assistant httpx-rfc-cache [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `install`: 将 RFC HTTP cache .pth 补丁安装到目标解释器的...
+* `uninstall`: 移除 site-packages 下的 RFC HTTP cache .pth 补丁。
+* `status`: 查看 RFC HTTP cache .pth 补丁是否已安装及其内容。
+
+### `ai-assistant httpx-rfc-cache install`
+
+将 RFC HTTP cache .pth 补丁安装到目标解释器的 site-packages。
+
+Usage examples::
+
+    ai-assistant httpx-rfc-cache install
+    ai-assistant httpx-rfc-cache install --python .venv/bin/python --yes
+    ai-assistant httpx-rfc-cache install --target ./custom-site-packages --yes
+
+**Usage**:
+
+```console
+$ ai-assistant httpx-rfc-cache install [OPTIONS]
+```
+
+**Options**:
+
+* `-t, --target DIRECTORY`: 自定义 .pth 写入目录；未指定时查询 --python 对应的 site-packages
+* `-p, --python FILE`: 目标 Python 解释器路径，默认使用当前解释器
+* `-y, --yes`: 跳过确认提示直接写入
+* `--help`: Show this message and exit.
+
+### `ai-assistant httpx-rfc-cache uninstall`
+
+移除 site-packages 下的 RFC HTTP cache .pth 补丁。
+
+Usage examples::
+
+    ai-assistant httpx-rfc-cache uninstall
+    ai-assistant httpx-rfc-cache uninstall --python .venv/bin/python --quiet
+
+**Usage**:
+
+```console
+$ ai-assistant httpx-rfc-cache uninstall [OPTIONS]
+```
+
+**Options**:
+
+* `-t, --target DIRECTORY`: 自定义 .pth 所在目录；未指定时查询 --python 对应的 site-packages
+* `-p, --python FILE`: 目标 Python 解释器路径，默认使用当前解释器
+* `-q, --quiet`: 文件不存在时静默退出 0
+* `--help`: Show this message and exit.
+
+### `ai-assistant httpx-rfc-cache status`
+
+查看 RFC HTTP cache .pth 补丁是否已安装及其内容。
+
+Usage examples::
+
+    ai-assistant httpx-rfc-cache status
+    ai-assistant httpx-rfc-cache status --python .venv/bin/python
+
+**Usage**:
+
+```console
+$ ai-assistant httpx-rfc-cache status [OPTIONS]
+```
+
+**Options**:
+
+* `-t, --target DIRECTORY`: 自定义 .pth 所在目录；未指定时查询 --python 对应的 site-packages
+* `-p, --python FILE`: 目标 Python 解释器路径，默认使用当前解释器
 * `--help`: Show this message and exit.
 
 ## `ai-assistant lan-ddns`

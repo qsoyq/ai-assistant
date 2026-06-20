@@ -1,6 +1,6 @@
 # ai-assistant
 
-个人开发用的 CLI 工具集，一个二进制 + 21 个子命令，覆盖 SSL/网络/存储/RSS/容器/macOS 自动化等日常碎片任务。
+个人开发用的 CLI 工具集，一个二进制 + 22 个子命令，覆盖 SSL/网络/存储/RSS/容器/macOS 自动化等日常碎片任务。
 
 完整命令参考见 [docs/COMMANDS.md](docs/COMMANDS.md)（typer 自动生成，递归覆盖每个 Argument/Option/env var）。
 
@@ -43,6 +43,16 @@ uvx 'ai-assistant[mcd]' ai-assistant mcd quickstart
 - **不要在生产环境使用**——任何 MITM 都会无声放行。
 - 仅适合本地调试受信网络中的自签名证书 / 代理抓包等场景。
 - 卸载方式：`ai-assistant disable-ssl-verify uninstall`。
+
+### `httpx-rfc-cache`
+
+这个命令通过 `.pth` 文件**对目标 Python 解释器环境内的所有 Python 进程**启用 `httpx` 的 RFC 9111 HTTP cache transport。它使用 Hishel 包装 `httpx` 默认 transport，显式传入的自定义 transport 不会被覆盖。
+
+- 默认遵循 HTTP cache 标准语义，不会把所有响应无条件缓存。
+- 安装前需确保目标解释器能导入 `httpx` 和 `hishel.httpx`。
+- 安装示例：`ai-assistant httpx-rfc-cache install --python .venv/bin/python --yes`。
+- 临时关闭：`AI_ASSISTANT_HTTPX_RFC_CACHE_DISABLE=1`。
+- 卸载方式：`ai-assistant httpx-rfc-cache uninstall --python .venv/bin/python`。
 
 ### `reality build` 自动安装 xray
 

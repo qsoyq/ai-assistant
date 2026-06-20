@@ -1,10 +1,10 @@
-import site
 import sys
 from pathlib import Path
 
 import typer
 
 from ai_assistant.commands import make_typer
+from ai_assistant.commands._pth_patch import build_pth_content, resolve_target_dir
 
 helptext = """
 通过 site-packages 下的 .pth 文件，对当前 Python 解释器全局禁用 requests 的 SSL verify。
@@ -56,32 +56,11 @@ _PATCH_BODY = (
 
 
 def _build_pth_content() -> str:
-    payload = repr(_PATCH_BODY)
-    return f"import os; exec({payload})\n"
+    return build_pth_content(_PATCH_BODY)
 
 
 def _resolve_target_dir(target: Path | None) -> Path:
-    if target is not None:
-        resolved = target.expanduser().resolve()
-        if not resolved.exists():
-            raise typer.BadParameter(f"目标目录不存在: {resolved}")
-        if not resolved.is_dir():
-            raise typer.BadParameter(f"目标路径不是目录: {resolved}")
-        return resolved
-
-    candidates: list[str] = []
-    try:
-        candidates.extend(site.getsitepackages())
-    except AttributeError:
-        pass
-    user_site = site.getusersitepackages()
-    if user_site:
-        candidates.append(user_site)
-
-    if not candidates:
-        raise typer.BadParameter("无法确定 site-packages 路径，请通过 --target 显式指定")
-
-    return Path(candidates[0])
+    return resolve_target_dir(target)
 
 
 @cmd.command()
