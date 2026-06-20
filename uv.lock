@@ -97,7 +97,7 @@ requires-dist = [
     { name = "oss2", marker = "extra == 'oss'", specifier = ">=2.18.0" },
     { name = "pandas", marker = "extra == 'cursor'", specifier = ">=2.3.3" },
     { name = "psutil", specifier = ">=5.9" },
-    { name = "psycopg", extras = ["binary"], marker = "extra == 'freshrss'", specifier = ">=3.3.3" },
+    { name = "psycopg", extras = ["binary"], marker = "extra == 'freshrss'", specifier = ">=3.3.4" },
     { name = "pydantic-settings", specifier = ">=2.14.2" },
     { name = "pymysql", marker = "extra == 'freshrss'", specifier = ">=1.1.2" },
     { name = "pyobjc-framework-applicationservices", marker = "sys_platform == 'darwin'", specifier = ">=10.3" },
