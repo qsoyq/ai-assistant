@@ -30,6 +30,7 @@ class _Root(LazyRootGroup):
         "aliyun-oss": ("ai_assistant.commands.aliyun_oss:cmd", "oss"),
         "reality": ("ai_assistant.commands.reality:cmd", None),
         "realm": ("ai_assistant.commands.realm:cmd", None),
+        "route": ("ai_assistant.commands.route:cmd", None),
         "disable-ssl-verify": ("ai_assistant.commands.disable_ssl_verify:cmd", None),
         "bump-version": ("ai_assistant.commands.bump_version:cmd", None),
         "pypi-mirror": ("ai_assistant.commands.pypi_mirror:cmd", None),

@@ -42,6 +42,7 @@ $ ai-assistant [OPTIONS] COMMAND [ARGS]...
 * `reality`: 基于 Xray REALITY 协议生成服务端与客户端配置, 可选自动安装 xray 并启用 systemd 服务。
 * `realm`: 生成、查看、校验、安装 realm (https://github.com/zhboner/realm) TCP/UDP 中继。
 * `requests-disable-verify`: 通过 site-packages 下的 .pth 文件，对当前 Python 解释器全局禁用 requests 的 SSL verify。
+* `route`: 跨平台运行时路由管理工具。
 * `similar-questions`: Generate N similar questions by input query.
 * `ssl`: 生成和管理 SSL 证书
 * `stash-log`: Stash 抓包日志解析工具
@@ -2255,6 +2256,141 @@ $ ai-assistant requests-disable-verify status [OPTIONS]
 **Options**:
 
 * `-t, --target DIRECTORY`: 自定义 .pth 所在目录，默认使用 site.getsitepackages()[0]
+* `--help`: Show this message and exit.
+
+## `ai-assistant route`
+
+**Usage**:
+
+```console
+$ ai-assistant route [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `list`: 列出本工具管理的路由, 并尽量校验当前系统状态。
+* `add`: 添加一条运行时 managed route。
+* `delete`: 删除一条 managed route。
+* `query`: 查询某个 IP 当前实际匹配的系统路由。
+
+### `ai-assistant route list`
+
+列出本工具管理的路由, 并尽量校验当前系统状态。
+
+默认只读取本工具状态文件里的 managed routes。系统路由表通常无法说明一条
+路由是谁添加的, 因此本命令不会把 VPN、Docker、DHCP、MDM 或其他工具添加的
+路由误报为 managed route。
+
+使用示例:
+- ai-assistant route list
+- ai-assistant route list --state-file ./routes.json
+- ai-assistant route list --all-system
+
+**Usage**:
+
+```console
+$ ai-assistant route list [OPTIONS]
+```
+
+**Options**:
+
+* `--all-system`: 显示系统原始路由表。注意: 这不是 managed route 列表, 不能据此判断哪些是自定义路由。
+* `--state-file PATH`: managed route JSON 状态文件路径; 默认使用 AI_ASSISTANT_ROUTE_STATE 或用户 state 目录。
+* `--help`: Show this message and exit.
+
+### `ai-assistant route add`
+
+添加一条运行时 managed route。
+
+add 成功后会写入本工具状态文件, 后续 list/delete 默认只管理这些记录。
+本命令通常需要管理员权限: macOS/Linux 建议用 sudo 运行, Windows 需要管理员
+PowerShell/CMD。
+
+使用示例:
+- sudo ai-assistant route add --dest 10.0.0.0/8 --gateway 192.168.1.1
+- sudo ai-assistant route add --dest 10.20.0.0/16 --gateway 192.168.1.1 --interface en0 --metric 20
+- ai-assistant route add --dest 10.0.0.0/8 --gateway 192.168.1.1 --dry-run
+
+**Usage**:
+
+```console
+$ ai-assistant route add [OPTIONS]
+```
+
+**Options**:
+
+* `--dest TEXT`: 目标网段 CIDR, 如 10.0.0.0/8 或 2001:db8::/32。必须包含前缀长度。  [required]
+* `--gateway TEXT`: 下一跳网关 IP, 必须和 --dest 使用同一地址族。  [required]
+* `-i, --interface TEXT`: 可选出口网卡名/接口别名, 如 macOS en0、Linux eth0、Windows Ethernet。
+* `--metric INTEGER`: 可选路由 metric/优先级。不同平台语义略有差异。
+* `--dry-run`: 只打印将执行的平台命令, 不修改系统路由表, 也不写状态文件。
+* `--state-file PATH`: managed route JSON 状态文件路径。
+* `--help`: Show this message and exit.
+
+### `ai-assistant route delete`
+
+删除一条 managed route。
+
+默认只删除本工具状态文件里存在的 managed route, 避免误删 VPN、Docker、公司
+MDM 或其他工具添加的系统路由。确实要删除 unmanaged route 时必须显式使用
+--unmanaged --dest ... --gateway ...。
+
+使用示例:
+- sudo ai-assistant route delete 7bb0e5a99a2c
+- sudo ai-assistant route delete --dest 10.0.0.0/8 --gateway 192.168.1.1
+- ai-assistant route delete 7bb0e5a99a2c --force-state
+- sudo ai-assistant route delete --unmanaged --dest 10.0.0.0/8 --gateway 192.168.1.1
+
+**Usage**:
+
+```console
+$ ai-assistant route delete [OPTIONS] [ROUTE_ID]
+```
+
+**Arguments**:
+
+* `[ROUTE_ID]`: managed route ID, 可从 `ai-assistant route list` 获取。
+
+**Options**:
+
+* `--dest TEXT`: 按目标网段删除 managed route; 多条匹配时请改用 route ID。
+* `--gateway TEXT`: 和 --dest 一起精确匹配下一跳网关。
+* `--unmanaged`: 允许删除未记录在状态文件中的系统路由。危险选项, 必须同时提供 --dest 和 --gateway。
+* `--force-state`: 只清理状态文件中的 managed route, 不执行系统 delete。用于系统路由已手动删除的 stale 记录。
+* `--dry-run`: 只打印将执行的平台命令, 不修改系统路由表或状态文件。
+* `--state-file PATH`: managed route JSON 状态文件路径。
+* `--help`: Show this message and exit.
+
+### `ai-assistant route query`
+
+查询某个 IP 当前实际匹配的系统路由。
+
+本命令委托系统自己的路由决策查询能力, 不在 Python 里重新实现 longest-prefix
+match。Linux 使用 `ip route get`, macOS 使用 `route -n get`, Windows 使用
+`Find-NetRoute`。
+
+使用示例:
+- ai-assistant route query 8.8.8.8
+- ai-assistant route query 10.1.2.3
+- ai-assistant route query 2001:4860:4860::8888
+
+**Usage**:
+
+```console
+$ ai-assistant route query [OPTIONS] IP
+```
+
+**Arguments**:
+
+* `IP`: 要查询的目标 IP, 如 8.8.8.8 或 2001:4860:4860::8888。  [required]
+
+**Options**:
+
+* `--state-file PATH`: managed route JSON 状态文件路径; 用于提示该 IP 是否落入某条 managed route 的目标网段。
 * `--help`: Show this message and exit.
 
 ## `ai-assistant similar-questions`
