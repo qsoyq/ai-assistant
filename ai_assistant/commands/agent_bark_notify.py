@@ -54,6 +54,8 @@ MAX_MESSAGE_LENGTH = 80
 DEFAULT_SUMMARY_MAX_CHARS = 120
 MAX_TRANSCRIPT_BYTES = 1024 * 1024
 DEDUP_TTL_SECONDS = 60 * 60
+TITLE_TEMPLATE_ENV = "AI_ASSISTANT_AGENT_BARK_NOTIFY_TITLE_TEMPLATE"
+DEFAULT_TITLE_TEMPLATE = "[{agent}] [{event}] [{project}]"
 AUDIT_LOG_ENV = "AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG"
 AUDIT_LOG_FILE_ENV = "AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE"
 DEFAULT_AUDIT_LOG_PATH = Path("~/.ai-assistant/agent-bark-notify.log")
@@ -150,7 +152,25 @@ def detect_event(event: Event, payload: dict[str, Any]) -> str | None:
 
 
 def project_name(payload: dict[str, Any], cwd: Path | None = None) -> str:
+    for key in ("project_name", "workspace_name", "repository", "repo", "name"):
+        raw_name = payload.get(key)
+        if isinstance(raw_name, str) and raw_name.strip():
+            return raw_name.strip()
+
+    env = os.environ
+    for key in ("AI_ASSISTANT_AGENT_BARK_NOTIFY_PROJECT_NAME", "CODEX_WORKSPACE_NAME", "CODEX_PROJECT_NAME", "LODY_WORKSPACE_NAME", "LODY_PROJECT_NAME"):
+        raw_name = env.get(key)
+        if raw_name and raw_name.strip():
+            return raw_name.strip()
+
     raw = payload.get("cwd") or payload.get("workspace") or payload.get("project_path")
+    if isinstance(raw, str) and raw:
+        return Path(raw).name
+    return (cwd or Path.cwd()).name
+
+
+def cwd_basename(payload: dict[str, Any], cwd: Path | None = None) -> str:
+    raw = payload.get("cwd")
     if isinstance(raw, str) and raw:
         return Path(raw).name
     return (cwd or Path.cwd()).name
@@ -166,6 +186,27 @@ def safe_message(event: str, message: str | None) -> str:
 
 def event_label(event: str) -> str:
     return EVENT_LABELS.get(event, "Update")
+
+
+class _SafeTitleVars(dict[str, str]):
+    def __missing__(self, key: str) -> str:
+        return "{" + key + "}"
+
+
+def notification_title(*, runtime: str, identity: AgentIdentity, event: str, payload: dict[str, Any], env: dict[str, str], cwd: Path | None = None) -> str:
+    template = env.get(TITLE_TEMPLATE_ENV, "").strip() or DEFAULT_TITLE_TEMPLATE
+    values = _SafeTitleVars(
+        agent=identity.name,
+        event=event_label(event),
+        project=project_name(payload, cwd),
+        runtime=runtime,
+        cwd_basename=cwd_basename(payload, cwd),
+    )
+    try:
+        title = template.format_map(values)
+    except ValueError:
+        title = DEFAULT_TITLE_TEMPLATE.format_map(values)
+    return " ".join(title.split()) or DEFAULT_TITLE_TEMPLATE.format_map(values)
 
 
 def _strip_url_query(value: str) -> str:
@@ -414,6 +455,16 @@ def _safe_tool_detail(tool_input: dict[str, Any]) -> str | None:
     return None
 
 
+def _approval_tool_summary(tool_name: str | None, detail: str | None, max_chars: int) -> str | None:
+    if not tool_name and not detail:
+        return None
+    if tool_name and detail:
+        return clean_summary_text(f"{tool_name} 需要审批：{detail}", max_chars)
+    if tool_name:
+        return clean_summary_text(f"{tool_name} 需要审批", max_chars)
+    return clean_summary_text(f"需要审批：{detail}", max_chars)
+
+
 def extract_summary(runtime: str, event: str, payload: dict[str, Any], max_chars: int) -> str | None:
     if event == "completion":
         for candidate in (
@@ -432,10 +483,9 @@ def extract_summary(runtime: str, event: str, payload: dict[str, Any], max_chars
             return description
         tool_name = _extract_text(payload.get("tool_name"))
         detail = _safe_tool_detail(tool_input)
-        if tool_name and detail:
-            summary = clean_summary_text(f"{tool_name}: {detail}", max_chars)
-            if summary:
-                return summary
+        summary = _approval_tool_summary(tool_name, detail, max_chars)
+        if summary:
+            return summary
         message = clean_summary_text(_extract_text(payload.get("message")), max_chars)
         if message:
             return message
@@ -496,7 +546,7 @@ def build_notification(
 
     identity = identity_for_runtime(runtime, env)
     body = safe_message(event, message)
-    title = f"[{identity.name}] [{event_label(event)}] [{project_name(payload, cwd)}]"
+    title = notification_title(runtime=runtime, identity=identity, event=event, payload=payload, env=env, cwd=cwd)
     bark_server = env.get("BARK_SERVER") or "https://api.day.app"
     dedupe_key = build_dedupe_key(runtime, event, payload, body)
     return Notification(
