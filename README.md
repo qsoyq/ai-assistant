@@ -77,7 +77,7 @@ ai-assistant agent-bark-notify hook --runtime codex --event completion --dry-run
 
 本地 dry-run 验证显示：通过 shell 启动的 Codex hook 命令可以读取命令环境里的 `AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG` 和 `AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE`。Claude Code hook 命令同样继承父进程环境。若从 GUI 或其他不继承 shell 环境的启动方式运行 agent，建议把审计环境变量写在 hook command、包装脚本或 agent 启动环境中。
 
-通知标题默认格式是 `[{agent}] [{event}] [{project}]`。可通过 `AI_ASSISTANT_AGENT_BARK_NOTIFY_TITLE_TEMPLATE` 覆盖，支持 `{agent}`、`{event}`、`{project}`、`{runtime}`、`{cwd_basename}`。项目名会优先使用 hook payload 里的 `project_name`、`workspace_name`、`repository`、`repo`、`name`，其次使用 `AI_ASSISTANT_AGENT_BARK_NOTIFY_PROJECT_NAME`、`CODEX_WORKSPACE_NAME`、`CODEX_PROJECT_NAME`、`LODY_WORKSPACE_NAME`、`LODY_PROJECT_NAME`，最后回退到 `cwd` / `workspace` / `project_path` 的目录名。
+通知标题默认格式是 `[{agent}][{event}][{project}][{branch}][{session}]`，不存在的部分会直接省略。可通过 `AI_ASSISTANT_AGENT_BARK_NOTIFY_TITLE_TEMPLATE` 覆盖，支持 `{agent}`、`{event}`、`{project}`、`{branch}`、`{session}`、`{runtime}`、`{cwd_basename}`。项目名会优先使用 hook payload 里的 `project_name`、`workspace_name`、`repository`、`repo`、`name`，其次使用 `AI_ASSISTANT_AGENT_BARK_NOTIFY_PROJECT_NAME`、`CODEX_WORKSPACE_NAME`、`CODEX_PROJECT_NAME`、`LODY_WORKSPACE_NAME`、`LODY_PROJECT_NAME`，最后回退到 `cwd` / `workspace` / `project_path` 的目录名。分支名会优先使用 hook payload / 环境变量中的分支字段，最后基于项目目录执行只读 `git branch --show-current` 探测。
 
 ## 开发
 

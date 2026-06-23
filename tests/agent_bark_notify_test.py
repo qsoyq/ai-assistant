@@ -25,13 +25,20 @@ def _clear_agent_env(monkeypatch):
         "BARK_SERVER",
         "AI_ASSISTANT_AGENT_BARK_NOTIFY_TITLE_TEMPLATE",
         "AI_ASSISTANT_AGENT_BARK_NOTIFY_PROJECT_NAME",
+        "AI_ASSISTANT_AGENT_BARK_NOTIFY_BRANCH_NAME",
+        "AI_ASSISTANT_AGENT_BARK_NOTIFY_SESSION_NAME",
         "AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR",
         "AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG",
         "AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE",
         "CODEX_WORKSPACE_NAME",
         "CODEX_PROJECT_NAME",
+        "CODEX_BRANCH_NAME",
+        "CODEX_SESSION_NAME",
         "LODY_WORKSPACE_NAME",
         "LODY_PROJECT_NAME",
+        "LODY_SESSION_NAME",
+        "GIT_BRANCH",
+        "BRANCH_NAME",
     ):
         monkeypatch.delenv(key, raising=False)
 
@@ -96,7 +103,7 @@ def test_dry_run_prints_notification(monkeypatch, tmp_path):
 
     assert result.exit_code == 0
     body = json.loads(result.output)
-    assert body["title"] == "[Codex] [Done] [demo-project]"
+    assert body["title"] == "[Codex][Done][demo-project]"
     assert body["body"] == "done"
     assert body["group"] == "agents"
     assert body["url"] == "https://api.day.app/device-key"
@@ -122,7 +129,7 @@ def test_audit_log_records_sent_metadata_without_secrets(monkeypatch, tmp_path):
     record = records[0]
     assert record["status"] == "sent"
     assert record["project"] == "demo-project"
-    assert record["title"] == "[Codex] [Done] [demo-project]"
+    assert record["title"] == "[Codex][Done][demo-project]"
     assert record["body_len"] == len("done with token=secret")
     assert record["dedupe_key_hash"]
     raw_record = json.dumps(record)
@@ -154,7 +161,7 @@ def test_send_bark_posts_form_with_group(monkeypatch, tmp_path):
     assert len(calls) == 1
     assert str(calls[0].url) == "https://api.day.app/device-key"
     form = calls[0].content.decode()
-    assert "title=%5BCodex%5D+%5BApproval%5D+%5Bdemo-project%5D" in form
+    assert "title=%5BCodex%5D%5BApproval%5D%5Bdemo-project%5D" in form
     assert "body=%E9%9C%80%E8%A6%81%E4%BD%A0%E5%AE%A1%E6%89%B9%E5%BD%93%E5%89%8D%E6%93%8D%E4%BD%9C" in form
     assert "group=agents" in form
 
@@ -254,7 +261,7 @@ def test_auto_event_maps_permission_request(monkeypatch, tmp_path):
 
     assert result.exit_code == 0
     body = json.loads(result.output)
-    assert body["title"] == "[Claude Code] [Approval] [demo-project]"
+    assert body["title"] == "[Claude Code][Approval][demo-project]"
     assert body["body"] == "需要你审批当前操作"
 
 
@@ -267,27 +274,27 @@ def test_titles_include_normalized_event_for_codex_and_claude(monkeypatch, tmp_p
         (
             ["hook", "--runtime", "codex", "--event", "completion", "--dry-run"],
             {"cwd": "/tmp/demo-project", "session_id": "codex-done"},
-            "[Codex] [Done] [demo-project]",
+            "[Codex][Done][demo-project]",
         ),
         (
             ["hook", "--runtime", "codex", "--event", "approval_needed", "--dry-run"],
             {"cwd": "/tmp/demo-project", "session_id": "codex-approval"},
-            "[Codex] [Approval] [demo-project]",
+            "[Codex][Approval][demo-project]",
         ),
         (
             ["hook", "--runtime", "claude", "--event", "completion", "--dry-run"],
             {"cwd": "/tmp/demo-project", "session_id": "claude-done"},
-            "[Claude Code] [Done] [demo-project]",
+            "[Claude Code][Done][demo-project]",
         ),
         (
             ["hook", "--runtime", "claude", "--event", "approval_needed", "--dry-run"],
             {"cwd": "/tmp/demo-project", "session_id": "claude-approval"},
-            "[Claude Code] [Approval] [demo-project]",
+            "[Claude Code][Approval][demo-project]",
         ),
         (
             ["hook", "--runtime", "codex", "--event", "failed", "--dry-run"],
             {"cwd": "/tmp/demo-project", "session_id": "codex-failed"},
-            "[Codex] [Failed] [demo-project]",
+            "[Codex][Failed][demo-project]",
         ),
     ]
 
@@ -298,20 +305,65 @@ def test_titles_include_normalized_event_for_codex_and_claude(monkeypatch, tmp_p
         assert json.loads(result.output)["title"] == expected_title
 
 
-def test_title_template_can_be_configured(monkeypatch, tmp_path):
+def test_default_title_includes_branch_and_session_when_available(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
     monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_TITLE_TEMPLATE", "{event}: {project} via {agent}/{runtime}/{cwd_basename}")
 
     result = runner.invoke(
         agent_bark_notify.cmd,
         ["hook", "--runtime", "codex", "--event", "completion", "--dry-run"],
-        input=json.dumps({"project_name": "Readable Project", "cwd": "/tmp/path-basename", "session_id": "templated-title"}),
+        input=json.dumps(
+            {
+                "project_name": "Readable Project",
+                "branch": "refs/heads/feature/title-context",
+                "session_name": "Morning Work",
+                "session_id": "title-context",
+            }
+        ),
     )
 
     assert result.exit_code == 0
-    assert json.loads(result.output)["title"] == "Done: Readable Project via Codex/codex/path-basename"
+    assert json.loads(result.output)["title"] == "[Codex][Done][Readable Project][feature/title-context][Morning Work]"
+
+
+def test_default_title_reads_branch_from_git_cwd(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def fake_run(args, **kwargs):
+        assert args == ["git", "-C", str(repo), "branch", "--show-current"]
+        return agent_bark_notify.subprocess.CompletedProcess(args, 0, stdout="feature/git-cwd\n", stderr="")
+
+    monkeypatch.setattr(agent_bark_notify.subprocess, "run", fake_run)
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "codex", "--event", "completion", "--dry-run"],
+        input=json.dumps({"cwd": str(repo), "session_id": "git-cwd"}),
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output)["title"] == "[Codex][Done][repo][feature/git-cwd]"
+
+
+def test_title_template_can_be_configured(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_TITLE_TEMPLATE", "{event}: {project} via {agent}/{runtime}/{cwd_basename}/{branch}/{session}")
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "codex", "--event", "completion", "--dry-run"],
+        input=json.dumps({"project_name": "Readable Project", "cwd": "/tmp/path-basename", "branch_name": "feature/custom", "session_name": "Focus", "session_id": "templated-title"}),
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output)["title"] == "Done: Readable Project via Codex/codex/path-basename/feature/custom/Focus"
 
 
 def test_project_name_prefers_payload_and_env_names_before_paths(monkeypatch, tmp_path):
@@ -332,9 +384,9 @@ def test_project_name_prefers_payload_and_env_names_before_paths(monkeypatch, tm
     )
 
     assert from_payload.exit_code == 0
-    assert json.loads(from_payload.output)["title"] == "[Codex] [Done] [Payload Workspace]"
+    assert json.loads(from_payload.output)["title"] == "[Codex][Done][Payload Workspace]"
     assert from_env.exit_code == 0
-    assert json.loads(from_env.output)["title"] == "[Codex] [Done] [Env Workspace]"
+    assert json.loads(from_env.output)["title"] == "[Codex][Done][Env Workspace]"
 
 
 def test_explicit_runtime_controls_title_even_in_lody_env(monkeypatch, tmp_path):
@@ -350,7 +402,7 @@ def test_explicit_runtime_controls_title_even_in_lody_env(monkeypatch, tmp_path)
     )
 
     assert result.exit_code == 0
-    assert json.loads(result.output)["title"] == "[Claude Code] [Done] [demo-project]"
+    assert json.loads(result.output)["title"] == "[Claude Code][Done][demo-project]"
 
 
 def test_extract_completion_uses_last_assistant_message(monkeypatch, tmp_path):

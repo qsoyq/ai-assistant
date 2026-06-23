@@ -2,6 +2,7 @@ import hashlib
 import json
 import os
 import re
+import subprocess
 import tempfile
 import time
 from dataclasses import dataclass
@@ -55,7 +56,7 @@ DEFAULT_SUMMARY_MAX_CHARS = 120
 MAX_TRANSCRIPT_BYTES = 1024 * 1024
 DEDUP_TTL_SECONDS = 60 * 60
 TITLE_TEMPLATE_ENV = "AI_ASSISTANT_AGENT_BARK_NOTIFY_TITLE_TEMPLATE"
-DEFAULT_TITLE_TEMPLATE = "[{agent}] [{event}] [{project}]"
+DEFAULT_TITLE_TEMPLATE = "[{agent}][{event}][{project}][{branch}][{session}]"
 AUDIT_LOG_ENV = "AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG"
 AUDIT_LOG_FILE_ENV = "AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE"
 DEFAULT_AUDIT_LOG_PATH = Path("~/.ai-assistant/agent-bark-notify.log")
@@ -169,11 +170,59 @@ def project_name(payload: dict[str, Any], cwd: Path | None = None) -> str:
     return (cwd or Path.cwd()).name
 
 
+def _path_from_payload(payload: dict[str, Any], cwd: Path | None = None) -> Path:
+    for key in ("cwd", "workspace", "project_path"):
+        raw = payload.get(key)
+        if isinstance(raw, str) and raw:
+            return Path(raw)
+    return cwd or Path.cwd()
+
+
 def cwd_basename(payload: dict[str, Any], cwd: Path | None = None) -> str:
     raw = payload.get("cwd")
     if isinstance(raw, str) and raw:
         return Path(raw).name
     return (cwd or Path.cwd()).name
+
+
+def branch_name(payload: dict[str, Any], env: dict[str, str], cwd: Path | None = None) -> str:
+    for key in ("branch_name", "branch", "git_branch", "ref_name"):
+        raw_name = payload.get(key)
+        if isinstance(raw_name, str) and raw_name.strip():
+            return raw_name.strip().removeprefix("refs/heads/")
+
+    for key in ("AI_ASSISTANT_AGENT_BARK_NOTIFY_BRANCH_NAME", "CODEX_BRANCH_NAME", "GIT_BRANCH", "BRANCH_NAME"):
+        raw_name = env.get(key)
+        if raw_name and raw_name.strip():
+            return raw_name.strip().removeprefix("refs/heads/")
+
+    repo_path = _path_from_payload(payload, cwd)
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo_path), "branch", "--show-current"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=1,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    if result.returncode != 0:
+        return ""
+    return result.stdout.strip()
+
+
+def session_name(payload: dict[str, Any], env: dict[str, str]) -> str:
+    for key in ("session_name", "conversation_name", "thread_name", "workspace_session_name"):
+        raw_name = payload.get(key)
+        if isinstance(raw_name, str) and raw_name.strip():
+            return raw_name.strip()
+
+    for key in ("AI_ASSISTANT_AGENT_BARK_NOTIFY_SESSION_NAME", "CODEX_SESSION_NAME", "LODY_SESSION_NAME"):
+        raw_name = env.get(key)
+        if raw_name and raw_name.strip():
+            return raw_name.strip()
+    return ""
 
 
 def safe_message(event: str, message: str | None) -> str:
@@ -193,20 +242,30 @@ class _SafeTitleVars(dict[str, str]):
         return "{" + key + "}"
 
 
+def _default_title(values: dict[str, str]) -> str:
+    parts = [values[key] for key in ("agent", "event", "project", "branch", "session") if values.get(key)]
+    return "".join(f"[{part}]" for part in parts)
+
+
 def notification_title(*, runtime: str, identity: AgentIdentity, event: str, payload: dict[str, Any], env: dict[str, str], cwd: Path | None = None) -> str:
-    template = env.get(TITLE_TEMPLATE_ENV, "").strip() or DEFAULT_TITLE_TEMPLATE
     values = _SafeTitleVars(
         agent=identity.name,
         event=event_label(event),
         project=project_name(payload, cwd),
         runtime=runtime,
         cwd_basename=cwd_basename(payload, cwd),
+        branch=branch_name(payload, env, cwd),
+        session=session_name(payload, env),
     )
+    configured_template = env.get(TITLE_TEMPLATE_ENV, "").strip()
+    if not configured_template:
+        title = _default_title(values)
+        return title or _default_title(_SafeTitleVars(agent=identity.name, event=event_label(event)))
     try:
-        title = template.format_map(values)
+        title = configured_template.format_map(values)
     except ValueError:
-        title = DEFAULT_TITLE_TEMPLATE.format_map(values)
-    return " ".join(title.split()) or DEFAULT_TITLE_TEMPLATE.format_map(values)
+        title = _default_title(values)
+    return " ".join(title.split()) or _default_title(values)
 
 
 def _strip_url_query(value: str) -> str:
