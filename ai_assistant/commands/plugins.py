@@ -116,7 +116,12 @@ Scope: {scope}
 
 Paste this into Codex:
 
-Install the qsoyq/ai-assistant plugin marketplace in {scope} scope if it is not already installed. Then install or enable agent-bark-notify-codex from that marketplace. Review the hook command before trusting it:
+Run these commands to add the marketplace and install the Codex plugin:
+
+  codex plugin marketplace add qsoyq/ai-assistant
+  codex plugin add agent-bark-notify-codex@ai-assistant
+
+Then review the hook command before trusting it:
 
   ai-assistant agent-bark-notify hook --runtime codex --event approval_needed
   ai-assistant agent-bark-notify hook --runtime codex --event completion
@@ -140,7 +145,12 @@ Scope: {scope}
 
 Paste this into Claude Code:
 
-Add the qsoyq/ai-assistant plugin marketplace if it is not already installed, install agent-bark-notify, then reload plugins:
+Run these commands to add the marketplace and install the Claude Code plugin:
+
+  claude plugin marketplace add qsoyq/ai-assistant
+  claude plugin install agent-bark-notify@ai-assistant {scope_flag}
+
+Or paste these slash commands inside Claude Code:
 
   /plugin marketplace add qsoyq/ai-assistant {scope_flag}
   /plugin install agent-bark-notify@ai-assistant

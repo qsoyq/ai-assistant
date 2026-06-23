@@ -37,9 +37,13 @@ def test_install_guides_explain_manual_and_agent_assisted_paths():
 
     assert codex.exit_code == 0
     assert claude.exit_code == 0
-    assert "Review the hook command before trusting it" in codex.output
+    assert "codex plugin marketplace add qsoyq/ai-assistant" in codex.output
+    assert "codex plugin add agent-bark-notify-codex@ai-assistant" in codex.output
+    assert "review the hook command before trusting it" in codex.output
     assert "Scope: global" in codex.output
     assert "Manual fallback" in codex.output
+    assert "claude plugin marketplace add qsoyq/ai-assistant" in claude.output
+    assert "claude plugin install agent-bark-notify@ai-assistant --scope user" in claude.output
     assert "--scope user" in claude.output
     assert "/plugin install agent-bark-notify@ai-assistant" in claude.output
     assert "Manual fallback" in claude.output
