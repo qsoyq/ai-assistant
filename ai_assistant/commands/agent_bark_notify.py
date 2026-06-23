@@ -5,6 +5,7 @@ import re
 import tempfile
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import urlsplit, urlunsplit
@@ -24,6 +25,8 @@ Configuration:
   BARK_DEVICE_KEY is required. Missing or empty means skip and exit 0.
   BARK_GROUP is optional.
   BARK_SERVER defaults to https://api.day.app.
+  AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG=1 enables local JSONL audit logging.
+  AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE overrides the audit log path.
 """
 
 cmd = make_typer(helptext)
@@ -51,6 +54,9 @@ MAX_MESSAGE_LENGTH = 80
 DEFAULT_SUMMARY_MAX_CHARS = 120
 MAX_TRANSCRIPT_BYTES = 1024 * 1024
 DEDUP_TTL_SECONDS = 60 * 60
+AUDIT_LOG_ENV = "AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG"
+AUDIT_LOG_FILE_ENV = "AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE"
+DEFAULT_AUDIT_LOG_PATH = Path("~/.ai-assistant/agent-bark-notify.log")
 SENSITIVE_KEY_RE = re.compile(r"(?i)\b(authorization|cookie|set-cookie|x-api-key|api[_-]?key|token|secret|password|passwd|bearer)\b")
 SENSITIVE_ASSIGNMENT_RE = re.compile(r"(?i)\b([a-z0-9_.-]*(?:token|secret|password|passwd|cookie|authorization|api[_-]?key)[a-z0-9_.-]*)\s*[:=]\s*('[^']*'|\"[^\"]*\"|[^\s,;]+)")
 BEARER_RE = re.compile(r"(?i)\bbearer\s+[a-z0-9._~+/=-]+")
@@ -171,6 +177,15 @@ def _strip_url_query(value: str) -> str:
     return re.sub(r"https?://[^\s<>'\")]+", replace, value)
 
 
+def _redact_url(value: str) -> str:
+    def replace(match: re.Match[str]) -> str:
+        raw_url = match.group(0)
+        split = urlsplit(raw_url)
+        return urlunsplit((split.scheme, split.netloc, "/[REDACTED]", "", ""))
+
+    return re.sub(r"https?://[^\s<>'\")]+", replace, value)
+
+
 def _extract_text(value: Any) -> str | None:
     if isinstance(value, str):
         return value
@@ -221,6 +236,99 @@ def clean_summary_text(text: str | None, max_chars: int) -> str | None:
     if SENSITIVE_KEY_RE.search(body) and "[REDACTED]" not in body:
         return None
     return _truncate_summary(body, max_chars)
+
+
+def _hash_value(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value)
+    if not text:
+        return None
+    return hashlib.sha256(text.encode()).hexdigest()[:16]
+
+
+def _hook_event_name(payload: dict[str, Any]) -> str | None:
+    value = payload.get("hook_event_name") or payload.get("event") or payload.get("event_name") or payload.get("type")
+    return str(value) if value is not None else None
+
+
+def _session_id(payload: dict[str, Any]) -> str | None:
+    value = payload.get("session_id") or payload.get("conversation_id") or payload.get("transcript_path")
+    return str(value) if value is not None else None
+
+
+def _audit_enabled(env: dict[str, str]) -> bool:
+    return env.get(AUDIT_LOG_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _audit_log_path(env: dict[str, str]) -> Path:
+    configured = env.get(AUDIT_LOG_FILE_ENV, "").strip()
+    if configured:
+        return Path(configured).expanduser()
+    return DEFAULT_AUDIT_LOG_PATH.expanduser()
+
+
+def _safe_error_message(error: BaseException) -> str:
+    message = " ".join(str(error).split())
+    message = BEARER_RE.sub("Bearer [REDACTED]", message)
+    message = SENSITIVE_ASSIGNMENT_RE.sub(lambda m: f"{m.group(1)}=[REDACTED]", message)
+    message = _redact_url(message)
+    return _truncate_summary(message, 200)
+
+
+def _write_audit_record(env: dict[str, str], record: dict[str, Any]) -> None:
+    if not _audit_enabled(env):
+        return
+    try:
+        path = _audit_log_path(env)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False, sort_keys=True))
+            f.write("\n")
+    except OSError:
+        return
+
+
+def _new_audit_record(
+    *,
+    runtime: str,
+    event: str | None,
+    payload: dict[str, Any],
+    summary_mode: SummaryMode,
+    cwd: Path | None = None,
+) -> dict[str, Any]:
+    return {
+        "time": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "runtime": runtime,
+        "event": event,
+        "hook_event_name": _hook_event_name(payload),
+        "status": None,
+        "project": project_name(payload, cwd),
+        "session_id_hash": _hash_value(_session_id(payload)),
+        "dedupe_key_hash": None,
+        "summary_mode": summary_mode,
+        "title": None,
+        "body_len": None,
+    }
+
+
+def _finish_audit_record(
+    env: dict[str, str],
+    record: dict[str, Any],
+    *,
+    status: str,
+    notification: Notification | None = None,
+    error: BaseException | None = None,
+) -> None:
+    record["status"] = status
+    if notification is not None:
+        record["dedupe_key_hash"] = _hash_value(notification.dedupe_key)
+        record["title"] = notification.title
+        record["body_len"] = len(notification.body)
+    if error is not None:
+        record["error_class"] = error.__class__.__name__
+        record["error_message"] = _safe_error_message(error)
+    _write_audit_record(env, record)
 
 
 def _assistant_text_from_transcript_item(item: dict[str, Any]) -> str | None:
@@ -428,40 +536,55 @@ def hook(
     payload = parse_hook_payload(_read_stdin())
     resolved_runtime = detect_runtime(runtime, env, payload)
     resolved_event = detect_event(event, payload)
-    if resolved_event is None:
-        if dry_run:
-            typer.echo("skip: unsupported hook event")
-        return
-
-    resolved_message = message
-    if resolved_message is None and summary_mode == "extract":
-        resolved_message = extract_summary(resolved_runtime, resolved_event, payload, summary_max_chars)
-
-    notification = build_notification(
-        runtime=resolved_runtime,
-        event=resolved_event,
-        message=resolved_message,
-        env=env,
-        payload=payload,
-    )
-    if notification is None:
-        if dry_run:
-            typer.echo("skip: BARK_DEVICE_KEY is missing")
-        return
-
-    if not no_dedupe and already_sent(notification.dedupe_key, env):
-        if dry_run:
-            typer.echo("skip: duplicate notification")
-        return
-
-    if dry_run:
-        typer.echo(json.dumps({"title": notification.title, "body": notification.body, "icon": notification.icon_url, "group": notification.group, "url": notification.bark_url}, ensure_ascii=False))
-        return
-
+    audit_record = _new_audit_record(runtime=resolved_runtime, event=resolved_event, payload=payload, summary_mode=summary_mode)
     try:
-        send_bark(notification)
-    except httpx.HTTPError as e:
-        typer.echo(f"Bark notification failed: {e}", err=True)
+        if resolved_event is None:
+            _finish_audit_record(env, audit_record, status="skipped_unsupported_event")
+            if dry_run:
+                typer.echo("skip: unsupported hook event")
+            return
+
+        resolved_message = message
+        if resolved_message is None and summary_mode == "extract":
+            resolved_message = extract_summary(resolved_runtime, resolved_event, payload, summary_max_chars)
+
+        notification = build_notification(
+            runtime=resolved_runtime,
+            event=resolved_event,
+            message=resolved_message,
+            env=env,
+            payload=payload,
+        )
+        if notification is None:
+            _finish_audit_record(env, audit_record, status="skipped_missing_device_key")
+            if dry_run:
+                typer.echo("skip: BARK_DEVICE_KEY is missing")
+            return
+
+        if not no_dedupe and already_sent(notification.dedupe_key, env):
+            _finish_audit_record(env, audit_record, status="skipped_duplicate", notification=notification)
+            if dry_run:
+                typer.echo("skip: duplicate notification")
+            return
+
+        if dry_run:
+            _finish_audit_record(env, audit_record, status="sent", notification=notification)
+            typer.echo(
+                json.dumps({"title": notification.title, "body": notification.body, "icon": notification.icon_url, "group": notification.group, "url": notification.bark_url}, ensure_ascii=False)
+            )
+            return
+
+        try:
+            send_bark(notification)
+        except httpx.HTTPError as e:
+            _finish_audit_record(env, audit_record, status="bark_http_error", notification=notification, error=e)
+            typer.echo(f"Bark notification failed: {e}", err=True)
+            return
+        _finish_audit_record(env, audit_record, status="sent", notification=notification)
+    except Exception as e:
+        _finish_audit_record(env, audit_record, status="hook_exception", error=e)
+        typer.echo(f"Bark hook failed: {e}", err=True)
+        return
 
 
 if __name__ == "__main__":

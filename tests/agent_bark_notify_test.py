@@ -20,8 +20,18 @@ def _clear_agent_env(monkeypatch):
         "CLAUDE_CONFIG_DIR",
         "CODEX_CI",
         "CODEX_THREAD_ID",
+        "BARK_DEVICE_KEY",
+        "BARK_GROUP",
+        "BARK_SERVER",
+        "AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR",
+        "AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG",
+        "AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE",
     ):
         monkeypatch.delenv(key, raising=False)
+
+
+def _read_jsonl(path):
+    return [json.loads(line) for line in path.read_text().splitlines()]
 
 
 def test_dry_run_reports_missing_device_key(monkeypatch, tmp_path):
@@ -33,6 +43,37 @@ def test_dry_run_reports_missing_device_key(monkeypatch, tmp_path):
 
     assert result.exit_code == 0
     assert "BARK_DEVICE_KEY is missing" in result.output
+
+
+def test_audit_log_is_disabled_by_default(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    audit_log = tmp_path / "audit.jsonl"
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE", str(audit_log))
+    monkeypatch.delenv("BARK_DEVICE_KEY", raising=False)
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
+
+    result = runner.invoke(agent_bark_notify.cmd, ["hook", "--event", "completion", "--dry-run"], input="{}")
+
+    assert result.exit_code == 0
+    assert not audit_log.exists()
+
+
+def test_audit_log_uses_default_path_when_enabled(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG", "1")
+    monkeypatch.delenv("BARK_DEVICE_KEY", raising=False)
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
+
+    result = runner.invoke(agent_bark_notify.cmd, ["hook", "--runtime", "codex", "--event", "completion", "--dry-run"], input=json.dumps({"session_id": "s-audit-default"}))
+
+    assert result.exit_code == 0
+    records = _read_jsonl(tmp_path / ".ai-assistant" / "agent-bark-notify.log")
+    assert len(records) == 1
+    assert records[0]["status"] == "skipped_missing_device_key"
+    assert records[0]["runtime"] == "codex"
+    assert records[0]["event"] == "completion"
+    assert records[0]["session_id_hash"]
 
 
 def test_dry_run_prints_notification(monkeypatch, tmp_path):
@@ -53,6 +94,34 @@ def test_dry_run_prints_notification(monkeypatch, tmp_path):
     assert body["body"] == "done"
     assert body["group"] == "agents"
     assert body["url"] == "https://api.day.app/device-key"
+
+
+def test_audit_log_records_sent_metadata_without_secrets(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    audit_log = tmp_path / "audit.jsonl"
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG", "1")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE", str(audit_log))
+    monkeypatch.setenv("BARK_DEVICE_KEY", "secret-device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "codex", "--event", "completion", "--message", "done with token=secret", "--dry-run"],
+        input=json.dumps({"cwd": "/tmp/demo-project", "session_id": "s-audit-sent", "raw": "secret-device-key"}),
+    )
+
+    assert result.exit_code == 0
+    records = _read_jsonl(audit_log)
+    assert len(records) == 1
+    record = records[0]
+    assert record["status"] == "sent"
+    assert record["project"] == "demo-project"
+    assert record["title"] == "[Codex] [demo-project]"
+    assert record["body_len"] == len("done with token=secret")
+    assert record["dedupe_key_hash"]
+    raw_record = json.dumps(record)
+    assert "secret-device-key" not in raw_record
+    assert "done with token=secret" not in raw_record
 
 
 def test_send_bark_posts_form_with_group(monkeypatch, tmp_path):
@@ -84,6 +153,36 @@ def test_send_bark_posts_form_with_group(monkeypatch, tmp_path):
     assert "group=agents" in form
 
 
+def test_audit_log_records_http_error_without_url_secret(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    audit_log = tmp_path / "audit.jsonl"
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG", "1")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE", str(audit_log))
+    monkeypatch.setenv("BARK_DEVICE_KEY", "secret-device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
+    real_client = httpx.Client
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, request=request, text="failed")
+
+    monkeypatch.setattr(httpx, "Client", lambda **kw: real_client(transport=httpx.MockTransport(handler)))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "codex", "--event", "completion"],
+        input=json.dumps({"cwd": "/tmp/demo-project", "session_id": "s-audit-http-error"}),
+    )
+
+    assert result.exit_code == 0
+    records = _read_jsonl(audit_log)
+    assert len(records) == 1
+    record = records[0]
+    assert record["status"] == "bark_http_error"
+    assert record["error_class"] == "HTTPStatusError"
+    assert "secret-device-key" not in record["error_message"]
+    assert "https://api.day.app/[REDACTED]" in record["error_message"]
+
+
 def test_duplicate_event_is_skipped(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
@@ -96,6 +195,44 @@ def test_duplicate_event_is_skipped(monkeypatch, tmp_path):
     assert first.exit_code == 0
     assert second.exit_code == 0
     assert "duplicate notification" in second.output
+
+
+def test_audit_log_distinguishes_skip_statuses(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    audit_log = tmp_path / "audit.jsonl"
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG", "1")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE", str(audit_log))
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
+
+    unsupported = runner.invoke(agent_bark_notify.cmd, ["hook", "--runtime", "codex", "--dry-run"], input=json.dumps({"hook_event_name": "Notification", "session_id": "s-unsupported"}))
+    missing_key = runner.invoke(agent_bark_notify.cmd, ["hook", "--runtime", "codex", "--event", "completion", "--dry-run"], input=json.dumps({"session_id": "s-missing"}))
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    first = runner.invoke(agent_bark_notify.cmd, ["hook", "--runtime", "codex", "--event", "completion", "--dry-run"], input=json.dumps({"session_id": "s-duplicate"}))
+    duplicate = runner.invoke(agent_bark_notify.cmd, ["hook", "--runtime", "codex", "--event", "completion", "--dry-run"], input=json.dumps({"session_id": "s-duplicate"}))
+
+    assert unsupported.exit_code == 0
+    assert missing_key.exit_code == 0
+    assert first.exit_code == 0
+    assert duplicate.exit_code == 0
+    assert [record["status"] for record in _read_jsonl(audit_log)] == [
+        "skipped_unsupported_event",
+        "skipped_missing_device_key",
+        "sent",
+        "skipped_duplicate",
+    ]
+
+
+def test_audit_log_write_failure_does_not_fail_hook(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG", "1")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE", str(tmp_path))
+    monkeypatch.delenv("BARK_DEVICE_KEY", raising=False)
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
+
+    result = runner.invoke(agent_bark_notify.cmd, ["hook", "--event", "completion", "--dry-run"], input="{}")
+
+    assert result.exit_code == 0
+    assert "BARK_DEVICE_KEY is missing" in result.output
 
 
 def test_auto_event_maps_permission_request(monkeypatch, tmp_path):

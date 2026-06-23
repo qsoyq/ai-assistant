@@ -63,6 +63,20 @@ uvx 'ai-assistant[mcd]' ai-assistant mcd quickstart
 
 `file-change-runner` / `docker-hub-runner` / `cf-tunnel-watcher` 会以 `shell=True` 执行用户传入的命令字符串。`RUN_CMD` 来自命令行参数本身——若你在脚本里拼接外部输入构造 `RUN_CMD`，要自己做转义。
 
+### `agent-bark-notify` 审计日志
+
+`ai-assistant agent-bark-notify hook` 默认不写本地审计日志。需要排查 Codex 或 Claude Code hook 是否被调用、为何跳过或 Bark 发送是否失败时，可以显式启用 JSONL 审计：
+
+```shell
+AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG=1 \
+AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE=/tmp/agent-bark-notify.log \
+ai-assistant agent-bark-notify hook --runtime codex --event completion --dry-run
+```
+
+不设置 `AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE` 时，默认写入 `~/.ai-assistant/agent-bark-notify.log`。审计记录只包含 runtime、event、状态、项目名、标题、正文长度、session/dedupe 哈希和错误摘要；不会写入原始 hook payload、Bark device key、Bark URL 或完整通知正文。审计写入失败不会影响通知发送或 hook 退出。
+
+本地 dry-run 验证显示：通过 shell 启动的 Codex hook 命令可以读取命令环境里的 `AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG` 和 `AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE`。Claude Code hook 命令同样继承父进程环境。若从 GUI 或其他不继承 shell 环境的启动方式运行 agent，建议把审计环境变量写在 hook command、包装脚本或 agent 启动环境中。
+
 ## 开发
 
 ```shell
