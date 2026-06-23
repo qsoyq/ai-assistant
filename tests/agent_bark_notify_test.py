@@ -116,7 +116,7 @@ def test_audit_log_records_sent_metadata_without_secrets(monkeypatch, tmp_path):
     record = records[0]
     assert record["status"] == "sent"
     assert record["project"] == "demo-project"
-    assert record["title"] == "[Codex] [demo-project]"
+    assert record["title"] == "[Codex] [Done] [demo-project]"
     assert record["body_len"] == len("done with token=secret")
     assert record["dedupe_key_hash"]
     raw_record = json.dumps(record)
@@ -243,12 +243,12 @@ def test_auto_event_maps_permission_request(monkeypatch, tmp_path):
     result = runner.invoke(
         agent_bark_notify.cmd,
         ["hook", "--runtime", "claude", "--dry-run"],
-        input=json.dumps({"hook_event_name": "PermissionRequest", "session_id": "s4"}),
+        input=json.dumps({"cwd": "/tmp/demo-project", "hook_event_name": "PermissionRequest", "session_id": "s4"}),
     )
 
     assert result.exit_code == 0
     body = json.loads(result.output)
-    assert body["title"] == "[Claude Code] [Approval] [ai-assistant-issue-32]"
+    assert body["title"] == "[Claude Code] [Approval] [demo-project]"
     assert body["body"] == "需要你审批当前操作"
 
 
