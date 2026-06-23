@@ -30,5 +30,5 @@ def test_bark_plugin_versions_are_bumped_for_extract_hooks():
     codex_manifest = json.loads(Path("plugins/agent-bark-notify-codex/.codex-plugin/plugin.json").read_text())
     claude_manifest = json.loads(Path("plugins/agent-bark-notify-claude/.claude-plugin/plugin.json").read_text())
 
-    assert codex_manifest["version"] == "0.1.1"
-    assert claude_manifest["version"] == "0.1.1"
+    assert codex_manifest["version"] == "0.1.2"
+    assert claude_manifest["version"] == "0.1.2"

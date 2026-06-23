@@ -41,6 +41,11 @@ DEFAULT_MESSAGES: dict[str, str] = {
     "approval_needed": "需要你审批当前操作",
     "failed": "本轮因错误停止",
 }
+EVENT_LABELS: dict[str, str] = {
+    "completion": "Done",
+    "approval_needed": "Approval",
+    "failed": "Failed",
+}
 
 MAX_MESSAGE_LENGTH = 80
 DEFAULT_SUMMARY_MAX_CHARS = 120
@@ -94,9 +99,19 @@ def detect_identity(env: dict[str, str]) -> AgentIdentity:
     return AgentIdentity("Codex", CODEX_ICON_URL)
 
 
+def identity_for_runtime(runtime: str, env: dict[str, str]) -> AgentIdentity:
+    if runtime == "claude":
+        return AgentIdentity("Claude Code", CLAUDE_CODE_ICON_URL)
+    if runtime == "codex":
+        return AgentIdentity("Codex", CODEX_ICON_URL)
+    return detect_identity(env)
+
+
 def detect_runtime(runtime: Runtime, env: dict[str, str], payload: dict[str, Any]) -> str:
     if runtime != "auto":
         return runtime
+    if env.get("LODY_SESSION_ID") or env.get("LODY_WORKSPACE_SESSION_ID") or env.get("LODY_ELECTRON_BOOTSTRAP") or env.get("__CFBundleIdentifier") == "ai.lody.desktop":
+        return "lody"
     if env.get("CLAUDECODE") or env.get("CLAUDE_CODE") or env.get("CLAUDE_PROJECT_DIR") or env.get("CLAUDE_CONFIG_DIR"):
         return "claude"
     if env.get("CODEX_CI") or env.get("CODEX_THREAD_ID"):
@@ -141,6 +156,10 @@ def safe_message(event: str, message: str | None) -> str:
     if len(body) > MAX_MESSAGE_LENGTH:
         return f"{body[: MAX_MESSAGE_LENGTH - 1]}…"
     return body
+
+
+def event_label(event: str) -> str:
+    return EVENT_LABELS.get(event, "Update")
 
 
 def _strip_url_query(value: str) -> str:
@@ -367,9 +386,9 @@ def build_notification(
     if not device_key:
         return None
 
-    identity = detect_identity(env)
+    identity = identity_for_runtime(runtime, env)
     body = safe_message(event, message)
-    title = f"[{identity.name}] [{project_name(payload, cwd)}]"
+    title = f"[{identity.name}] [{event_label(event)}] [{project_name(payload, cwd)}]"
     bark_server = env.get("BARK_SERVER") or "https://api.day.app"
     dedupe_key = build_dedupe_key(runtime, event, payload, body)
     return Notification(
