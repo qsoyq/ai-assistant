@@ -1,0 +1,26 @@
+{
+  "name": "agent-bark-notify-codex",
+  "version": "0.1.0",
+  "description": "Send Bark notifications from Codex lifecycle hooks through ai-assistant.",
+  "author": {
+    "name": "qsoyq"
+  },
+  "homepage": "https://github.com/qsoyq/ai-assistant",
+  "repository": "https://github.com/qsoyq/ai-assistant",
+  "license": "MIT",
+  "keywords": ["bark", "notification", "hooks", "codex"],
+  "interface": {
+    "displayName": "Agent Bark Notify",
+    "shortDescription": "Send Bark notifications from Codex hooks",
+    "longDescription": "Agent Bark Notify wires Codex lifecycle hooks to ai-assistant agent-bark-notify so completion and approval-needed events can send Bark notifications.",
+    "developerName": "qsoyq",
+    "category": "Productivity",
+    "capabilities": ["Interactive"],
+    "websiteURL": "https://github.com/qsoyq/ai-assistant",
+    "privacyPolicyURL": "https://github.com/qsoyq/ai-assistant",
+    "termsOfServiceURL": "https://github.com/qsoyq/ai-assistant",
+    "defaultPrompt": ["Help me enable Bark notifications for Codex hooks"],
+    "brandColor": "#0E7AFE",
+    "screenshots": []
+  }
+}

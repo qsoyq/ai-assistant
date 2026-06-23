@@ -1,0 +1,8 @@
+{
+  "name": "agent-bark-notify",
+  "version": "0.1.0",
+  "description": "Send Bark notifications from Claude Code lifecycle hooks through ai-assistant.",
+  "author": {
+    "name": "qsoyq"
+  }
+}

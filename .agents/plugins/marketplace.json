@@ -1,0 +1,20 @@
+{
+  "name": "ai-assistant",
+  "interface": {
+    "displayName": "ai-assistant"
+  },
+  "plugins": [
+    {
+      "name": "agent-bark-notify-codex",
+      "source": {
+        "source": "local",
+        "path": "./plugins/agent-bark-notify-codex"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
