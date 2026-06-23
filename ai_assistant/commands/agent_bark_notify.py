@@ -1,11 +1,13 @@
 import hashlib
 import json
 import os
+import re
 import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 import typer
@@ -28,6 +30,7 @@ cmd = make_typer(helptext)
 
 Runtime = Literal["auto", "codex", "claude"]
 Event = Literal["auto", "completion", "approval_needed", "failed"]
+SummaryMode = Literal["fixed", "extract"]
 
 CODEX_ICON_URL = "https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/light/codex-color.png"
 CLAUDE_CODE_ICON_URL = "https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/light/claudecode-color.png"
@@ -40,7 +43,14 @@ DEFAULT_MESSAGES: dict[str, str] = {
 }
 
 MAX_MESSAGE_LENGTH = 80
+DEFAULT_SUMMARY_MAX_CHARS = 120
+MAX_TRANSCRIPT_BYTES = 1024 * 1024
 DEDUP_TTL_SECONDS = 60 * 60
+SENSITIVE_KEY_RE = re.compile(r"(?i)\b(authorization|cookie|set-cookie|x-api-key|api[_-]?key|token|secret|password|passwd|bearer)\b")
+SENSITIVE_ASSIGNMENT_RE = re.compile(r"(?i)\b([a-z0-9_.-]*(?:token|secret|password|passwd|cookie|authorization|api[_-]?key)[a-z0-9_.-]*)\s*[:=]\s*('[^']*'|\"[^\"]*\"|[^\s,;]+)")
+BEARER_RE = re.compile(r"(?i)\bbearer\s+[a-z0-9._~+/=-]+")
+FENCED_CODE_RE = re.compile(r"```.*?```", re.DOTALL)
+SHELL_PREFIX_RE = re.compile(r"^\s*(?:bash|zsh|sh|fish|python|python3|node|npm|pnpm|yarn|curl|ssh|scp|rsync)\b", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -133,6 +143,180 @@ def safe_message(event: str, message: str | None) -> str:
     return body
 
 
+def _strip_url_query(value: str) -> str:
+    def replace(match: re.Match[str]) -> str:
+        raw_url = match.group(0)
+        split = urlsplit(raw_url)
+        return urlunsplit((split.scheme, split.netloc, split.path, "", split.fragment))
+
+    return re.sub(r"https?://[^\s<>'\")]+", replace, value)
+
+
+def _extract_text(value: Any) -> str | None:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        parts = [_extract_text(item) for item in value]
+        return " ".join(part for part in parts if part)
+    if isinstance(value, dict):
+        for key in ("text", "content", "message"):
+            text = _extract_text(value.get(key))
+            if text:
+                return text
+    return None
+
+
+def _extract_dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _looks_like_raw_json(text: str) -> bool:
+    stripped = text.strip()
+    if not stripped:
+        return True
+    if (stripped.startswith("{") and stripped.endswith("}")) or (stripped.startswith("[") and stripped.endswith("]")):
+        return True
+    return stripped.count('":') >= 3 and stripped.count("{") + stripped.count("[") >= 1
+
+
+def _truncate_summary(text: str, max_chars: int) -> str:
+    limit = max(1, max_chars)
+    if len(text) <= limit:
+        return text
+    if limit == 1:
+        return "…"
+    return f"{text[: limit - 1].rstrip()}…"
+
+
+def clean_summary_text(text: str | None, max_chars: int) -> str | None:
+    if not text:
+        return None
+    body = FENCED_CODE_RE.sub(" ", text)
+    body = BEARER_RE.sub("Bearer [REDACTED]", body)
+    body = SENSITIVE_ASSIGNMENT_RE.sub(lambda m: f"{m.group(1)}=[REDACTED]", body)
+    body = _strip_url_query(body)
+    body = " ".join(body.split())
+    body = body.strip("` \t\r\n")
+    if not body or _looks_like_raw_json(body):
+        return None
+    if SENSITIVE_KEY_RE.search(body) and "[REDACTED]" not in body:
+        return None
+    return _truncate_summary(body, max_chars)
+
+
+def _assistant_text_from_transcript_item(item: dict[str, Any]) -> str | None:
+    role = str(item.get("role") or "").lower()
+    item_type = str(item.get("type") or "").lower()
+    message = item.get("message")
+    if isinstance(message, dict):
+        role = str(message.get("role") or role).lower()
+        if role == "assistant":
+            return _extract_text(message.get("content"))
+    if role == "assistant":
+        return _extract_text(item.get("content") or item.get("text") or item.get("message"))
+    if item_type in {"assistant", "final", "assistant_message"}:
+        return _extract_text(item.get("content") or item.get("text") or item.get("message"))
+    return None
+
+
+def _read_transcript_messages(transcript_path: str | None) -> list[str]:
+    if not transcript_path:
+        return []
+    path = Path(transcript_path)
+    if not path.is_file():
+        return []
+    try:
+        raw = path.read_bytes()[:MAX_TRANSCRIPT_BYTES].decode(errors="replace")
+    except OSError:
+        return []
+
+    messages: list[str] = []
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError:
+        value = None
+    if isinstance(value, list):
+        for item in value:
+            if isinstance(item, dict):
+                text = _assistant_text_from_transcript_item(item)
+                if text:
+                    messages.append(text)
+        return messages
+    if isinstance(value, dict):
+        for key in ("messages", "items", "events"):
+            nested = value.get(key)
+            if isinstance(nested, list):
+                for item in nested:
+                    if isinstance(item, dict):
+                        text = _assistant_text_from_transcript_item(item)
+                        if text:
+                            messages.append(text)
+                return messages
+        text = _assistant_text_from_transcript_item(value)
+        return [text] if text else []
+
+    for line in raw.splitlines():
+        if not line.strip():
+            continue
+        try:
+            item = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(item, dict):
+            text = _assistant_text_from_transcript_item(item)
+            if text:
+                messages.append(text)
+    return messages
+
+
+def _safe_tool_detail(tool_input: dict[str, Any]) -> str | None:
+    for key in ("path", "file_path", "file", "cwd", "workspace", "project_path"):
+        value = tool_input.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    for key in ("command", "cmd"):
+        value = tool_input.get(key)
+        if not isinstance(value, str) or not value.strip():
+            continue
+        command = " ".join(value.split())
+        if len(command) > 80 or SENSITIVE_KEY_RE.search(command):
+            return None
+        if SHELL_PREFIX_RE.search(command):
+            return None
+        return command
+    return None
+
+
+def extract_summary(runtime: str, event: str, payload: dict[str, Any], max_chars: int) -> str | None:
+    if event == "completion":
+        for candidate in (
+            _extract_text(payload.get("last_assistant_message")),
+            *reversed(_read_transcript_messages(_extract_text(payload.get("transcript_path")))),
+        ):
+            summary = clean_summary_text(candidate, max_chars)
+            if summary:
+                return summary
+        return None
+
+    if event == "approval_needed":
+        tool_input = _extract_dict(payload.get("tool_input"))
+        description = clean_summary_text(_extract_text(tool_input.get("description")), max_chars)
+        if description:
+            return description
+        tool_name = _extract_text(payload.get("tool_name"))
+        detail = _safe_tool_detail(tool_input)
+        if tool_name and detail:
+            summary = clean_summary_text(f"{tool_name}: {detail}", max_chars)
+            if summary:
+                return summary
+        message = clean_summary_text(_extract_text(payload.get("message")), max_chars)
+        if message:
+            return message
+        return None
+
+    return None
+
+
 def build_dedupe_key(runtime: str, event: str, payload: dict[str, Any], body: str) -> str:
     session = payload.get("session_id") or payload.get("conversation_id") or payload.get("transcript_path") or ""
     stable_payload = {
@@ -215,6 +399,8 @@ def hook(
     runtime: Runtime = typer.Option("auto", "--runtime", help="Hook runtime: codex, claude, or auto."),
     event: Event = typer.Option("auto", "--event", help="Notification event override."),
     message: str | None = typer.Option(None, "--message", help="Override short notification body."),
+    summary_mode: SummaryMode = typer.Option("fixed", "--summary-mode", help="Notification summary mode: fixed or extract."),
+    summary_max_chars: int = typer.Option(DEFAULT_SUMMARY_MAX_CHARS, "--summary-max-chars", min=1, help="Maximum extractive summary length."),
     dry_run: bool = typer.Option(False, "--dry-run", help="Print notification summary without sending Bark request."),
     no_dedupe: bool = typer.Option(False, "--no-dedupe", help="Disable duplicate suppression."),
 ) -> None:
@@ -228,10 +414,14 @@ def hook(
             typer.echo("skip: unsupported hook event")
         return
 
+    resolved_message = message
+    if resolved_message is None and summary_mode == "extract":
+        resolved_message = extract_summary(resolved_runtime, resolved_event, payload, summary_max_chars)
+
     notification = build_notification(
         runtime=resolved_runtime,
         event=resolved_event,
-        message=message,
+        message=resolved_message,
         env=env,
         payload=payload,
     )

@@ -33,7 +33,7 @@ def test_codex_config_snippet_contains_hooks_json_command():
     assert result.exit_code == 0
     assert "global Codex plugin hook file" in result.output
     assert "hooks/hooks.json" in result.output
-    assert "ai-assistant agent-bark-notify hook --runtime codex --event completion" in result.output
+    assert "ai-assistant agent-bark-notify hook --runtime codex --event completion --summary-mode extract" in result.output
     assert "PermissionRequest" in result.output
 
 
@@ -42,7 +42,7 @@ def test_claude_config_snippet_contains_settings_hook_command():
 
     assert result.exit_code == 0
     assert "global Claude Code settings hook snippet" in result.output
-    assert "ai-assistant agent-bark-notify hook --runtime claude --event approval_needed" in result.output
+    assert "ai-assistant agent-bark-notify hook --runtime claude --event approval_needed --summary-mode extract" in result.output
     assert "Notification" in result.output
 
 
