@@ -10,6 +10,12 @@ Manage ai-assistant companion plugins.
 Available plugins:
   agent-bark-notify  Sends Bark notifications from Codex and Claude Code hooks.
 
+Direct install commands:
+  codex plugin marketplace add qsoyq/ai-assistant
+  codex plugin add agent-bark-notify-codex@ai-assistant
+  claude plugin marketplace add qsoyq/ai-assistant
+  claude plugin install agent-bark-notify@ai-assistant --scope user
+
 Install paths:
   1. Manual config:
      ai-assistant plugins config-snippet agent-bark-notify --target codex
@@ -30,6 +36,18 @@ Target = Literal["codex", "claude"]
 Scope = Literal["global", "project"]
 
 PLUGIN_NAME = "agent-bark-notify"
+
+
+def install_commands(scope: Scope = "global") -> str:
+    claude_scope = "--scope user" if scope == "global" else "--scope project"
+    return f"""Codex:
+  codex plugin marketplace add qsoyq/ai-assistant
+  codex plugin add agent-bark-notify-codex@ai-assistant
+
+Claude Code:
+  claude plugin marketplace add qsoyq/ai-assistant
+  claude plugin install agent-bark-notify@ai-assistant {claude_scope}
+"""
 
 
 def _validate_plugin(plugin: str) -> None:
@@ -118,8 +136,7 @@ Paste this into Codex:
 
 Run these commands to add the marketplace and install the Codex plugin:
 
-  codex plugin marketplace add qsoyq/ai-assistant
-  codex plugin add agent-bark-notify-codex@ai-assistant
+{install_commands("global").split("Claude Code:", 1)[0].rstrip()}
 
 Then review the hook command before trusting it:
 
@@ -147,6 +164,7 @@ Paste this into Claude Code:
 
 Run these commands to add the marketplace and install the Claude Code plugin:
 
+Claude Code:
   claude plugin marketplace add qsoyq/ai-assistant
   claude plugin install agent-bark-notify@ai-assistant {scope_flag}
 
@@ -171,8 +189,22 @@ Manual fallback:
 
 @cmd.command("list")
 def list_plugins() -> None:
-    """List ai-assistant companion plugins."""
-    typer.echo("agent-bark-notify\tBark notifications for Codex and Claude Code hooks")
+    """List ai-assistant companion plugins.
+
+    Direct install commands:
+      codex plugin marketplace add qsoyq/ai-assistant
+      codex plugin add agent-bark-notify-codex@ai-assistant
+      claude plugin marketplace add qsoyq/ai-assistant
+      claude plugin install agent-bark-notify@ai-assistant --scope user
+    """
+    typer.echo(
+        f"""agent-bark-notify
+  Bark notifications for Codex and Claude Code hooks.
+
+Direct install commands:
+{install_commands().rstrip()}
+"""
+    )
 
 
 @cmd.command("config-snippet")

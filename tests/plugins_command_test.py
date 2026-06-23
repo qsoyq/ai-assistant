@@ -10,6 +10,21 @@ def test_plugins_list_includes_agent_bark_notify():
 
     assert result.exit_code == 0
     assert "agent-bark-notify" in result.output
+    assert "codex plugin add agent-bark-notify-codex@ai-assistant" in result.output
+    assert "claude plugin install agent-bark-notify@ai-assistant --scope user" in result.output
+
+
+def test_plugins_help_surfaces_direct_install_commands():
+    root_help = runner.invoke(plugins.cmd, ["--help"])
+    list_help = runner.invoke(plugins.cmd, ["list", "--help"])
+
+    assert root_help.exit_code == 0
+    assert list_help.exit_code == 0
+    for output in (root_help.output, list_help.output):
+        assert "codex plugin marketplace add qsoyq/ai-assistant" in output
+        assert "codex plugin add agent-bark-notify-codex@ai-assistant" in output
+        assert "claude plugin marketplace add qsoyq/ai-assistant" in output
+        assert "claude plugin install agent-bark-notify@ai-assistant --scope user" in output
 
 
 def test_codex_config_snippet_contains_hooks_json_command():
