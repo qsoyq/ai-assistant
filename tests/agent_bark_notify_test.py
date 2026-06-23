@@ -23,9 +23,15 @@ def _clear_agent_env(monkeypatch):
         "BARK_DEVICE_KEY",
         "BARK_GROUP",
         "BARK_SERVER",
+        "AI_ASSISTANT_AGENT_BARK_NOTIFY_TITLE_TEMPLATE",
+        "AI_ASSISTANT_AGENT_BARK_NOTIFY_PROJECT_NAME",
         "AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR",
         "AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG",
         "AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE",
+        "CODEX_WORKSPACE_NAME",
+        "CODEX_PROJECT_NAME",
+        "LODY_WORKSPACE_NAME",
+        "LODY_PROJECT_NAME",
     ):
         monkeypatch.delenv(key, raising=False)
 
@@ -292,6 +298,45 @@ def test_titles_include_normalized_event_for_codex_and_claude(monkeypatch, tmp_p
         assert json.loads(result.output)["title"] == expected_title
 
 
+def test_title_template_can_be_configured(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_TITLE_TEMPLATE", "{event}: {project} via {agent}/{runtime}/{cwd_basename}")
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "codex", "--event", "completion", "--dry-run"],
+        input=json.dumps({"project_name": "Readable Project", "cwd": "/tmp/path-basename", "session_id": "templated-title"}),
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output)["title"] == "Done: Readable Project via Codex/codex/path-basename"
+
+
+def test_project_name_prefers_payload_and_env_names_before_paths(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("CODEX_WORKSPACE_NAME", "Env Workspace")
+
+    from_payload = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "codex", "--event", "completion", "--dry-run"],
+        input=json.dumps({"workspace_name": "Payload Workspace", "cwd": "/tmp/path-project", "session_id": "project-payload"}),
+    )
+    from_env = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "codex", "--event", "completion", "--dry-run"],
+        input=json.dumps({"cwd": "/tmp/path-project", "session_id": "project-env"}),
+    )
+
+    assert from_payload.exit_code == 0
+    assert json.loads(from_payload.output)["title"] == "[Codex] [Done] [Payload Workspace]"
+    assert from_env.exit_code == 0
+    assert json.loads(from_env.output)["title"] == "[Codex] [Done] [Env Workspace]"
+
+
 def test_explicit_runtime_controls_title_even_in_lody_env(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("LODY_SESSION_ID", "lody-session")
@@ -400,7 +445,23 @@ def test_extract_approval_uses_safe_tool_detail(monkeypatch, tmp_path):
 
     assert result.exit_code == 0
     body = json.loads(result.output)
-    assert body["body"] == "Edit: /tmp/demo-project/app.py"
+    assert body["body"] == "Edit 需要审批：/tmp/demo-project/app.py"
+
+
+def test_extract_approval_uses_tool_name_without_detail(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "codex", "--event", "approval_needed", "--summary-mode", "extract", "--dry-run"],
+        input=json.dumps({"session_id": "s9-tool-only", "tool_name": "Bash", "tool_input": {"command": "curl https://example.test?token=secret " + ("x" * 100)}}),
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["body"] == "Bash 需要审批"
 
 
 def test_extract_redacts_secrets_url_queries_and_long_commands(monkeypatch, tmp_path):
@@ -430,4 +491,4 @@ def test_extract_redacts_secrets_url_queries_and_long_commands(monkeypatch, tmp_
     assert "?token=" not in completion_body
     assert "[REDACTED]" in completion_body
     assert approval.exit_code == 0
-    assert json.loads(approval.output)["body"] == "需要你审批当前操作"
+    assert json.loads(approval.output)["body"] == "Shell 需要审批"
