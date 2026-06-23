@@ -1,0 +1,34 @@
+{
+  "hooks": {
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ai-assistant agent-bark-notify hook --runtime claude --event approval_needed"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ai-assistant agent-bark-notify hook --runtime claude --event approval_needed"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ai-assistant agent-bark-notify hook --runtime claude --event completion"
+          }
+        ]
+      }
+    ]
+  }
+}

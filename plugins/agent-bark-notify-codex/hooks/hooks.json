@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "PermissionRequest": [
+      {
+        "command": "ai-assistant agent-bark-notify hook --runtime codex --event approval_needed"
+      }
+    ],
+    "Stop": [
+      {
+        "command": "ai-assistant agent-bark-notify hook --runtime codex --event completion"
+      }
+    ]
+  }
+}

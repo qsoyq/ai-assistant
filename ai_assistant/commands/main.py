@@ -43,6 +43,8 @@ class _Root(LazyRootGroup):
         "ghi": ("ai_assistant.commands.ghi.main:cmd", None),
         "uv-tool": ("ai_assistant.commands.uv_tool:cmd", None),
         "git-download": ("ai_assistant.commands.git_download:cmd", None),
+        "agent-bark-notify": ("ai_assistant.commands.agent_bark_notify:cmd", None),
+        "plugins": ("ai_assistant.commands.plugins:cmd", None),
     }
 
 
