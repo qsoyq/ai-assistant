@@ -90,7 +90,7 @@ def test_dry_run_prints_notification(monkeypatch, tmp_path):
 
     assert result.exit_code == 0
     body = json.loads(result.output)
-    assert body["title"] == "[Codex] [demo-project]"
+    assert body["title"] == "[Codex] [Done] [demo-project]"
     assert body["body"] == "done"
     assert body["group"] == "agents"
     assert body["url"] == "https://api.day.app/device-key"
@@ -116,7 +116,7 @@ def test_audit_log_records_sent_metadata_without_secrets(monkeypatch, tmp_path):
     record = records[0]
     assert record["status"] == "sent"
     assert record["project"] == "demo-project"
-    assert record["title"] == "[Codex] [demo-project]"
+    assert record["title"] == "[Codex] [Done] [demo-project]"
     assert record["body_len"] == len("done with token=secret")
     assert record["dedupe_key_hash"]
     raw_record = json.dumps(record)
@@ -148,7 +148,7 @@ def test_send_bark_posts_form_with_group(monkeypatch, tmp_path):
     assert len(calls) == 1
     assert str(calls[0].url) == "https://api.day.app/device-key"
     form = calls[0].content.decode()
-    assert "title=%5BCodex%5D+%5Bdemo-project%5D" in form
+    assert "title=%5BCodex%5D+%5BApproval%5D+%5Bdemo-project%5D" in form
     assert "body=%E9%9C%80%E8%A6%81%E4%BD%A0%E5%AE%A1%E6%89%B9%E5%BD%93%E5%89%8D%E6%93%8D%E4%BD%9C" in form
     assert "group=agents" in form
 
@@ -243,12 +243,69 @@ def test_auto_event_maps_permission_request(monkeypatch, tmp_path):
     result = runner.invoke(
         agent_bark_notify.cmd,
         ["hook", "--runtime", "claude", "--dry-run"],
-        input=json.dumps({"hook_event_name": "PermissionRequest", "session_id": "s4"}),
+        input=json.dumps({"cwd": "/tmp/demo-project", "hook_event_name": "PermissionRequest", "session_id": "s4"}),
     )
 
     assert result.exit_code == 0
     body = json.loads(result.output)
+    assert body["title"] == "[Claude Code] [Approval] [demo-project]"
     assert body["body"] == "需要你审批当前操作"
+
+
+def test_titles_include_normalized_event_for_codex_and_claude(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+
+    cases = [
+        (
+            ["hook", "--runtime", "codex", "--event", "completion", "--dry-run"],
+            {"cwd": "/tmp/demo-project", "session_id": "codex-done"},
+            "[Codex] [Done] [demo-project]",
+        ),
+        (
+            ["hook", "--runtime", "codex", "--event", "approval_needed", "--dry-run"],
+            {"cwd": "/tmp/demo-project", "session_id": "codex-approval"},
+            "[Codex] [Approval] [demo-project]",
+        ),
+        (
+            ["hook", "--runtime", "claude", "--event", "completion", "--dry-run"],
+            {"cwd": "/tmp/demo-project", "session_id": "claude-done"},
+            "[Claude Code] [Done] [demo-project]",
+        ),
+        (
+            ["hook", "--runtime", "claude", "--event", "approval_needed", "--dry-run"],
+            {"cwd": "/tmp/demo-project", "session_id": "claude-approval"},
+            "[Claude Code] [Approval] [demo-project]",
+        ),
+        (
+            ["hook", "--runtime", "codex", "--event", "failed", "--dry-run"],
+            {"cwd": "/tmp/demo-project", "session_id": "codex-failed"},
+            "[Codex] [Failed] [demo-project]",
+        ),
+    ]
+
+    for args, payload, expected_title in cases:
+        result = runner.invoke(agent_bark_notify.cmd, args, input=json.dumps(payload))
+
+        assert result.exit_code == 0
+        assert json.loads(result.output)["title"] == expected_title
+
+
+def test_explicit_runtime_controls_title_even_in_lody_env(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("LODY_SESSION_ID", "lody-session")
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "claude", "--event", "completion", "--dry-run"],
+        input=json.dumps({"cwd": "/tmp/demo-project", "session_id": "explicit-claude"}),
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output)["title"] == "[Claude Code] [Done] [demo-project]"
 
 
 def test_extract_completion_uses_last_assistant_message(monkeypatch, tmp_path):
