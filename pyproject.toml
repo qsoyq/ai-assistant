@@ -29,7 +29,8 @@ freshrss = ["sqlalchemy>=2.0.51", "pymysql>=1.1.2", "psycopg[binary]>=3.3.4"]
 docker = ["docker>=7.1.0"]
 cookies = ["browser-cookie3>=0.16.6"]
 cursor = ["matplotlib>=3.10.8", "pandas>=2.3.3"]
-all = ["ai-assistant[mcd,oss,freshrss,docker,cookies,cursor]"]
+telegram = ["telethon>=1.44.0"]
+all = ["ai-assistant[mcd,oss,freshrss,docker,cookies,cursor,telegram]"]
 
 [dependency-groups]
 dev = [

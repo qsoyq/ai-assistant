@@ -46,6 +46,7 @@ $ ai-assistant [OPTIONS] COMMAND [ARGS]...
 * `similar-questions`: Generate N similar questions by input query.
 * `ssl`: 生成和管理 SSL 证书
 * `stash-log`: Stash 抓包日志解析工具
+* `tg-bot-click`: Telegram bot 自动点击工具。
 * `udp`: UDP 端口可达性验证工具
 * `uv-tool`: 管理通过 `uv tool` 安装的 CLI 工具。
 * `win-env`: 查看/添加/修改 Windows 环境变量, 直接读写注册表 (HKCU / HKLM)。
@@ -2638,6 +2639,62 @@ $ ai-assistant stash-log urls [OPTIONS] FILE
 * `--dest PATH`: 结果输出路径, 默认标准输出  [default: -]
 * `--uniq`: 去重  [default: True]
 * `--sort`: 排序  [default: True]
+* `--help`: Show this message and exit.
+
+## `ai-assistant tg-bot-click`
+
+Telegram bot 自动点击工具。
+
+向指定 bot 发送一条触发消息, 在等待时间内监听回复, 找到包含指定文本的
+回复后点击按钮。默认点击命中消息中的第一个按钮; 如果消息有多个按钮,
+建议使用 --button-text 精确指定要点击的按钮文本。
+
+这个命令通过 Telegram MTProto 使用你的用户账号登录。首次使用时可能需要
+输入 Telegram 验证码; 如果账号开启了 2FA, 还会提示输入 2FA 密码。登录态
+保存为本地 session 文件, 后续定时任务可复用。
+
+Session 文件等同于账号登录凭据, 请按敏感文件保护。默认 session 位于用户
+state 目录, 也可以通过 --session 指定已有 session 文件, 或用
+--export-session / --import-session 在机器之间迁移。
+
+使用示例:
+- 发送 /start, 等待包含“签到”的回复, 然后点击第一个按钮:
+  ai-assistant tg-bot-click @example_bot --trigger /start --match 签到
+- 使用环境变量提供 Telegram 凭据:
+  TG_API_ID=123 TG_API_HASH=xxx TG_PHONE=+8613xxx ai-assistant tg-bot-click @example_bot --match 签到
+- 多按钮回复中按按钮文本点击:
+  ai-assistant tg-bot-click @example_bot --match 签到 --button-text 签到
+- 导出默认 session 文件:
+  ai-assistant tg-bot-click --export-session ./telegram.session
+- 导入已有 session 到默认位置:
+  ai-assistant tg-bot-click --import-session ./telegram.session
+
+**Usage**:
+
+```console
+$ ai-assistant tg-bot-click [OPTIONS] [BOT]
+```
+
+**Arguments**:
+
+* `[BOT]`: 目标 Telegram bot 用户名, 可带或不带 @。导入/导出 session 时可省略。
+
+**Options**:
+
+* `-v, -V, --version`
+* `--trigger TEXT`: 发送给 bot 的触发语, 默认 /start。  [default: /start]
+* `--match TEXT`: 待匹配的回复文本; 命中条件为回复正文包含该文本。
+* `--timeout FLOAT RANGE`: 等待匹配回复的总超时时间, 秒。  [default: 30.0; x&gt;=0.1]
+* `--button-text TEXT`: 可选按钮文本。未指定时点击命中消息中的第一个按钮。
+* `--api-id INTEGER`: Telegram API ID, 也可通过 TG_API_ID 提供。  [env var: TG_API_ID]
+* `--api-hash TEXT`: Telegram API hash, 也可通过 TG_API_HASH 提供。  [env var: TG_API_HASH]
+* `--phone TEXT`: Telegram 账号手机号, 也可通过 TG_PHONE 提供。  [env var: TG_PHONE]
+* `--session PATH`: Telegram session 文件路径; 默认使用用户 state 目录。  [env var: TG_SESSION]
+* `--export-session PATH`: 把当前 --session 或默认 session 文件复制到指定路径, 用于备份/迁移。
+* `--import-session PATH`: 把已有 session 文件复制到当前 --session 或默认 session 位置。
+* `-f, --force`: 导入/导出 session 时允许覆盖目标文件。
+* `--install-completion`: Install completion for the current shell.
+* `--show-completion`: Show completion for the current shell, to copy it or customize the installation.
 * `--help`: Show this message and exit.
 
 ## `ai-assistant udp`
