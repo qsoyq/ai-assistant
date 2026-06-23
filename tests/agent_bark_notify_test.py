@@ -112,3 +112,128 @@ def test_auto_event_maps_permission_request(monkeypatch, tmp_path):
     assert result.exit_code == 0
     body = json.loads(result.output)
     assert body["body"] == "需要你审批当前操作"
+
+
+def test_extract_completion_uses_last_assistant_message(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "codex", "--event", "completion", "--summary-mode", "extract", "--dry-run"],
+        input=json.dumps(
+            {
+                "cwd": "/tmp/demo-project",
+                "session_id": "s5",
+                "last_assistant_message": "Implemented safe summaries.\n\n```text\nlarge output\n```",
+            }
+        ),
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["body"] == "Implemented safe summaries."
+
+
+def test_extract_completion_falls_back_to_transcript(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
+    transcript = tmp_path / "transcript.jsonl"
+    transcript.write_text(
+        "\n".join(
+            [
+                json.dumps({"role": "user", "content": "do the thing"}),
+                json.dumps({"type": "assistant_message", "message": {"role": "assistant", "content": [{"type": "text", "text": "Finished transcript work."}]}}),
+            ]
+        )
+    )
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "claude", "--event", "completion", "--summary-mode", "extract", "--dry-run"],
+        input=json.dumps({"cwd": "/tmp/demo-project", "session_id": "s6", "transcript_path": str(transcript)}),
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["body"] == "Finished transcript work."
+
+
+def test_extract_completion_falls_back_to_fixed_message(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--event", "completion", "--summary-mode", "extract", "--dry-run"],
+        input=json.dumps({"cwd": "/tmp/demo-project", "session_id": "s7", "last_assistant_message": '{"raw": "json", "payload": true}'}),
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["body"] == "任务已完成"
+
+
+def test_extract_approval_uses_tool_description(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "codex", "--event", "approval_needed", "--summary-mode", "extract", "--dry-run"],
+        input=json.dumps({"session_id": "s8", "tool_input": {"description": "Run pytest for the Bark summary tests"}}),
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["body"] == "Run pytest for the Bark summary tests"
+
+
+def test_extract_approval_uses_safe_tool_detail(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "claude", "--event", "approval_needed", "--summary-mode", "extract", "--dry-run"],
+        input=json.dumps({"session_id": "s9", "tool_name": "Edit", "tool_input": {"file_path": "/tmp/demo-project/app.py"}}),
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["body"] == "Edit: /tmp/demo-project/app.py"
+
+
+def test_extract_redacts_secrets_url_queries_and_long_commands(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+
+    completion = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--event", "completion", "--summary-mode", "extract", "--summary-max-chars", "80", "--dry-run"],
+        input=json.dumps(
+            {
+                "session_id": "s10",
+                "last_assistant_message": "Fetched https://example.test/path?token=secret&x=1 with api_key=abc123 and Authorization: Bearer secret",
+            }
+        ),
+    )
+    approval = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--event", "approval_needed", "--summary-mode", "extract", "--dry-run"],
+        input=json.dumps({"session_id": "s11", "tool_name": "Shell", "tool_input": {"command": "curl https://example.test?token=secret " + ("x" * 100)}}),
+    )
+
+    assert completion.exit_code == 0
+    completion_body = json.loads(completion.output)["body"]
+    assert "secret" not in completion_body.lower()
+    assert "?token=" not in completion_body
+    assert "[REDACTED]" in completion_body
+    assert approval.exit_code == 0
+    assert json.loads(approval.output)["body"] == "需要你审批当前操作"

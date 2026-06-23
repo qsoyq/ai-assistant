@@ -18,9 +18,17 @@ def test_codex_bark_plugin_hook_config_uses_codex_schema():
     stop_hook = hook_config["hooks"]["Stop"][0]["hooks"][0]
     assert permission_hook == {
         "type": "command",
-        "command": "ai-assistant agent-bark-notify hook --runtime codex --event approval_needed",
+        "command": "ai-assistant agent-bark-notify hook --runtime codex --event approval_needed --summary-mode extract",
     }
     assert stop_hook == {
         "type": "command",
-        "command": "ai-assistant agent-bark-notify hook --runtime codex --event completion",
+        "command": "ai-assistant agent-bark-notify hook --runtime codex --event completion --summary-mode extract",
     }
+
+
+def test_bark_plugin_versions_are_bumped_for_extract_hooks():
+    codex_manifest = json.loads(Path("plugins/agent-bark-notify-codex/.codex-plugin/plugin.json").read_text())
+    claude_manifest = json.loads(Path("plugins/agent-bark-notify-claude/.claude-plugin/plugin.json").read_text())
+
+    assert codex_manifest["version"] == "0.1.1"
+    assert claude_manifest["version"] == "0.1.1"

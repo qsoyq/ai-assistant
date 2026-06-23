@@ -64,12 +64,12 @@ def codex_snippet(scope: Scope) -> str:
   "hooks": {
     "PermissionRequest": [
       {
-        "command": "ai-assistant agent-bark-notify hook --runtime codex --event approval_needed"
+        "command": "ai-assistant agent-bark-notify hook --runtime codex --event approval_needed --summary-mode extract"
       }
     ],
     "Stop": [
       {
-        "command": "ai-assistant agent-bark-notify hook --runtime codex --event completion"
+        "command": "ai-assistant agent-bark-notify hook --runtime codex --event completion --summary-mode extract"
       }
     ]
   }
@@ -89,7 +89,7 @@ def claude_snippet(scope: Scope) -> str:
         "hooks": [
           {
             "type": "command",
-            "command": "ai-assistant agent-bark-notify hook --runtime claude --event approval_needed"
+            "command": "ai-assistant agent-bark-notify hook --runtime claude --event approval_needed --summary-mode extract"
           }
         ]
       }
@@ -99,7 +99,7 @@ def claude_snippet(scope: Scope) -> str:
         "hooks": [
           {
             "type": "command",
-            "command": "ai-assistant agent-bark-notify hook --runtime claude --event approval_needed"
+            "command": "ai-assistant agent-bark-notify hook --runtime claude --event approval_needed --summary-mode extract"
           }
         ]
       }
@@ -109,7 +109,7 @@ def claude_snippet(scope: Scope) -> str:
         "hooks": [
           {
             "type": "command",
-            "command": "ai-assistant agent-bark-notify hook --runtime claude --event completion"
+            "command": "ai-assistant agent-bark-notify hook --runtime claude --event completion --summary-mode extract"
           }
         ]
       }
@@ -140,8 +140,8 @@ Run these commands to add the marketplace and install the Codex plugin:
 
 Then review the hook command before trusting it:
 
-  ai-assistant agent-bark-notify hook --runtime codex --event approval_needed
-  ai-assistant agent-bark-notify hook --runtime codex --event completion
+  ai-assistant agent-bark-notify hook --runtime codex --event approval_needed --summary-mode extract
+  ai-assistant agent-bark-notify hook --runtime codex --event completion --summary-mode extract
 
 Required runtime env:
   BARK_DEVICE_KEY=<your Bark device key>
@@ -176,8 +176,8 @@ Or paste these slash commands inside Claude Code:
 
 Review and trust the hook command only if you accept it:
 
-  ai-assistant agent-bark-notify hook --runtime claude --event approval_needed
-  ai-assistant agent-bark-notify hook --runtime claude --event completion
+  ai-assistant agent-bark-notify hook --runtime claude --event approval_needed --summary-mode extract
+  ai-assistant agent-bark-notify hook --runtime claude --event completion --summary-mode extract
 
 Required runtime env:
   BARK_DEVICE_KEY=<your Bark device key>
