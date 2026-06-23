@@ -14,10 +14,12 @@ Install paths:
   1. Manual config:
      ai-assistant plugins config-snippet agent-bark-notify --target codex
      ai-assistant plugins config-snippet agent-bark-notify --target claude
+     Add --scope project only when the hook should be local to one project.
 
   2. Agent-assisted install:
      ai-assistant plugins install-guide agent-bark-notify --target codex
      ai-assistant plugins install-guide agent-bark-notify --target claude
+     Global scope is the default; project scope remains available with --scope project.
 
 Hooks run local commands. Review the generated hook command and only trust it if you accept it.
 """
@@ -25,6 +27,7 @@ Hooks run local commands. Review the generated hook command and only trust it if
 cmd = make_typer(helptext)
 
 Target = Literal["codex", "claude"]
+Scope = Literal["global", "project"]
 
 PLUGIN_NAME = "agent-bark-notify"
 
@@ -35,9 +38,11 @@ def _validate_plugin(plugin: str) -> None:
         raise typer.Exit(1)
 
 
-def codex_snippet() -> str:
-    return """# Codex plugin hook file: hooks/hooks.json
-{
+def codex_snippet(scope: Scope) -> str:
+    location = "global Codex plugin hook file" if scope == "global" else "project Codex plugin hook file"
+    return (
+        f"# {location}: hooks/hooks.json\n"
+        + """{
   "hooks": {
     "PermissionRequest": [
       {
@@ -52,11 +57,14 @@ def codex_snippet() -> str:
   }
 }
 """
+    )
 
 
-def claude_snippet() -> str:
-    return """# Claude Code settings hook snippet
-{
+def claude_snippet(scope: Scope) -> str:
+    location = "global Claude Code settings" if scope == "global" else "project Claude Code settings"
+    return (
+        f"# {location} hook snippet\n"
+        + """{
   "hooks": {
     "PermissionRequest": [
       {
@@ -91,15 +99,24 @@ def claude_snippet() -> str:
   }
 }
 """
+    )
 
 
-def install_guide(target: Target) -> str:
+def install_guide(target: Target, scope: Scope) -> str:
     if target == "codex":
-        return """Agent-assisted Codex install guide for agent-bark-notify
+        scope_note = (
+            "Use the global plugin scope unless you only want this notification hook for one project."
+            if scope == "global"
+            else "Use project scope only when this notification hook should apply to the current project."
+        )
+        return f"""Agent-assisted Codex install guide for agent-bark-notify
+
+Scope: {scope}
+{scope_note}
 
 Paste this into Codex:
 
-Install the qsoyq/ai-assistant plugin marketplace if it is not already installed. Then install or enable agent-bark-notify-codex from that marketplace. Review the hook command before trusting it:
+Install the qsoyq/ai-assistant plugin marketplace in {scope} scope if it is not already installed. Then install or enable agent-bark-notify-codex from that marketplace. Review the hook command before trusting it:
 
   ai-assistant agent-bark-notify hook --runtime codex --event approval_needed
   ai-assistant agent-bark-notify hook --runtime codex --event completion
@@ -108,15 +125,24 @@ Required runtime env:
   BARK_DEVICE_KEY=<your Bark device key>
 
 Manual fallback:
-  ai-assistant plugins config-snippet agent-bark-notify --target codex
+  ai-assistant plugins config-snippet agent-bark-notify --target codex --scope {scope}
 """
-    return """Agent-assisted Claude Code install guide for agent-bark-notify
+    scope_flag = "--scope user" if scope == "global" else "--scope project"
+    scope_note = (
+        "Use the global/user plugin scope unless you only want this notification hook for one project."
+        if scope == "global"
+        else "Use project scope only when this notification hook should apply to the current project."
+    )
+    return f"""Agent-assisted Claude Code install guide for agent-bark-notify
+
+Scope: {scope}
+{scope_note}
 
 Paste this into Claude Code:
 
 Add the qsoyq/ai-assistant plugin marketplace if it is not already installed, install agent-bark-notify, then reload plugins:
 
-  /plugin marketplace add qsoyq/ai-assistant
+  /plugin marketplace add qsoyq/ai-assistant {scope_flag}
   /plugin install agent-bark-notify@ai-assistant
   /reload-plugins
 
@@ -129,7 +155,7 @@ Required runtime env:
   BARK_DEVICE_KEY=<your Bark device key>
 
 Manual fallback:
-  ai-assistant plugins config-snippet agent-bark-notify --target claude
+  ai-assistant plugins config-snippet agent-bark-notify --target claude --scope {scope}
 """
 
 
@@ -143,20 +169,22 @@ def list_plugins() -> None:
 def print_config_snippet(
     plugin: str = typer.Argument(..., help="Plugin name, e.g. agent-bark-notify"),
     target: Target = typer.Option(..., "--target", help="Target agent: codex or claude."),
+    scope: Scope = typer.Option("global", "--scope", help="Config scope: global or project."),
 ) -> None:
     """Print manual hook configuration for a plugin."""
     _validate_plugin(plugin)
-    typer.echo(codex_snippet() if target == "codex" else claude_snippet())
+    typer.echo(codex_snippet(scope) if target == "codex" else claude_snippet(scope))
 
 
 @cmd.command("install-guide")
 def print_install_guide(
     plugin: str = typer.Argument(..., help="Plugin name, e.g. agent-bark-notify"),
     target: Target = typer.Option(..., "--target", help="Target agent: codex or claude."),
+    scope: Scope = typer.Option("global", "--scope", help="Plugin install scope: global or project."),
 ) -> None:
     """Print instructions for agent-assisted plugin installation."""
     _validate_plugin(plugin)
-    typer.echo(install_guide(target))
+    typer.echo(install_guide(target, scope))
 
 
 if __name__ == "__main__":
