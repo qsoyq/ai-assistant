@@ -1,0 +1,11 @@
+{
+  "name": "agent-bark-notify-openclaw",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Send Bark notifications from OpenClaw lifecycle hooks through ai-assistant.",
+  "private": true,
+  "openclaw": {
+    "extensions": ["./index.ts"],
+    "runtimeExtensions": ["./index.js"]
+  }
+}

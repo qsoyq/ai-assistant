@@ -18,6 +18,9 @@ def _clear_agent_env(monkeypatch):
         "CLAUDE_CODE",
         "CLAUDE_PROJECT_DIR",
         "CLAUDE_CONFIG_DIR",
+        "OPENCLAW_SESSION_ID",
+        "OPENCLAW_WORKSPACE_DIR",
+        "OPENCLAW_GATEWAY_PORT",
         "CODEX_CI",
         "CODEX_THREAD_ID",
         "BARK_DEVICE_KEY",
@@ -30,6 +33,8 @@ def _clear_agent_env(monkeypatch):
         "AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR",
         "AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG",
         "AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE",
+        "OPENCLAW_WORKSPACE_NAME",
+        "OPENCLAW_SESSION_NAME",
         "CODEX_WORKSPACE_NAME",
         "CODEX_PROJECT_NAME",
         "CODEX_BRANCH_NAME",
@@ -107,6 +112,39 @@ def test_dry_run_prints_notification(monkeypatch, tmp_path):
     assert body["body"] == "done"
     assert body["group"] == "agents"
     assert body["url"] == "https://api.day.app/device-key"
+
+
+def test_openclaw_completion_dry_run_prints_notification(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "openclaw", "--event", "completion", "--dry-run"],
+        input=json.dumps({"workspaceDir": "/tmp/demo-project", "sessionId": "openclaw-s1"}),
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["title"] == "[OpenClaw][Done][demo-project]"
+    assert body["body"] == "任务已完成"
+    assert body["icon"] == agent_bark_notify.OPENCLAW_ICON_URL
+
+
+def test_openclaw_auto_event_maps_agent_end(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "openclaw", "--dry-run"],
+        input=json.dumps({"source": "openclaw", "hook_event_name": "agent_end", "success": True, "workspaceDir": "/tmp/demo-project", "sessionId": "openclaw-agent-end"}),
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output)["title"] == "[OpenClaw][Done][demo-project]"
 
 
 def test_audit_log_records_sent_metadata_without_secrets(monkeypatch, tmp_path):
@@ -482,6 +520,30 @@ def test_extract_approval_uses_tool_description(monkeypatch, tmp_path):
     assert result.exit_code == 0
     body = json.loads(result.output)
     assert body["body"] == "Run pytest for the Bark summary tests"
+
+
+def test_extract_openclaw_approval_uses_require_approval_description(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "openclaw", "--event", "approval_needed", "--summary-mode", "extract", "--dry-run"],
+        input=json.dumps(
+            {
+                "sessionId": "openclaw-approval",
+                "toolName": "exec",
+                "params": {"command": "pytest tests/agent_bark_notify_test.py"},
+                "requireApproval": {"description": "Allow pytest for the OpenClaw Bark plugin"},
+            }
+        ),
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["title"].startswith("[OpenClaw][Approval]")
+    assert body["body"] == "Allow pytest for the OpenClaw Bark plugin"
 
 
 def test_extract_approval_uses_safe_tool_detail(monkeypatch, tmp_path):
