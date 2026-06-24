@@ -32,3 +32,13 @@ def test_bark_plugin_versions_are_bumped_for_extract_hooks():
 
     assert codex_manifest["version"] == "0.1.4"
     assert claude_manifest["version"] == "0.1.4"
+
+
+def test_claude_marketplace_exposes_bark_plugin():
+    marketplace = json.loads(Path(".claude-plugin/marketplace.json").read_text())
+    [plugin] = marketplace["plugins"]
+
+    assert marketplace["name"] == "ai-assistant"
+    assert plugin["name"] == "agent-bark-notify"
+    assert plugin["source"] == "./plugins/agent-bark-notify-claude"
+    assert Path("plugins/agent-bark-notify-claude/.claude-plugin/plugin.json").is_file()

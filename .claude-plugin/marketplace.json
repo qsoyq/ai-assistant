@@ -1,0 +1,20 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "ai-assistant",
+  "description": "Claude Code plugins for ai-assistant companion workflows.",
+  "owner": {
+    "name": "qsoyq"
+  },
+  "plugins": [
+    {
+      "name": "agent-bark-notify",
+      "description": "Send Bark notifications from Claude Code lifecycle hooks through ai-assistant.",
+      "author": {
+        "name": "qsoyq"
+      },
+      "category": "productivity",
+      "source": "./plugins/agent-bark-notify-claude",
+      "homepage": "https://github.com/qsoyq/ai-assistant"
+    }
+  ]
+}
