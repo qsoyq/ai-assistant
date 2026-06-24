@@ -32,12 +32,13 @@ Configuration:
 
 cmd = make_typer(helptext)
 
-Runtime = Literal["auto", "codex", "claude"]
+Runtime = Literal["auto", "codex", "claude", "openclaw"]
 Event = Literal["auto", "completion", "approval_needed", "failed"]
 SummaryMode = Literal["fixed", "extract"]
 
 CODEX_ICON_URL = "https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/light/codex-color.png"
 CLAUDE_CODE_ICON_URL = "https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/light/claudecode-color.png"
+OPENCLAW_ICON_URL = "https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/light/openclaw-color.png"
 LODY_ICON_URL = "https://lody.ai/favicon.ico"
 
 DEFAULT_MESSAGES: dict[str, str] = {
@@ -109,6 +110,8 @@ def detect_identity(env: dict[str, str]) -> AgentIdentity:
 
 
 def identity_for_runtime(runtime: str, env: dict[str, str]) -> AgentIdentity:
+    if runtime == "openclaw":
+        return AgentIdentity("OpenClaw", OPENCLAW_ICON_URL)
     if runtime == "claude":
         return AgentIdentity("Claude Code", CLAUDE_CODE_ICON_URL)
     if runtime == "codex":
@@ -123,9 +126,13 @@ def detect_runtime(runtime: Runtime, env: dict[str, str], payload: dict[str, Any
         return "lody"
     if env.get("CLAUDECODE") or env.get("CLAUDE_CODE") or env.get("CLAUDE_PROJECT_DIR") or env.get("CLAUDE_CONFIG_DIR"):
         return "claude"
+    if env.get("OPENCLAW_SESSION_ID") or env.get("OPENCLAW_WORKSPACE_DIR") or env.get("OPENCLAW_GATEWAY_PORT"):
+        return "openclaw"
     if env.get("CODEX_CI") or env.get("CODEX_THREAD_ID"):
         return "codex"
     source = str(payload.get("source") or payload.get("runtime") or "").lower()
+    if "openclaw" in source:
+        return "openclaw"
     if "claude" in source:
         return "claude"
     if "codex" in source:
@@ -138,8 +145,10 @@ def detect_event(event: Event, payload: dict[str, Any]) -> str | None:
         return event
 
     hook_event = str(payload.get("hook_event_name") or payload.get("event") or payload.get("event_name") or payload.get("type") or "")
-    if hook_event in {"PermissionRequest"}:
+    if hook_event in {"PermissionRequest", "approval_needed", "approval-needed", "approval:needed", "before_tool_call"}:
         return "approval_needed"
+    if hook_event in {"agent_end", "agent:end"}:
+        return "completion" if payload.get("success") is not False else "failed"
     if hook_event == "Notification":
         message = str(payload.get("message") or payload.get("notification_type") or payload.get("reason") or "")
         if "permission" in message.lower() or "approval" in message.lower():
@@ -153,25 +162,25 @@ def detect_event(event: Event, payload: dict[str, Any]) -> str | None:
 
 
 def project_name(payload: dict[str, Any], cwd: Path | None = None) -> str:
-    for key in ("project_name", "workspace_name", "repository", "repo", "name"):
+    for key in ("project_name", "workspace_name", "repository", "repo", "agentId", "agent_id", "name"):
         raw_name = payload.get(key)
         if isinstance(raw_name, str) and raw_name.strip():
             return raw_name.strip()
 
     env = os.environ
-    for key in ("AI_ASSISTANT_AGENT_BARK_NOTIFY_PROJECT_NAME", "CODEX_WORKSPACE_NAME", "CODEX_PROJECT_NAME", "LODY_WORKSPACE_NAME", "LODY_PROJECT_NAME"):
+    for key in ("AI_ASSISTANT_AGENT_BARK_NOTIFY_PROJECT_NAME", "OPENCLAW_WORKSPACE_NAME", "CODEX_WORKSPACE_NAME", "CODEX_PROJECT_NAME", "LODY_WORKSPACE_NAME", "LODY_PROJECT_NAME"):
         raw_name = env.get(key)
         if raw_name and raw_name.strip():
             return raw_name.strip()
 
-    raw = payload.get("cwd") or payload.get("workspace") or payload.get("project_path")
+    raw = payload.get("cwd") or payload.get("workspace") or payload.get("workspaceDir") or payload.get("project_path")
     if isinstance(raw, str) and raw:
         return Path(raw).name
     return (cwd or Path.cwd()).name
 
 
 def _path_from_payload(payload: dict[str, Any], cwd: Path | None = None) -> Path:
-    for key in ("cwd", "workspace", "project_path"):
+    for key in ("cwd", "workspace", "workspaceDir", "project_path"):
         raw = payload.get(key)
         if isinstance(raw, str) and raw:
             return Path(raw)
@@ -218,7 +227,7 @@ def session_name(payload: dict[str, Any], env: dict[str, str]) -> str:
         if isinstance(raw_name, str) and raw_name.strip():
             return raw_name.strip()
 
-    for key in ("AI_ASSISTANT_AGENT_BARK_NOTIFY_SESSION_NAME", "CODEX_SESSION_NAME", "LODY_SESSION_NAME"):
+    for key in ("AI_ASSISTANT_AGENT_BARK_NOTIFY_SESSION_NAME", "OPENCLAW_SESSION_NAME", "CODEX_SESSION_NAME", "LODY_SESSION_NAME"):
         raw_name = env.get(key)
         if raw_name and raw_name.strip():
             return raw_name.strip()
@@ -353,7 +362,7 @@ def _hook_event_name(payload: dict[str, Any]) -> str | None:
 
 
 def _session_id(payload: dict[str, Any]) -> str | None:
-    value = payload.get("session_id") or payload.get("conversation_id") or payload.get("transcript_path")
+    value = payload.get("session_id") or payload.get("sessionId") or payload.get("sessionKey") or payload.get("conversation_id") or payload.get("transcript_path")
     return str(value) if value is not None else None
 
 
@@ -528,7 +537,11 @@ def extract_summary(runtime: str, event: str, payload: dict[str, Any], max_chars
     if event == "completion":
         for candidate in (
             _extract_text(payload.get("last_assistant_message")),
+            _extract_text(payload.get("lastAssistantMessage")),
+            _extract_text(payload.get("summary")),
+            _extract_text(payload.get("error")),
             *reversed(_read_transcript_messages(_extract_text(payload.get("transcript_path")))),
+            *reversed(_read_transcript_messages(_extract_text(payload.get("transcriptPath")))),
         ):
             summary = clean_summary_text(candidate, max_chars)
             if summary:
@@ -537,10 +550,23 @@ def extract_summary(runtime: str, event: str, payload: dict[str, Any], max_chars
 
     if event == "approval_needed":
         tool_input = _extract_dict(payload.get("tool_input"))
+        if not tool_input:
+            tool_input = _extract_dict(payload.get("params"))
+        require_approval = _extract_dict(payload.get("requireApproval"))
+        approval = _extract_dict(payload.get("approval"))
+        for candidate in (
+            _extract_text(require_approval.get("description")),
+            _extract_text(approval.get("description")),
+            _extract_text(payload.get("description")),
+            _extract_text(payload.get("title")),
+        ):
+            summary = clean_summary_text(candidate, max_chars)
+            if summary:
+                return summary
         description = clean_summary_text(_extract_text(tool_input.get("description")), max_chars)
         if description:
             return description
-        tool_name = _extract_text(payload.get("tool_name"))
+        tool_name = _extract_text(payload.get("tool_name") or payload.get("toolName"))
         detail = _safe_tool_detail(tool_input)
         summary = _approval_tool_summary(tool_name, detail, max_chars)
         if summary:
@@ -554,12 +580,12 @@ def extract_summary(runtime: str, event: str, payload: dict[str, Any], max_chars
 
 
 def build_dedupe_key(runtime: str, event: str, payload: dict[str, Any], body: str) -> str:
-    session = payload.get("session_id") or payload.get("conversation_id") or payload.get("transcript_path") or ""
+    session = payload.get("session_id") or payload.get("sessionId") or payload.get("sessionKey") or payload.get("conversation_id") or payload.get("transcript_path") or ""
     stable_payload = {
         "hook_event_name": payload.get("hook_event_name") or payload.get("event") or payload.get("event_name") or payload.get("type"),
         "session_id": session,
-        "tool_name": payload.get("tool_name"),
-        "cwd": payload.get("cwd"),
+        "tool_name": payload.get("tool_name") or payload.get("toolName"),
+        "cwd": payload.get("cwd") or payload.get("workspaceDir"),
         "body": body,
     }
     digest = hashlib.sha256(json.dumps(stable_payload, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:16]
@@ -632,7 +658,7 @@ def send_bark(notification: Notification) -> None:
 
 @cmd.command()
 def hook(
-    runtime: Runtime = typer.Option("auto", "--runtime", help="Hook runtime: codex, claude, or auto."),
+    runtime: Runtime = typer.Option("auto", "--runtime", help="Hook runtime: codex, claude, openclaw, or auto."),
     event: Event = typer.Option("auto", "--event", help="Notification event override."),
     message: str | None = typer.Option(None, "--message", help="Override short notification body."),
     summary_mode: SummaryMode = typer.Option("fixed", "--summary-mode", help="Notification summary mode: fixed or extract."),

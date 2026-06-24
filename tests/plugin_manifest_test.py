@@ -42,3 +42,21 @@ def test_claude_marketplace_exposes_bark_plugin():
     assert plugin["name"] == "agent-bark-notify"
     assert plugin["source"] == "./plugins/agent-bark-notify-claude"
     assert Path("plugins/agent-bark-notify-claude/.claude-plugin/plugin.json").is_file()
+
+
+def test_openclaw_bark_plugin_has_native_manifest_and_runtime_entry():
+    plugin_root = Path("plugins/agent-bark-notify-openclaw")
+    package_json = json.loads((plugin_root / "package.json").read_text())
+    manifest = json.loads((plugin_root / "openclaw.plugin.json").read_text())
+    source_entry = (plugin_root / "index.ts").read_text()
+    runtime_entry = (plugin_root / "index.js").read_text()
+
+    assert package_json["openclaw"]["extensions"] == ["./index.ts"]
+    assert package_json["openclaw"]["runtimeExtensions"] == ["./index.js"]
+    assert manifest["id"] == "agent-bark-notify-openclaw"
+    assert manifest["activation"]["onStartup"] is True
+    assert manifest["configSchema"] == {"type": "object", "additionalProperties": False}
+    assert 'api.on(\n      "agent_end"' in source_entry
+    assert "ai-assistant" in runtime_entry
+    assert "--runtime" in runtime_entry
+    assert "openclaw" in runtime_entry
