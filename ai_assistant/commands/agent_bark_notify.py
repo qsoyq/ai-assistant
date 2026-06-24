@@ -21,6 +21,7 @@ Send Bark notifications from agent lifecycle hooks.
 
 Typical hook command:
   ai-assistant agent-bark-notify hook --runtime codex --event completion
+  ai-assistant agent-bark-notify hook --runtime openclaw --event completion --summary-mode extract
 
 Configuration:
   BARK_DEVICE_KEY is required. Missing or empty means skip and exit 0.
@@ -28,6 +29,10 @@ Configuration:
   BARK_SERVER defaults to https://api.day.app.
   AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG=1 enables local JSONL audit logging.
   AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE overrides the audit log path.
+
+OpenClaw plugin install and service env guide:
+  ai-assistant plugins install-guide agent-bark-notify --target openclaw
+  ai-assistant plugins config-snippet agent-bark-notify --target openclaw
 """
 
 cmd = make_typer(helptext)
