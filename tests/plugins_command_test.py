@@ -1,8 +1,16 @@
+import re
+
 from typer.testing import CliRunner
 
 from ai_assistant.commands import plugins
 
 runner = CliRunner()
+
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
+
+
+def _plain(text: str) -> str:
+    return _ANSI_RE.sub("", text)
 
 
 def test_plugins_list_includes_agent_bark_notify():
@@ -21,7 +29,7 @@ def test_plugins_help_surfaces_direct_install_commands():
 
     assert root_help.exit_code == 0
     assert list_help.exit_code == 0
-    for output in (root_help.output, list_help.output):
+    for output in (_plain(root_help.output), _plain(list_help.output)):
         assert "codex plugin marketplace add qsoyq/ai-assistant" in output
         assert "codex plugin add agent-bark-notify-codex@ai-assistant" in output
         assert "claude plugin marketplace add qsoyq/ai-assistant" in output

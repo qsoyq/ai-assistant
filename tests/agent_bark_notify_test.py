@@ -147,6 +147,34 @@ def test_openclaw_auto_event_maps_agent_end(monkeypatch, tmp_path):
     assert json.loads(result.output)["title"] == "[OpenClaw][Done][demo-project]"
 
 
+def test_openclaw_message_sent_extracts_delivered_content(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "openclaw", "--summary-mode", "extract", "--dry-run"],
+        input=json.dumps(
+            {
+                "source": "openclaw",
+                "hook_event_name": "message_sent",
+                "success": True,
+                "content": {"text": "Telegram reply delivered."},
+                "workspaceDir": "/tmp/demo-project",
+                "sessionKey": "agent:main:telegram:direct:1602727481",
+                "conversationId": "1602727481",
+                "messageId": "42",
+            }
+        ),
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["title"] == "[OpenClaw][Done][demo-project]"
+    assert body["body"] == "Telegram reply delivered."
+
+
 def test_audit_log_records_sent_metadata_without_secrets(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     audit_log = tmp_path / "audit.jsonl"
@@ -284,6 +312,32 @@ def test_audit_log_write_failure_does_not_fail_hook(monkeypatch, tmp_path):
 
     assert result.exit_code == 0
     assert "BARK_DEVICE_KEY is missing" in result.output
+
+
+def test_quoted_environment_values_are_normalized(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    audit_log = tmp_path / "audit.jsonl"
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG", '"1"')
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE", f'"{audit_log}"')
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("BARK_DEVICE_KEY", '"device-key"')
+    monkeypatch.setenv("BARK_GROUP", '"Agent"')
+    monkeypatch.setenv("BARK_SERVER", '"https://example.invalid"')
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "openclaw", "--event", "completion", "--summary-mode", "extract", "--dry-run"],
+        input=json.dumps({"source": "openclaw", "hook_event_name": "message_sent", "content": "quoted env", "messageId": "quoted-env"}),
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["group"] == "Agent"
+    assert body["url"] == "https://example.invalid/device-key"
+    records = _read_jsonl(audit_log)
+    assert records[-1]["runtime"] == "openclaw"
+    assert records[-1]["hook_event_name"] == "message_sent"
+    assert records[-1]["status"] == "sent"
 
 
 def test_auto_event_maps_permission_request(monkeypatch, tmp_path):
