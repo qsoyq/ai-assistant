@@ -21,6 +21,7 @@ def test_plugins_list_includes_agent_bark_notify():
     assert "codex plugin add agent-bark-notify-codex@ai-assistant" in result.output
     assert "claude plugin install agent-bark-notify@ai-assistant --scope user" in result.output
     assert "openclaw plugins install --link ./plugins/agent-bark-notify-openclaw" in result.output
+    assert "openclaw plugins enable agent-bark-notify-openclaw" in result.output
 
 
 def test_plugins_help_surfaces_direct_install_commands():
@@ -35,6 +36,7 @@ def test_plugins_help_surfaces_direct_install_commands():
         assert "claude plugin marketplace add qsoyq/ai-assistant" in output
         assert "claude plugin install agent-bark-notify@ai-assistant --scope user" in output
         assert "openclaw plugins install --link ./plugins/agent-bark-notify-openclaw" in output
+        assert "openclaw plugins enable agent-bark-notify-openclaw" in output
 
 
 def test_codex_config_snippet_contains_hooks_json_command():
@@ -62,9 +64,13 @@ def test_openclaw_config_snippet_contains_local_install_commands():
     assert result.exit_code == 0
     assert "global OpenClaw plugin install" in result.output
     assert "openclaw plugins install --link ./plugins/agent-bark-notify-openclaw" in result.output
+    assert "openclaw plugins enable agent-bark-notify-openclaw" in result.output
     assert '"allowConversationAccess":true' in result.output
     assert "openclaw plugins inspect agent-bark-notify-openclaw --runtime --json" in result.output
+    assert 'PATH="$HOME/.local/bin:$PATH"' in result.output
+    assert "BARK_DEVICE_KEY=<your Bark device key>" in result.output
     assert "ai-assistant agent-bark-notify hook --runtime openclaw --event completion --summary-mode extract" in result.output
+    assert '"hook_event_name":"message_sent"' in result.output
 
 
 def test_install_guides_explain_manual_and_agent_assisted_paths():
@@ -86,8 +92,14 @@ def test_install_guides_explain_manual_and_agent_assisted_paths():
     assert "/plugin install agent-bark-notify@ai-assistant" in claude.output
     assert "Manual fallback" in claude.output
     assert "openclaw plugins install --link ./plugins/agent-bark-notify-openclaw" in openclaw.output
+    assert "openclaw plugins enable agent-bark-notify-openclaw" in openclaw.output
     assert '"allowConversationAccess":true' in openclaw.output
     assert "openclaw plugins inspect agent-bark-notify-openclaw --runtime --json" in openclaw.output
+    assert "openclaw gateway install --force --wrapper" in openclaw.output
+    assert "BARK_GROUP=OpenClaw" in openclaw.output
+    assert "AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG=1" in openclaw.output
+    assert "openclaw gateway status --deep" in openclaw.output
+    assert "config/CLI version mismatch" in openclaw.output
     assert "Manual fallback" in openclaw.output
 
 

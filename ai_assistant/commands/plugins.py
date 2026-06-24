@@ -16,6 +16,7 @@ Direct install commands:
   claude plugin marketplace add qsoyq/ai-assistant
   claude plugin install agent-bark-notify@ai-assistant --scope user
   openclaw plugins install --link ./plugins/agent-bark-notify-openclaw
+  openclaw plugins enable agent-bark-notify-openclaw
 
 Install paths:
   1. Manual config:
@@ -54,6 +55,7 @@ Claude Code:
 
 OpenClaw:
   openclaw plugins install --link ./plugins/agent-bark-notify-openclaw
+  openclaw plugins enable agent-bark-notify-openclaw
   openclaw plugins inspect agent-bark-notify-openclaw --runtime --json
 """
 
@@ -133,16 +135,29 @@ def openclaw_snippet(scope: Scope) -> str:
     return (
         f"# {location}\n"
         + f"""openclaw plugins install --link ./plugins/agent-bark-notify-openclaw
+openclaw plugins enable agent-bark-notify-openclaw
 printf '%s' '{OPENCLAW_CONVERSATION_ACCESS_PATCH}' \\
   | openclaw config patch --stdin
 openclaw gateway restart
 openclaw plugins inspect agent-bark-notify-openclaw --runtime --json
 
+# The OpenClaw Gateway service must see ai-assistant and Bark env vars.
+# If ai-assistant was installed with uv tool, make sure ~/.local/bin is on PATH.
+# For launchd/systemd/schtasks services, install the gateway with a wrapper that exports:
+#   PATH="$HOME/.local/bin:$PATH"
+#   BARK_DEVICE_KEY=<your Bark device key>
+# Optional:
+#   BARK_GROUP=OpenClaw
+#   BARK_SERVER=https://api.day.app
+#   AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG=1
+#   AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE=$HOME/.ai-assistant/agent-bark-notify.log
+
 # The plugin registers an agent_end typed hook and forwards it to:
 ai-assistant agent-bark-notify hook --runtime openclaw --event completion --summary-mode extract
 
-# Approval-needed payloads can be checked directly with:
-ai-assistant agent-bark-notify hook --runtime openclaw --event approval_needed --summary-mode extract --dry-run
+# Message delivery can be checked directly with:
+printf '%s' '{{"source":"openclaw","hook_event_name":"message_sent","success":true,"content":"test","channelId":"telegram","messageId":"test"}}' \\
+  | ai-assistant agent-bark-notify hook --runtime openclaw --event completion --summary-mode extract --dry-run
 """
     )
 
@@ -191,10 +206,33 @@ Run these commands from this repository checkout:
 
 OpenClaw:
   openclaw plugins install --link ./plugins/agent-bark-notify-openclaw
+  openclaw plugins enable agent-bark-notify-openclaw
   printf '%s' '{OPENCLAW_CONVERSATION_ACCESS_PATCH}' \\
     | openclaw config patch --stdin
   openclaw gateway restart
   openclaw plugins inspect agent-bark-notify-openclaw --runtime --json
+
+Install ai-assistant where the Gateway service can execute it:
+
+  uv tool install --force .
+  command -v ai-assistant
+
+Set OpenClaw Gateway service env. If your Gateway runs as launchd/systemd/schtasks,
+put env exports in a wrapper and reinstall the service with --wrapper:
+
+  cat > ~/.openclaw/ai-assistant-bark-wrapper.sh <<'SH'
+  #!/bin/sh
+  export PATH="$HOME/.local/bin:$PATH"
+  export BARK_DEVICE_KEY=<your Bark device key>
+  export BARK_GROUP=OpenClaw
+  # export BARK_SERVER=https://api.day.app
+  # export AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG=1
+  # export AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE="$HOME/.ai-assistant/agent-bark-notify.log"
+  exec "$@"
+  SH
+  chmod +x ~/.openclaw/ai-assistant-bark-wrapper.sh
+  openclaw gateway install --force --wrapper ~/.openclaw/ai-assistant-bark-wrapper.sh
+  openclaw gateway restart
 
 Review and trust the hook command only if you accept it:
 
@@ -203,6 +241,25 @@ Review and trust the hook command only if you accept it:
 
 Required runtime env:
   BARK_DEVICE_KEY=<your Bark device key>
+
+Optional runtime env:
+  BARK_GROUP=OpenClaw
+  BARK_SERVER=https://api.day.app
+  AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG=1
+  AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE=~/.ai-assistant/agent-bark-notify.log
+
+Verification:
+  openclaw --version
+  which openclaw
+  openclaw gateway status --deep
+  openclaw plugins inspect agent-bark-notify-openclaw --runtime --json
+  printf '%s' '{{"source":"openclaw","hook_event_name":"message_sent","success":true,"content":"test","channelId":"telegram","messageId":"test"}}' \\
+    | ai-assistant agent-bark-notify hook --runtime openclaw --event completion --summary-mode extract --dry-run
+
+In plugin inspect output, confirm the plugin is enabled, runtime hook count is non-zero,
+message_sent/agent_end hooks are present, and allowConversationAccess is true.
+If openclaw reports a config/CLI version mismatch, fix PATH or reinstall the Gateway
+service from the same openclaw binary before testing channel delivery.
 
 Manual fallback:
   ai-assistant plugins config-snippet agent-bark-notify --target openclaw --scope {scope}
@@ -255,6 +312,7 @@ def list_plugins() -> None:
       claude plugin marketplace add qsoyq/ai-assistant
       claude plugin install agent-bark-notify@ai-assistant --scope user
       openclaw plugins install --link ./plugins/agent-bark-notify-openclaw
+      openclaw plugins enable agent-bark-notify-openclaw
     """
     typer.echo(
         f"""agent-bark-notify
