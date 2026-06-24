@@ -149,6 +149,8 @@ def detect_event(event: Event, payload: dict[str, Any]) -> str | None:
         return "approval_needed"
     if hook_event in {"agent_end", "agent:end"}:
         return "completion" if payload.get("success") is not False else "failed"
+    if hook_event in {"message_sent", "message:sent"}:
+        return "completion" if payload.get("success") is not False else "failed"
     if hook_event == "Notification":
         message = str(payload.get("message") or payload.get("notification_type") or payload.get("reason") or "")
         if "permission" in message.lower() or "approval" in message.lower():
@@ -361,17 +363,24 @@ def _hook_event_name(payload: dict[str, Any]) -> str | None:
     return str(value) if value is not None else None
 
 
+def _env_value(env: dict[str, str], key: str, default: str = "") -> str:
+    value = env.get(key, default).strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+        return value[1:-1].strip()
+    return value
+
+
 def _session_id(payload: dict[str, Any]) -> str | None:
     value = payload.get("session_id") or payload.get("sessionId") or payload.get("sessionKey") or payload.get("conversation_id") or payload.get("transcript_path")
     return str(value) if value is not None else None
 
 
 def _audit_enabled(env: dict[str, str]) -> bool:
-    return env.get(AUDIT_LOG_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
+    return _env_value(env, AUDIT_LOG_ENV).lower() in {"1", "true", "yes", "on"}
 
 
 def _audit_log_path(env: dict[str, str]) -> Path:
-    configured = env.get(AUDIT_LOG_FILE_ENV, "").strip()
+    configured = _env_value(env, AUDIT_LOG_FILE_ENV)
     if configured:
         return Path(configured).expanduser()
     return DEFAULT_AUDIT_LOG_PATH.expanduser()
@@ -538,6 +547,8 @@ def extract_summary(runtime: str, event: str, payload: dict[str, Any], max_chars
         for candidate in (
             _extract_text(payload.get("last_assistant_message")),
             _extract_text(payload.get("lastAssistantMessage")),
+            _extract_text(payload.get("content")),
+            _extract_text(payload.get("message")),
             _extract_text(payload.get("summary")),
             _extract_text(payload.get("error")),
             *reversed(_read_transcript_messages(_extract_text(payload.get("transcript_path")))),
@@ -584,6 +595,8 @@ def build_dedupe_key(runtime: str, event: str, payload: dict[str, Any], body: st
     stable_payload = {
         "hook_event_name": payload.get("hook_event_name") or payload.get("event") or payload.get("event_name") or payload.get("type"),
         "session_id": session,
+        "message_id": payload.get("messageId") or payload.get("message_id"),
+        "conversation_id": payload.get("conversationId") or payload.get("conversation_id"),
         "tool_name": payload.get("tool_name") or payload.get("toolName"),
         "cwd": payload.get("cwd") or payload.get("workspaceDir"),
         "body": body,
@@ -625,20 +638,20 @@ def build_notification(
     payload: dict[str, Any],
     cwd: Path | None = None,
 ) -> Notification | None:
-    device_key = env.get("BARK_DEVICE_KEY", "").strip()
+    device_key = _env_value(env, "BARK_DEVICE_KEY")
     if not device_key:
         return None
 
     identity = identity_for_runtime(runtime, env)
     body = safe_message(event, message)
     title = notification_title(runtime=runtime, identity=identity, event=event, payload=payload, env=env, cwd=cwd)
-    bark_server = env.get("BARK_SERVER") or "https://api.day.app"
+    bark_server = _env_value(env, "BARK_SERVER", "https://api.day.app")
     dedupe_key = build_dedupe_key(runtime, event, payload, body)
     return Notification(
         title=title,
         body=body,
         icon_url=identity.icon_url,
-        group=env.get("BARK_GROUP") or None,
+        group=_env_value(env, "BARK_GROUP") or None,
         bark_url=f"{bark_server.rstrip('/')}/{device_key}",
         dedupe_key=dedupe_key,
     )
