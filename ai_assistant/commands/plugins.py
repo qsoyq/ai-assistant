@@ -41,6 +41,16 @@ Scope = Literal["global", "project"]
 
 PLUGIN_NAME = "agent-bark-notify"
 OPENCLAW_CONVERSATION_ACCESS_PATCH = '{"plugins":{"entries":{"agent-bark-notify-openclaw":{"hooks":{"allowConversationAccess":true}}}}}'
+OPTIONAL_RUNTIME_ENV = """Optional runtime env:
+  AGENT_BARK_NOTIFY_HOOK_URL=lody://session/{session_id}
+  AGENT_BARK_NOTIFY_GROUP_MODE=agent
+  AGENT_BARK_NOTIFY_GROUP_MODE=project
+  AGENT_BARK_NOTIFY_GROUP_MODE=project-branch
+  BARK_GROUP=OpenClaw  # fixed group override
+  BARK_SERVER=https://api.day.app
+  AGENT_BARK_NOTIFY_AUDIT_LOG=1
+  AGENT_BARK_NOTIFY_AUDIT_LOG_FILE=~/.ai-assistant/agent-bark-notify.log
+"""
 
 
 def install_commands(scope: Scope = "global") -> str:
@@ -85,6 +95,7 @@ def codex_snippet(scope: Scope) -> str:
   }
 }
 """
+        + "\n# Runtime env:\n#   BARK_DEVICE_KEY=<your Bark device key>\n#   AGENT_BARK_NOTIFY_HOOK_URL=lody://session/{session_id}  # optional click URL\n"
     )
 
 
@@ -127,6 +138,7 @@ def claude_snippet(scope: Scope) -> str:
   }
 }
 """
+        + "\n# Runtime env:\n#   BARK_DEVICE_KEY=<your Bark device key>\n#   AGENT_BARK_NOTIFY_HOOK_URL=lody://session/{session_id}  # optional click URL\n"
     )
 
 
@@ -147,11 +159,12 @@ openclaw plugins inspect agent-bark-notify-openclaw --runtime --json
 #   PATH="$HOME/.local/bin:$PATH"
 #   BARK_DEVICE_KEY=<your Bark device key>
 # Optional:
-#   AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE=agent
+#   AGENT_BARK_NOTIFY_HOOK_URL=lody://session/{{session_id}}
+#   AGENT_BARK_NOTIFY_GROUP_MODE=agent
 #   BARK_GROUP=OpenClaw  # fixed group override
 #   BARK_SERVER=https://api.day.app
-#   AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG=1
-#   AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE=$HOME/.ai-assistant/agent-bark-notify.log
+#   AGENT_BARK_NOTIFY_AUDIT_LOG=1
+#   AGENT_BARK_NOTIFY_AUDIT_LOG_FILE=$HOME/.ai-assistant/agent-bark-notify.log
 
 # The plugin registers an agent_end typed hook and forwards it to:
 ai-assistant agent-bark-notify hook --runtime openclaw --event completion --summary-mode extract
@@ -188,6 +201,8 @@ Then review the hook command before trusting it:
 
 Required runtime env:
   BARK_DEVICE_KEY=<your Bark device key>
+
+{OPTIONAL_RUNTIME_ENV.rstrip()}
 
 Manual fallback:
   ai-assistant plugins config-snippet agent-bark-notify --target codex --scope {scope}
@@ -226,11 +241,12 @@ put env exports in a wrapper and reinstall the service with --wrapper:
   export PATH="$HOME/.local/bin:$PATH"
   export BARK_DEVICE_KEY=<your Bark device key>
   # Default group mode is agent. Use project or project-branch to split notifications.
-  # export AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE=project-branch
+  # export AGENT_BARK_NOTIFY_HOOK_URL='lody://session/{{session_id}}'
+  # export AGENT_BARK_NOTIFY_GROUP_MODE=project-branch
   # export BARK_GROUP=OpenClaw  # fixed group override
   # export BARK_SERVER=https://api.day.app
-  # export AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG=1
-  # export AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE="$HOME/.ai-assistant/agent-bark-notify.log"
+  # export AGENT_BARK_NOTIFY_AUDIT_LOG=1
+  # export AGENT_BARK_NOTIFY_AUDIT_LOG_FILE="$HOME/.ai-assistant/agent-bark-notify.log"
   exec "$@"
   SH
   chmod +x ~/.openclaw/ai-assistant-bark-wrapper.sh
@@ -245,14 +261,7 @@ Review and trust the hook command only if you accept it:
 Required runtime env:
   BARK_DEVICE_KEY=<your Bark device key>
 
-Optional runtime env:
-  AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE=agent
-  AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE=project
-  AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE=project-branch
-  BARK_GROUP=OpenClaw  # fixed group override
-  BARK_SERVER=https://api.day.app
-  AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG=1
-  AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE=~/.ai-assistant/agent-bark-notify.log
+{OPTIONAL_RUNTIME_ENV.rstrip()}
 
 Verification:
   openclaw --version
@@ -302,6 +311,8 @@ Review and trust the hook command only if you accept it:
 
 Required runtime env:
   BARK_DEVICE_KEY=<your Bark device key>
+
+{OPTIONAL_RUNTIME_ENV.rstrip()}
 
 Manual fallback:
   ai-assistant plugins config-snippet agent-bark-notify --target claude --scope {scope}
