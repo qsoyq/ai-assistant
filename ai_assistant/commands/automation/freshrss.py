@@ -3,13 +3,14 @@ from html import unescape
 from html.parser import HTMLParser
 from http.cookies import SimpleCookie
 from pathlib import Path
-from typing import NotRequired, TypedDict, cast
+from typing import TypedDict, cast
 from urllib.parse import quote, urlencode, urljoin, urlparse
 
 import httpx
 import typer
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
+from typing_extensions import NotRequired
 
 from ai_assistant.commands import make_typer
 from ai_assistant.commands.cookies import _extract_cookies_for_domain
