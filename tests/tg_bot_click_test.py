@@ -97,11 +97,13 @@ def test_cli_rejects_missing_credentials_before_importing_telethon():
 
 def test_cli_help_documents_session_migration():
     result = click_runner.invoke(tg_bot_click.cmd, ["--help"])
+    option_names = {option for parameter in tg_bot_click.cmd.params for option in parameter.opts}
+    option_envvars = {parameter.envvar for parameter in tg_bot_click.cmd.params if parameter.envvar}
 
     assert result.exit_code == 0
-    assert "--export-session" in result.output
-    assert "--import-session" in result.output
-    assert "TG_API_ID" in result.output
+    assert "--export-session" in option_names
+    assert "--import-session" in option_names
+    assert "TG_API_ID" in option_envvars
 
 
 def test_root_command_registers_tg_bot_click():

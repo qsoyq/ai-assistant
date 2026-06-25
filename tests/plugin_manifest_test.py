@@ -29,9 +29,24 @@ def test_codex_bark_plugin_hook_config_uses_codex_schema():
 def test_bark_plugin_versions_are_bumped_for_extract_hooks():
     codex_manifest = json.loads(Path("plugins/agent-bark-notify-codex/.codex-plugin/plugin.json").read_text())
     claude_manifest = json.loads(Path("plugins/agent-bark-notify-claude/.claude-plugin/plugin.json").read_text())
+    openclaw_package = json.loads(Path("plugins/agent-bark-notify-openclaw/package.json").read_text())
+    openclaw_manifest = json.loads(Path("plugins/agent-bark-notify-openclaw/openclaw.plugin.json").read_text())
 
-    assert codex_manifest["version"] == "0.1.4"
-    assert claude_manifest["version"] == "0.1.4"
+    assert codex_manifest["version"] == "0.1.5"
+    assert claude_manifest["version"] == "0.1.5"
+    assert openclaw_package["version"] == "0.1.5"
+    assert openclaw_manifest["version"] == "0.1.5"
+
+
+def test_bark_plugin_versions_stay_in_sync_across_targets():
+    versions = {
+        "codex": json.loads(Path("plugins/agent-bark-notify-codex/.codex-plugin/plugin.json").read_text())["version"],
+        "claude": json.loads(Path("plugins/agent-bark-notify-claude/.claude-plugin/plugin.json").read_text())["version"],
+        "openclaw-package": json.loads(Path("plugins/agent-bark-notify-openclaw/package.json").read_text())["version"],
+        "openclaw-manifest": json.loads(Path("plugins/agent-bark-notify-openclaw/openclaw.plugin.json").read_text())["version"],
+    }
+
+    assert set(versions.values()) == {"0.1.5"}
 
 
 def test_claude_marketplace_exposes_bark_plugin():

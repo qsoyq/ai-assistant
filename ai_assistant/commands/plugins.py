@@ -147,7 +147,8 @@ openclaw plugins inspect agent-bark-notify-openclaw --runtime --json
 #   PATH="$HOME/.local/bin:$PATH"
 #   BARK_DEVICE_KEY=<your Bark device key>
 # Optional:
-#   BARK_GROUP=OpenClaw
+#   AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE=agent
+#   BARK_GROUP=OpenClaw  # fixed group override
 #   BARK_SERVER=https://api.day.app
 #   AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG=1
 #   AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE=$HOME/.ai-assistant/agent-bark-notify.log
@@ -224,7 +225,9 @@ put env exports in a wrapper and reinstall the service with --wrapper:
   #!/bin/sh
   export PATH="$HOME/.local/bin:$PATH"
   export BARK_DEVICE_KEY=<your Bark device key>
-  export BARK_GROUP=OpenClaw
+  # Default group mode is agent. Use project or project-branch to split notifications.
+  # export AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE=project-branch
+  # export BARK_GROUP=OpenClaw  # fixed group override
   # export BARK_SERVER=https://api.day.app
   # export AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG=1
   # export AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE="$HOME/.ai-assistant/agent-bark-notify.log"
@@ -243,7 +246,10 @@ Required runtime env:
   BARK_DEVICE_KEY=<your Bark device key>
 
 Optional runtime env:
-  BARK_GROUP=OpenClaw
+  AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE=agent
+  AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE=project
+  AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE=project-branch
+  BARK_GROUP=OpenClaw  # fixed group override
   BARK_SERVER=https://api.day.app
   AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG=1
   AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE=~/.ai-assistant/agent-bark-notify.log

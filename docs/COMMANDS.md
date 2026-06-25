@@ -16,6 +16,7 @@ $ ai-assistant [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `adb`: 管理 adb server。
+* `agent-bark-notify`: Send Bark notifications from agent lifecycle hooks.
 * `aliyun-oss`: 阿里云 OSS 工具集
 * `bump-version`: 对当前目录的 pyproject.toml 的 project.version 加一。
 * `cf-tunnel-watcher`: 监听 Cloudflare Tunnel 连接状态变化并执行命令
@@ -37,6 +38,7 @@ $ ai-assistant [OPTIONS] COMMAND [ARGS]...
 * `mcd`: 基于 OpenAI Responses API 的 mcp-mcd 工具
 * `mcp-cli`: MCP Client
 * `opml`: Fetch RSS feeds from OPML file periodically.
+* `plugins`: Manage ai-assistant companion plugins.
 * `pypi-mirror`: 按 PEP 503 simple 索引镜像下载 (asyncio 驱动): 拉取索引页 -&gt; 并发抓取所有文件清单 -&gt;
 * `pypi-upload`: 把本地的 whl / tar.gz 上传到指定仓库 (asyncio 并发, 直接调用 twine 库内 API)。
 * `reality`: 基于 Xray REALITY 协议生成服务端与客户端配置, 可选自动安装 xray 并启用 systemd 服务。
@@ -83,6 +85,44 @@ $ ai-assistant adb restart-all [OPTIONS]
 * `-t, --timeout FLOAT`: adb devices 探活超时 (秒)  [default: 5.0]
 * `-f, --force`: 无视当前状态强制重启
 * `-v, --verbose`: 打印 adb 详细输出
+* `--help`: Show this message and exit.
+
+## `ai-assistant agent-bark-notify`
+
+**Usage**:
+
+```console
+$ ai-assistant agent-bark-notify [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `hook`: Read hook JSON from stdin and send a...
+
+### `ai-assistant agent-bark-notify hook`
+
+Read hook JSON from stdin and send a best-effort Bark notification.
+
+**Usage**:
+
+```console
+$ ai-assistant agent-bark-notify hook [OPTIONS]
+```
+
+**Options**:
+
+* `--runtime [auto|codex|claude|openclaw]`: Hook runtime: codex, claude, openclaw, or auto.  [default: auto]
+* `--event [auto|completion|approval_needed|failed]`: Notification event override.  [default: auto]
+* `--message TEXT`: Override short notification body.
+* `--group-mode [agent|project|project-branch]`: Bark group mode: agent, project, or project-branch.
+* `--summary-mode [fixed|extract]`: Notification summary mode: fixed or extract.  [default: fixed]
+* `--summary-max-chars INTEGER RANGE`: Maximum extractive summary length.  [default: 120; x&gt;=1]
+* `--dry-run`: Print notification summary without sending Bark request.
+* `--no-dedupe`: Disable duplicate suppression.
 * `--help`: Show this message and exit.
 
 ## `ai-assistant aliyun-oss`
@@ -968,6 +1008,7 @@ $ ai-assistant freshrss [OPTIONS] COMMAND [ARGS]...
 * `subscribe`: 通过 FreshRSS 网页添加接口新增订阅源
 * `refresh`: 刷新当前所有订阅源
 * `cleanup-unread`: 按标题规则清理指定分类下的未读文章
+* `cleanup-video-404`: 按 h5 video URL 404 状态清理指定分类下的未读文章
 * `search`: 按标题或正文关键字搜索文章，可选标记命中结果为已读
 * `disable-priority`: 将所有 feed 的 priority 置为 0
 
@@ -1061,6 +1102,36 @@ $ ai-assistant freshrss cleanup-unread [OPTIONS]
 * `--user TEXT`: FreshRSS 用户名  [env var: FRESHRSS_USER; required]
 * `--token TEXT`: FreshRSS API Token  [env var: FRESHRSS_API_TOKEN; required]
 * `--dry-run / --no-dry-run`: 只输出将被标记为已读的文章，不实际修改  [default: no-dry-run]
+* `--ignore-case / --match-case`: 标题匹配时默认忽略大小写  [default: ignore-case]
+* `--help`: Show this message and exit.
+
+### `ai-assistant freshrss cleanup-video-404`
+
+按 h5 video URL 404 状态清理指定分类下的未读文章
+
+读取指定分类中的未读文章，先按标题关键字过滤，再提取正文 HTML 中 ``h5`` 元素下的
+``video``/``source`` URL。只有当一篇文章的所有匹配视频 URL 都返回 HTTP 404 时，才会
+将该文章标记为已读。``--dry-run`` 只预览待标记为已读的文章列表，不真实执行写入。
+
+Usage examples::
+    ai-assistant freshrss cleanup-video-404 --category videos --title &quot;Daily&quot; --dry-run
+    ai-assistant freshrss cleanup-video-404 --label videos --title &quot;Daily&quot; --limit 20 --no-dry-run
+
+**Usage**:
+
+```console
+$ ai-assistant freshrss cleanup-video-404 [OPTIONS]
+```
+
+**Options**:
+
+* `--category, --label TEXT`: FreshRSS 分类/label 名称（不是分类 ID）  [required]
+* `-t, --title TEXT`: 标题关键字；留空则检查分类下全部未读文章
+* `--limit INTEGER RANGE`: 最多标记多少篇视频全部 404 的文章；0 表示不限制  [default: 10; x&gt;=0]
+* `--endpoint TEXT`: FreshRSS 端点地址  [env var: FRESHRSS_ENDPOINT; required]
+* `--user TEXT`: FreshRSS 用户名  [env var: FRESHRSS_USER; required]
+* `--token TEXT`: FreshRSS API Token  [env var: FRESHRSS_API_TOKEN; required]
+* `--dry-run / --no-dry-run`: 预览待标记为已读的视频 404 文章列表，不真实执行写入  [default: no-dry-run]
 * `--ignore-case / --match-case`: 标题匹配时默认忽略大小写  [default: ignore-case]
 * `--help`: Show this message and exit.
 
@@ -1941,6 +2012,86 @@ $ ai-assistant opml fetch [OPTIONS] OPML_PATH
 * `--loop / --no-loop`: 是否循环抓取  [default: no-loop]
 * `--log-level TEXT`: 日志级别 (DEBUG, INFO, WARNING, ERROR)  [default: INFO]
 * `--rate-limit-minutes INTEGER RANGE`: 遇到 429 后跳过该 URL 的分钟数，也可通过环境变量 OPML_429_SKIP_MINUTES 设置  [env var: OPML_429_SKIP_MINUTES; default: 5; x&gt;=1]
+* `--help`: Show this message and exit.
+
+## `ai-assistant plugins`
+
+**Usage**:
+
+```console
+$ ai-assistant plugins [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `list`: List ai-assistant companion plugins.
+* `config-snippet`: Print manual hook configuration for a plugin.
+* `install-guide`: Print instructions for agent-assisted...
+
+### `ai-assistant plugins list`
+
+List ai-assistant companion plugins.
+
+Direct install commands:
+  codex plugin marketplace add qsoyq/ai-assistant
+  codex plugin add agent-bark-notify-codex@ai-assistant
+  claude plugin marketplace add qsoyq/ai-assistant
+  claude plugin install agent-bark-notify@ai-assistant --scope user
+  openclaw plugins install --link ./plugins/agent-bark-notify-openclaw
+  openclaw plugins enable agent-bark-notify-openclaw
+
+**Usage**:
+
+```console
+$ ai-assistant plugins list [OPTIONS]
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+### `ai-assistant plugins config-snippet`
+
+Print manual hook configuration for a plugin.
+
+**Usage**:
+
+```console
+$ ai-assistant plugins config-snippet [OPTIONS] PLUGIN
+```
+
+**Arguments**:
+
+* `PLUGIN`: Plugin name, e.g. agent-bark-notify  [required]
+
+**Options**:
+
+* `--target [codex|claude|openclaw]`: Target agent: codex, claude, or openclaw.  [required]
+* `--scope [global|project]`: Config scope: global or project.  [default: global]
+* `--help`: Show this message and exit.
+
+### `ai-assistant plugins install-guide`
+
+Print instructions for agent-assisted plugin installation.
+
+**Usage**:
+
+```console
+$ ai-assistant plugins install-guide [OPTIONS] PLUGIN
+```
+
+**Arguments**:
+
+* `PLUGIN`: Plugin name, e.g. agent-bark-notify  [required]
+
+**Options**:
+
+* `--target [codex|claude|openclaw]`: Target agent: codex, claude, or openclaw.  [required]
+* `--scope [global|project]`: Plugin install scope: global or project.  [default: global]
 * `--help`: Show this message and exit.
 
 ## `ai-assistant pypi-mirror`
