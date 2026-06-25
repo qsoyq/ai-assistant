@@ -304,7 +304,7 @@ def test_openclaw_completion_dry_run_prints_notification(monkeypatch, tmp_path):
 
     assert result.exit_code == 0
     body = json.loads(result.output)
-    assert body["title"] == "[OpenClaw][Done][demo-project]"
+    assert body["title"] == "[OpenClaw][Done]"
     assert body["body"] == "任务已完成"
     assert body["icon"] == "https://openclaw.ai/apple-touch-icon.png"
     assert body["icon"] == agent_bark_notify.OPENCLAW_ICON_URL
@@ -323,7 +323,7 @@ def test_auto_runtime_detects_openclaw_source_icon(monkeypatch, tmp_path):
 
     assert result.exit_code == 0
     body = json.loads(result.output)
-    assert body["title"] == "[OpenClaw][Done][demo-project]"
+    assert body["title"] == "[OpenClaw][Done]"
     assert body["icon"] == "https://openclaw.ai/apple-touch-icon.png"
 
 
@@ -406,7 +406,145 @@ def test_openclaw_auto_event_maps_agent_end(monkeypatch, tmp_path):
     )
 
     assert result.exit_code == 0
-    assert json.loads(result.output)["title"] == "[OpenClaw][Done][demo-project]"
+    assert "skip: OpenClaw event has no deliverable reply" in result.output
+
+
+def test_openclaw_agent_end_with_reply_context_sends_completion(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "openclaw", "--summary-mode", "extract", "--dry-run"],
+        input=json.dumps(
+            {
+                "source": "openclaw",
+                "hook_event_name": "agent_end",
+                "success": True,
+                "last_assistant_message": "Done through agent_end.",
+                "workspaceDir": "/tmp/demo-project",
+                "sessionId": "openclaw-agent-end-reply",
+            }
+        ),
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["title"] == "[OpenClaw][Done]"
+    assert body["body"] == "Done through agent_end."
+
+
+def test_openclaw_message_sent_no_reply_is_skipped(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    audit_log = tmp_path / "audit.jsonl"
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG", "1")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE", str(audit_log))
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "openclaw", "--summary-mode", "extract", "--dry-run"],
+        input=json.dumps(
+            {
+                "source": "openclaw",
+                "hook_event_name": "message_sent",
+                "success": True,
+                "content": "NO_REPLY",
+                "workspaceDir": "/tmp/demo-project",
+                "messageId": "no-reply-message",
+            }
+        ),
+    )
+
+    assert result.exit_code == 0
+    assert "skip: OpenClaw event has no deliverable reply" in result.output
+    records = _read_jsonl(audit_log)
+    assert records[-1]["status"] == "skipped_openclaw_no_reply"
+
+
+def test_openclaw_agent_end_without_reply_context_is_skipped(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    audit_log = tmp_path / "audit.jsonl"
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG", "1")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE", str(audit_log))
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "openclaw", "--summary-mode", "extract", "--dry-run"],
+        input=json.dumps(
+            {
+                "source": "openclaw",
+                "hook_event_name": "agent_end",
+                "success": True,
+                "workspaceDir": "/tmp/demo-project",
+                "sessionId": "openclaw-agent-end-empty",
+            }
+        ),
+    )
+
+    assert result.exit_code == 0
+    assert "skip: OpenClaw event has no deliverable reply" in result.output
+    records = _read_jsonl(audit_log)
+    assert records[-1]["status"] == "skipped_openclaw_silent_agent_end"
+
+
+def test_openclaw_agent_end_failed_without_context_is_skipped(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    audit_log = tmp_path / "audit.jsonl"
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG", "1")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE", str(audit_log))
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "openclaw", "--summary-mode", "extract", "--dry-run"],
+        input=json.dumps(
+            {
+                "source": "openclaw",
+                "hook_event_name": "agent_end",
+                "success": False,
+                "workspaceDir": "/tmp/demo-project",
+                "sessionId": "openclaw-agent-end-failed-empty",
+            }
+        ),
+    )
+
+    assert result.exit_code == 0
+    assert "skip: OpenClaw event has no deliverable reply" in result.output
+    records = _read_jsonl(audit_log)
+    assert records[-1]["status"] == "skipped_openclaw_silent_agent_end"
+
+
+def test_openclaw_failed_title_omits_implicit_project_and_git_branch(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "openclaw", "--summary-mode", "extract", "--dry-run"],
+        input=json.dumps(
+            {
+                "source": "openclaw",
+                "hook_event_name": "agent_end",
+                "success": False,
+                "error": "gateway error",
+                "workspaceDir": ".",
+                "agentId": "main",
+                "sessionId": "openclaw-agent-end-failed-error",
+            }
+        ),
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["title"] == "[OpenClaw][Failed]"
+    assert body["body"] == "本轮因错误停止"
 
 
 def test_openclaw_message_sent_extracts_delivered_content(monkeypatch, tmp_path):
@@ -433,7 +571,7 @@ def test_openclaw_message_sent_extracts_delivered_content(monkeypatch, tmp_path)
 
     assert result.exit_code == 0
     body = json.loads(result.output)
-    assert body["title"] == "[OpenClaw][Done][demo-project]"
+    assert body["title"] == "[OpenClaw][Done]"
     assert body["body"] == "Telegram reply delivered."
 
 

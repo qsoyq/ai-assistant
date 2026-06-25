@@ -240,6 +240,52 @@ def branch_name(payload: dict[str, Any], env: dict[str, str], cwd: Path | None =
     return result.stdout.strip()
 
 
+def _explicit_project_name(payload: dict[str, Any], env: dict[str, str], *, include_agent_id: bool) -> str:
+    keys = ["project_name", "workspace_name", "repository", "repo"]
+    if include_agent_id:
+        keys.extend(["agentId", "agent_id", "name"])
+    for key in keys:
+        raw_name = payload.get(key)
+        if isinstance(raw_name, str) and raw_name.strip():
+            return raw_name.strip()
+
+    env_keys = [
+        "AI_ASSISTANT_AGENT_BARK_NOTIFY_PROJECT_NAME",
+        "OPENCLAW_WORKSPACE_NAME",
+        "CODEX_WORKSPACE_NAME",
+        "CODEX_PROJECT_NAME",
+        "LODY_WORKSPACE_NAME",
+        "LODY_PROJECT_NAME",
+    ]
+    for key in env_keys:
+        raw_name = env.get(key)
+        if raw_name and raw_name.strip():
+            return raw_name.strip()
+    return ""
+
+
+def title_project_name(runtime: str, payload: dict[str, Any], env: dict[str, str], cwd: Path | None = None) -> str:
+    if runtime == "openclaw":
+        return _explicit_project_name(payload, env, include_agent_id=False)
+    return project_name(payload, cwd)
+
+
+def title_branch_name(runtime: str, payload: dict[str, Any], env: dict[str, str], cwd: Path | None = None) -> str:
+    if runtime != "openclaw":
+        return branch_name(payload, env, cwd)
+
+    for key in ("branch_name", "branch", "git_branch", "ref_name"):
+        raw_name = payload.get(key)
+        if isinstance(raw_name, str) and raw_name.strip():
+            return raw_name.strip().removeprefix("refs/heads/")
+
+    for key in ("AI_ASSISTANT_AGENT_BARK_NOTIFY_BRANCH_NAME", "CODEX_BRANCH_NAME", "GIT_BRANCH", "BRANCH_NAME"):
+        raw_name = env.get(key)
+        if raw_name and raw_name.strip():
+            return raw_name.strip().removeprefix("refs/heads/")
+    return ""
+
+
 def session_name(payload: dict[str, Any], env: dict[str, str]) -> str:
     for key in ("session_name", "conversation_name", "thread_name", "workspace_session_name"):
         raw_name = payload.get(key)
@@ -279,10 +325,10 @@ def notification_title(*, runtime: str, identity: AgentIdentity, event: str, pay
     values = _SafeTitleVars(
         agent=identity.name,
         event=event_label(event),
-        project=project_name(payload, cwd),
+        project=title_project_name(runtime, payload, env, cwd),
         runtime=runtime,
         cwd_basename=cwd_basename(payload, cwd),
-        branch=branch_name(payload, env, cwd),
+        branch=title_branch_name(runtime, payload, env, cwd),
         session=session_name(payload, env),
     )
     configured_template = env.get(TITLE_TEMPLATE_ENV, "").strip()
@@ -658,6 +704,67 @@ def extract_summary(runtime: str, event: str, payload: dict[str, Any], max_chars
     return None
 
 
+def _normalized_payload_text(value: Any) -> str:
+    return " ".join((_extract_text(value) or "").split()).strip()
+
+
+def _is_no_reply_text(text: str | None) -> bool:
+    return bool(text and text.strip().upper() == "NO_REPLY")
+
+
+def _openclaw_payload_is_no_reply(payload: dict[str, Any], message: str | None) -> bool:
+    if _is_no_reply_text(message):
+        return True
+    for key in ("content", "message", "summary", "last_assistant_message", "lastAssistantMessage"):
+        if _is_no_reply_text(_normalized_payload_text(payload.get(key))):
+            return True
+    return False
+
+
+def _openclaw_has_reply_context(payload: dict[str, Any], message: str | None) -> bool:
+    if message and not _is_no_reply_text(message):
+        return True
+    for key in ("content", "message", "summary", "last_assistant_message", "lastAssistantMessage"):
+        text = _normalized_payload_text(payload.get(key))
+        if text and not _is_no_reply_text(text):
+            return True
+    for key in ("messageId", "message_id", "conversationId", "conversation_id", "channelId", "channel_id"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return True
+    return False
+
+
+def _openclaw_has_failure_context(payload: dict[str, Any]) -> bool:
+    for key in ("error", "reason", "status", "failureReason", "failure_reason"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return True
+        if isinstance(value, dict) and any(value.values()):
+            return True
+    for key in ("messageId", "message_id", "conversationId", "conversation_id", "channelId", "channel_id", "channel"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return True
+    return False
+
+
+def skip_notification_reason(runtime: str, event: str, payload: dict[str, Any], message: str | None) -> str | None:
+    if runtime != "openclaw":
+        return None
+    if _openclaw_payload_is_no_reply(payload, message):
+        return "skipped_openclaw_no_reply"
+
+    hook_event = _hook_event_name(payload)
+    if hook_event not in {"agent_end", "agent:end"}:
+        return None
+    if event == "completion" and not _openclaw_has_reply_context(payload, message):
+        return "skipped_openclaw_silent_agent_end"
+    if event == "failed" and not _openclaw_has_failure_context(payload):
+        return "skipped_openclaw_silent_agent_end"
+    return None
+
+
 def build_dedupe_key(runtime: str, event: str, payload: dict[str, Any], body: str) -> str:
     session = payload.get("session_id") or payload.get("sessionId") or payload.get("sessionKey") or payload.get("conversation_id") or payload.get("transcript_path") or ""
     stable_payload = {
@@ -766,6 +873,13 @@ def hook(
         resolved_message = message
         if resolved_message is None and summary_mode == "extract":
             resolved_message = extract_summary(resolved_runtime, resolved_event, payload, summary_max_chars)
+
+        skip_reason = skip_notification_reason(resolved_runtime, resolved_event, payload, resolved_message)
+        if skip_reason is not None:
+            _finish_audit_record(env, audit_record, status=skip_reason)
+            if dry_run:
+                typer.echo("skip: OpenClaw event has no deliverable reply")
+            return
 
         notification = build_notification(
             runtime=resolved_runtime,
