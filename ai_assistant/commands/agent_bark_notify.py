@@ -53,7 +53,7 @@ class GroupModeOption(str, Enum):
 
 CODEX_ICON_URL = "https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/light/codex-color.png"
 CLAUDE_CODE_ICON_URL = "https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/light/claudecode-color.png"
-OPENCLAW_ICON_URL = "https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/light/openclaw-color.png"
+OPENCLAW_ICON_URL = "https://openclaw.ai/apple-touch-icon.png"
 LODY_ICON_URL = "https://lody.ai/favicon.ico"
 
 DEFAULT_MESSAGES: dict[str, str] = {
@@ -147,13 +147,13 @@ def detect_runtime(runtime: Runtime, env: dict[str, str], payload: dict[str, Any
         return "openclaw"
     if env.get("CODEX_CI") or env.get("CODEX_THREAD_ID"):
         return "codex"
-    source = str(payload.get("source") or payload.get("runtime") or "").lower()
-    if "openclaw" in source:
-        return "openclaw"
-    if "claude" in source:
+    payload_hint = f"{payload.get('runtime') or ''} {payload.get('source') or ''}".lower()
+    if "claude" in payload_hint:
         return "claude"
-    if "codex" in source:
+    if "codex" in payload_hint:
         return "codex"
+    if "openclaw" in payload_hint:
+        return "openclaw"
     return "codex"
 
 

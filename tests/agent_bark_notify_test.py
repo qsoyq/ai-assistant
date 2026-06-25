@@ -306,7 +306,92 @@ def test_openclaw_completion_dry_run_prints_notification(monkeypatch, tmp_path):
     body = json.loads(result.output)
     assert body["title"] == "[OpenClaw][Done][demo-project]"
     assert body["body"] == "任务已完成"
+    assert body["icon"] == "https://openclaw.ai/apple-touch-icon.png"
     assert body["icon"] == agent_bark_notify.OPENCLAW_ICON_URL
+
+
+def test_auto_runtime_detects_openclaw_source_icon(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "auto", "--event", "completion", "--dry-run"],
+        input=json.dumps({"source": "openclaw", "workspaceDir": "/tmp/demo-project", "sessionId": "openclaw-auto-source"}),
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["title"] == "[OpenClaw][Done][demo-project]"
+    assert body["icon"] == "https://openclaw.ai/apple-touch-icon.png"
+
+
+def test_openclaw_source_matching_does_not_override_more_specific_env(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("LODY_SESSION_ID", "lody-session")
+
+    lody_result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "auto", "--event", "completion", "--dry-run"],
+        input=json.dumps({"source": "openclaw", "cwd": "/tmp/demo-project", "session_id": "lody-priority"}),
+    )
+
+    assert lody_result.exit_code == 0
+    lody_body = json.loads(lody_result.output)
+    assert lody_body["title"] == "[Lody][Done][demo-project]"
+    assert lody_body["icon"] == agent_bark_notify.LODY_ICON_URL
+
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("CLAUDE_CODE", "1")
+
+    claude_result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "auto", "--event", "completion", "--dry-run"],
+        input=json.dumps({"source": "openclaw", "cwd": "/tmp/demo-project", "session_id": "claude-priority"}),
+    )
+
+    assert claude_result.exit_code == 0
+    claude_body = json.loads(claude_result.output)
+    assert claude_body["title"] == "[Claude Code][Done][demo-project]"
+    assert claude_body["icon"] == agent_bark_notify.CLAUDE_CODE_ICON_URL
+
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("CODEX_THREAD_ID", "codex-thread")
+
+    codex_result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "auto", "--event", "completion", "--dry-run"],
+        input=json.dumps({"source": "openclaw", "cwd": "/tmp/demo-project", "session_id": "codex-priority"}),
+    )
+
+    assert codex_result.exit_code == 0
+    codex_body = json.loads(codex_result.output)
+    assert codex_body["title"] == "[Codex][Done][demo-project]"
+    assert codex_body["icon"] == agent_bark_notify.CODEX_ICON_URL
+
+
+def test_openclaw_source_matching_does_not_override_payload_runtime(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "auto", "--event", "completion", "--dry-run"],
+        input=json.dumps({"runtime": "codex", "source": "openclaw", "cwd": "/tmp/demo-project", "session_id": "payload-runtime-priority"}),
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["title"] == "[Codex][Done][demo-project]"
+    assert body["icon"] == agent_bark_notify.CODEX_ICON_URL
 
 
 def test_openclaw_auto_event_maps_agent_end(monkeypatch, tmp_path):
