@@ -96,7 +96,9 @@ def test_install_guides_explain_manual_and_agent_assisted_paths():
     assert '"allowConversationAccess":true' in openclaw.output
     assert "openclaw plugins inspect agent-bark-notify-openclaw --runtime --json" in openclaw.output
     assert "openclaw gateway install --force --wrapper" in openclaw.output
-    assert "BARK_GROUP=OpenClaw" in openclaw.output
+    assert "Default group mode is agent" in openclaw.output
+    assert "AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE=project-branch" in openclaw.output
+    assert "BARK_GROUP=OpenClaw  # fixed group override" in openclaw.output
     assert "AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG=1" in openclaw.output
     assert "openclaw gateway status --deep" in openclaw.output
     assert "config/CLI version mismatch" in openclaw.output
