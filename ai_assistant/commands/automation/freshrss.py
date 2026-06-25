@@ -1,9 +1,10 @@
 import re
 from html import unescape
+from html.parser import HTMLParser
 from http.cookies import SimpleCookie
 from pathlib import Path
-from typing import TypedDict, cast
-from urllib.parse import quote, urlencode, urlparse
+from typing import NotRequired, TypedDict, cast
+from urllib.parse import quote, urlencode, urljoin, urlparse
 
 import httpx
 import typer
@@ -35,6 +36,76 @@ class EntryCandidate(TypedDict):
     id: str
     title: str
     content: str
+    html: NotRequired[str]
+    url: NotRequired[str]
+
+
+class VideoStatus(TypedDict):
+    url: str
+    status_code: int | None
+    error: str
+
+
+class VideoEntryDecision(TypedDict):
+    entry: EntryCandidate
+    videos: list[VideoStatus]
+    mark_read: bool
+    reason: str
+
+
+class _H5VideoParser(HTMLParser):
+    def __init__(self, base_url: str = ""):
+        super().__init__(convert_charrefs=True)
+        self.base_url = base_url
+        self.h5_depth = 0
+        self.video_depth = 0
+        self.urls: list[str] = []
+        self._seen_urls: set[str] = set()
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        name = tag.casefold()
+        if name == "h5":
+            self.h5_depth += 1
+            return
+
+        if self.h5_depth <= 0:
+            return
+
+        if name == "video":
+            self.video_depth += 1
+            self._append_attr_url(attrs)
+            return
+
+        if name == "source" and self.video_depth > 0:
+            self._append_attr_url(attrs)
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        name = tag.casefold()
+        if self.h5_depth <= 0:
+            return
+        if name == "video" or (name == "source" and self.video_depth > 0):
+            self._append_attr_url(attrs)
+
+    def handle_endtag(self, tag: str) -> None:
+        name = tag.casefold()
+        if name == "video" and self.video_depth > 0:
+            self.video_depth -= 1
+            return
+        if name == "h5" and self.h5_depth > 0:
+            self.h5_depth -= 1
+            if self.h5_depth == 0:
+                self.video_depth = 0
+
+    def _append_attr_url(self, attrs: list[tuple[str, str | None]]) -> None:
+        values = {key.casefold(): value for key, value in attrs if value is not None}
+        src = values.get("src", "").strip()
+        if src == "":
+            return
+        resolved = urljoin(self.base_url, src) if self.base_url else src
+        if resolved in self._seen_urls:
+            return
+        self._seen_urls.add(resolved)
+        self.urls.append(resolved)
 
 
 def _greader_url(endpoint: str, path: str) -> str:
@@ -286,6 +357,38 @@ def _get_unread_entries_by_category(client: httpx.Client, endpoint: str, categor
     )
 
 
+def _extract_item_html(item: dict) -> str:
+    for field_name in ("content", "summary"):
+        field_value = item.get(field_name)
+        if isinstance(field_value, dict):
+            content_value = field_value.get("content")
+            if isinstance(content_value, str) and content_value != "":
+                return content_value
+        elif isinstance(field_value, str) and field_value != "":
+            return field_value
+    return ""
+
+
+def _extract_item_url(item: dict) -> str:
+    for field_name in ("alternate", "canonical"):
+        links = item.get(field_name)
+        if not isinstance(links, list):
+            continue
+        for link in links:
+            if not isinstance(link, dict):
+                continue
+            href = link.get("href")
+            if isinstance(href, str) and href != "":
+                return href
+
+    origin = item.get("origin")
+    if isinstance(origin, dict):
+        html_url = origin.get("htmlUrl")
+        if isinstance(html_url, str):
+            return html_url
+    return ""
+
+
 def _get_entries_by_stream(
     client: httpx.Client,
     endpoint: str,
@@ -315,29 +418,12 @@ def _get_entries_by_stream(
 
             entry_id = item.get("id")
             title = item.get("title")
-            content = ""
             if not isinstance(entry_id, str) or entry_id == "":
                 continue
             if not isinstance(title, str):
                 title = ""
-            raw_content = item.get("content")
-            if isinstance(raw_content, dict):
-                content_value = raw_content.get("content")
-                if isinstance(content_value, str):
-                    content = _strip_tags(content_value)
-            elif isinstance(raw_content, str):
-                content = _strip_tags(raw_content)
-
-            if content == "":
-                raw_summary = item.get("summary")
-                if isinstance(raw_summary, dict):
-                    summary_value = raw_summary.get("content")
-                    if isinstance(summary_value, str):
-                        content = _strip_tags(summary_value)
-                elif isinstance(raw_summary, str):
-                    content = _strip_tags(raw_summary)
-
-            entries.append(EntryCandidate(id=entry_id, title=title, content=content))
+            html = _extract_item_html(item)
+            entries.append(EntryCandidate(id=entry_id, title=title, content=_strip_tags(html), html=html, url=_extract_item_url(item)))
 
         continuation = payload.get("continuation", "")
         if not isinstance(continuation, str) or continuation == "":
@@ -370,6 +456,19 @@ def _search_entries(
         if title_matched and keyword_matched:
             matches.append(entry)
     return matches
+
+
+def _filter_entries_by_title(
+    entries: list[EntryCandidate],
+    title: str = "",
+    ignore_case: bool = True,
+) -> list[EntryCandidate]:
+    title_value = title.strip()
+    if title_value == "":
+        return entries
+
+    normalized_title = title_value.casefold() if ignore_case else title_value
+    return [entry for entry in entries if normalized_title in (entry["title"].casefold() if ignore_case else entry["title"])]
 
 
 def _normalise_keywords(keywords: list[str], ignore_case: bool) -> list[str]:
@@ -414,6 +513,43 @@ def _limit_entries(entries: list[EntryCandidate], limit: int) -> list[EntryCandi
     return entries[:limit]
 
 
+def _extract_h5_video_urls(html: str, base_url: str = "") -> list[str]:
+    parser = _H5VideoParser(base_url=base_url)
+    parser.feed(html)
+    parser.close()
+    return parser.urls
+
+
+def _check_video_url(client: httpx.Client, url: str) -> VideoStatus:
+    try:
+        with client.stream("GET", url, headers={"Range": "bytes=0-0"}, follow_redirects=True, timeout=30) as response:
+            return VideoStatus(url=url, status_code=response.status_code, error="")
+    except httpx.RequestError as exc:
+        return VideoStatus(url=url, status_code=None, error=f"{type(exc).__name__}: {exc}")
+
+
+def _all_videos_are_404(videos: list[VideoStatus]) -> bool:
+    return bool(videos) and all(video["status_code"] == 404 for video in videos)
+
+
+def _video_404_decision(entry: EntryCandidate, videos: list[VideoStatus]) -> VideoEntryDecision:
+    if not videos:
+        return VideoEntryDecision(entry=entry, videos=videos, mark_read=False, reason="no h5 video URLs found")
+    if _all_videos_are_404(videos):
+        return VideoEntryDecision(entry=entry, videos=videos, mark_read=True, reason="all h5 video URLs returned 404")
+    return VideoEntryDecision(entry=entry, videos=videos, mark_read=False, reason="at least one h5 video URL did not return 404")
+
+
+def _check_entry_h5_videos(client: httpx.Client, entry: EntryCandidate) -> VideoEntryDecision:
+    urls = _extract_h5_video_urls(entry.get("html", ""), base_url=entry.get("url", ""))
+    videos = [_check_video_url(client, url) for url in urls]
+    return _video_404_decision(entry, videos)
+
+
+def _entries_selected_by_video_404(decisions: list[VideoEntryDecision]) -> list[EntryCandidate]:
+    return [decision["entry"] for decision in decisions if decision["mark_read"]]
+
+
 def _encode_form_data(items: list[tuple[str, str]]) -> bytes:
     return urlencode(items, doseq=True).encode()
 
@@ -444,6 +580,21 @@ def _mark_entries_read(
         if response.text.strip() != "OK":
             typer.echo("FreshRSS 未返回 OK，批量标记已读失败", err=True)
             raise typer.Exit(1)
+
+
+def _video_status_label(video: VideoStatus) -> str:
+    if video["status_code"] is None:
+        return f"ERROR {video['error']}"
+    return f"HTTP {video['status_code']}"
+
+
+def _print_video_decisions(decisions: list[VideoEntryDecision]) -> None:
+    for decision in decisions:
+        marker = "MARK-READ" if decision["mark_read"] else "SKIP"
+        entry = decision["entry"]
+        typer.echo(f"- [{marker}] {entry['title']} ({entry['id']}): {decision['reason']}")
+        for video in decision["videos"]:
+            typer.echo(f"  - {_video_status_label(video)} {video['url']}")
 
 
 def _database_url(target: str) -> str:
@@ -647,6 +798,70 @@ def cleanup_unread(
         _mark_entries_read(client, endpoint, write_token, to_mark_read)
 
     typer.echo("已完成未读文章清理")
+
+
+@cmd.command("cleanup-video-404")
+def cleanup_video_404(
+    category: str = typer.Option(..., "--category", "--label", help="FreshRSS 分类/label 名称（不是分类 ID）"),
+    title: str = typer.Option("", "-t", "--title", help="标题关键字；留空则检查分类下全部未读文章"),
+    limit: int = typer.Option(10, "--limit", min=0, help="最多标记多少篇视频全部 404 的文章；0 表示不限制"),
+    endpoint: str = typer.Option(..., help="FreshRSS 端点地址", envvar="FRESHRSS_ENDPOINT"),
+    user: str = typer.Option(..., help="FreshRSS 用户名", envvar="FRESHRSS_USER"),
+    token: str = typer.Option(..., help="FreshRSS API Token", envvar="FRESHRSS_API_TOKEN"),
+    dry_run: bool = typer.Option(False, "--dry-run/--no-dry-run", help="预览待标记为已读的视频 404 文章列表，不真实执行写入"),
+    ignore_case: bool = typer.Option(True, "--ignore-case/--match-case", help="标题匹配时默认忽略大小写"),
+):
+    """按 h5 video URL 404 状态清理指定分类下的未读文章
+
+    读取指定分类中的未读文章，先按标题关键字过滤，再提取正文 HTML 中 ``h5`` 元素下的
+    ``video``/``source`` URL。只有当一篇文章的所有匹配视频 URL 都返回 HTTP 404 时，才会
+    将该文章标记为已读。``--dry-run`` 只预览待标记为已读的文章列表，不真实执行写入。
+
+    Usage examples::
+        ai-assistant freshrss cleanup-video-404 --category videos --title "Daily" --dry-run
+        ai-assistant freshrss cleanup-video-404 --label videos --title "Daily" --limit 20 --no-dry-run
+    """
+    typer.echo(f"正在登录 FreshRSS: {endpoint}")
+    account_info = _get_account_info(endpoint, user, token)
+    auth = account_info["auth"]
+
+    with httpx.Client(headers=_greader_headers(auth)) as api_client:
+        typer.echo(f"正在读取分类 `{category}` 下的未读文章")
+        entries = _get_unread_entries_by_category(api_client, endpoint, category)
+
+    title_matches = _filter_entries_by_title(entries, title=title, ignore_case=ignore_case)
+    with httpx.Client() as video_client:
+        decisions = [_check_entry_h5_videos(video_client, entry) for entry in title_matches]
+
+    all_to_mark_read = _entries_selected_by_video_404(decisions)
+    to_mark_read = _limit_entries(all_to_mark_read, limit)
+    limited_ids = {entry["id"] for entry in to_mark_read}
+    visible_decisions = [decision for decision in decisions if decision["entry"]["id"] in limited_ids or dry_run]
+
+    typer.echo(f"未读文章总数: {len(entries)}")
+    typer.echo(f"标题过滤后候选文章: {len(title_matches)}")
+    typer.echo(f"视频全部返回 404 的文章: {len(all_to_mark_read)}")
+    if limit > 0:
+        typer.echo(f"本次最多标记: {limit}")
+    typer.echo(f"本次待标记为已读: {len(to_mark_read)}")
+
+    if dry_run:
+        typer.echo("dry-run 预览，不会真实标记已读。视频检查结果:")
+        _print_video_decisions(visible_decisions)
+        return
+
+    if not to_mark_read:
+        typer.echo("没有需要标记为已读的文章")
+        return
+
+    typer.echo("以下文章将被标记为已读:")
+    _print_video_decisions([decision for decision in decisions if decision["entry"]["id"] in limited_ids])
+
+    with httpx.Client(headers=_greader_headers(auth)) as api_client:
+        write_token = _get_edit_token(api_client, endpoint)
+        _mark_entries_read(api_client, endpoint, write_token, to_mark_read)
+
+    typer.echo("已完成视频 404 未读文章清理")
 
 
 @cmd.command()
