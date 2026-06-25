@@ -1008,6 +1008,7 @@ $ ai-assistant freshrss [OPTIONS] COMMAND [ARGS]...
 * `subscribe`: 通过 FreshRSS 网页添加接口新增订阅源
 * `refresh`: 刷新当前所有订阅源
 * `cleanup-unread`: 按标题规则清理指定分类下的未读文章
+* `cleanup-video-404`: 按 h5 video URL 404 状态清理指定分类下的未读文章
 * `search`: 按标题或正文关键字搜索文章，可选标记命中结果为已读
 * `disable-priority`: 将所有 feed 的 priority 置为 0
 
@@ -1101,6 +1102,36 @@ $ ai-assistant freshrss cleanup-unread [OPTIONS]
 * `--user TEXT`: FreshRSS 用户名  [env var: FRESHRSS_USER; required]
 * `--token TEXT`: FreshRSS API Token  [env var: FRESHRSS_API_TOKEN; required]
 * `--dry-run / --no-dry-run`: 只输出将被标记为已读的文章，不实际修改  [default: no-dry-run]
+* `--ignore-case / --match-case`: 标题匹配时默认忽略大小写  [default: ignore-case]
+* `--help`: Show this message and exit.
+
+### `ai-assistant freshrss cleanup-video-404`
+
+按 h5 video URL 404 状态清理指定分类下的未读文章
+
+读取指定分类中的未读文章，先按标题关键字过滤，再提取正文 HTML 中 ``h5`` 元素下的
+``video``/``source`` URL。只有当一篇文章的所有匹配视频 URL 都返回 HTTP 404 时，才会
+将该文章标记为已读。``--dry-run`` 只预览待标记为已读的文章列表，不真实执行写入。
+
+Usage examples::
+    ai-assistant freshrss cleanup-video-404 --category videos --title &quot;Daily&quot; --dry-run
+    ai-assistant freshrss cleanup-video-404 --label videos --title &quot;Daily&quot; --limit 20 --no-dry-run
+
+**Usage**:
+
+```console
+$ ai-assistant freshrss cleanup-video-404 [OPTIONS]
+```
+
+**Options**:
+
+* `--category, --label TEXT`: FreshRSS 分类/label 名称（不是分类 ID）  [required]
+* `-t, --title TEXT`: 标题关键字；留空则检查分类下全部未读文章
+* `--limit INTEGER RANGE`: 最多标记多少篇视频全部 404 的文章；0 表示不限制  [default: 10; x&gt;=0]
+* `--endpoint TEXT`: FreshRSS 端点地址  [env var: FRESHRSS_ENDPOINT; required]
+* `--user TEXT`: FreshRSS 用户名  [env var: FRESHRSS_USER; required]
+* `--token TEXT`: FreshRSS API Token  [env var: FRESHRSS_API_TOKEN; required]
+* `--dry-run / --no-dry-run`: 预览待标记为已读的视频 404 文章列表，不真实执行写入  [default: no-dry-run]
 * `--ignore-case / --match-case`: 标题匹配时默认忽略大小写  [default: ignore-case]
 * `--help`: Show this message and exit.
 
