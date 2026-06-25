@@ -27,6 +27,7 @@ def _clear_agent_env(monkeypatch):
         "BARK_GROUP",
         "BARK_SERVER",
         "AI_ASSISTANT_AGENT_BARK_NOTIFY_TITLE_TEMPLATE",
+        "AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE",
         "AI_ASSISTANT_AGENT_BARK_NOTIFY_PROJECT_NAME",
         "AI_ASSISTANT_AGENT_BARK_NOTIFY_BRANCH_NAME",
         "AI_ASSISTANT_AGENT_BARK_NOTIFY_SESSION_NAME",
@@ -112,6 +113,182 @@ def test_dry_run_prints_notification(monkeypatch, tmp_path):
     assert body["body"] == "done"
     assert body["group"] == "agents"
     assert body["url"] == "https://api.day.app/device-key"
+
+
+def test_default_group_mode_uses_agent_name(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "codex", "--event", "completion", "--dry-run"],
+        input=json.dumps({"project_name": "Readable Project", "session_id": "default-group"}),
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output)["group"] == "Codex"
+
+
+def test_group_mode_agent_uses_runtime_identity(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "openclaw", "--event", "completion", "--group-mode", "agent", "--dry-run"],
+        input=json.dumps({"project_name": "Readable Project", "session_id": "agent-group"}),
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output)["group"] == "OpenClaw"
+
+
+def test_group_mode_project_uses_project_name(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "codex", "--event", "completion", "--group-mode", "project", "--dry-run"],
+        input=json.dumps({"project_name": "Readable Project", "session_id": "project-group"}),
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output)["group"] == "Readable Project"
+
+
+def test_group_mode_project_branch_uses_project_and_branch(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "codex", "--event", "completion", "--group-mode", "project-branch", "--dry-run"],
+        input=json.dumps({"project_name": "Readable Project", "branch": "refs/heads/feature/group-mode", "session_id": "project-branch-group"}),
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output)["group"] == "Readable Project@feature/group-mode"
+
+
+def test_group_mode_project_branch_falls_back_to_project_without_branch(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "codex", "--event", "completion", "--group-mode", "project-branch", "--dry-run"],
+        input=json.dumps({"project_name": "Readable Project", "cwd": str(tmp_path), "session_id": "project-branch-no-branch"}),
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output)["group"] == "Readable Project"
+
+
+def test_group_mode_environment_value_is_used(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE", "project")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "codex", "--event", "completion", "--dry-run"],
+        input=json.dumps({"workspace_name": "Env Mode Project", "session_id": "env-group-mode"}),
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output)["group"] == "Env Mode Project"
+
+
+def test_quoted_group_mode_environment_value_is_normalized(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE", '"project"')
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "codex", "--event", "completion", "--dry-run"],
+        input=json.dumps({"workspace_name": "Quoted Env Project", "session_id": "quoted-env-group-mode"}),
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output)["group"] == "Quoted Env Project"
+
+
+def test_group_mode_cli_overrides_environment_value(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE", "project")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "codex", "--event", "completion", "--group-mode", "agent", "--dry-run"],
+        input=json.dumps({"project_name": "Readable Project", "session_id": "cli-over-env-group-mode"}),
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output)["group"] == "Codex"
+
+
+def test_bark_group_overrides_group_mode(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("BARK_GROUP", "agents")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE", "project")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "codex", "--event", "completion", "--group-mode", "project-branch", "--dry-run"],
+        input=json.dumps({"project_name": "Readable Project", "branch_name": "feature/group-mode", "session_id": "bark-group-overrides"}),
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output)["group"] == "agents"
+
+
+def test_invalid_group_mode_environment_value_fails(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE", "workspace")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "codex", "--event", "completion", "--dry-run"],
+        input=json.dumps({"project_name": "Readable Project", "session_id": "invalid-env-group-mode"}),
+    )
+
+    assert result.exit_code != 0
+    assert "AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE" in result.output
+    assert "agent, project, project-branch" in result.output
+
+
+def test_invalid_group_mode_cli_value_fails(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "codex", "--event", "completion", "--group-mode", "workspace", "--dry-run"],
+        input=json.dumps({"project_name": "Readable Project", "session_id": "invalid-cli-group-mode"}),
+    )
+
+    assert result.exit_code != 0
+    assert "Invalid value for" in result.output
+    assert "group" in result.output
+    assert "agent" in result.output
+    assert "project" in result.output
+    assert "project-branch" in result.output
 
 
 def test_openclaw_completion_dry_run_prints_notification(monkeypatch, tmp_path):

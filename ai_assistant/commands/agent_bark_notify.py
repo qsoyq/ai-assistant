@@ -7,8 +7,9 @@ import tempfile
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from enum import Enum
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, TypeGuard
 from urllib.parse import urlsplit, urlunsplit
 
 import httpx
@@ -25,8 +26,9 @@ Typical hook command:
 
 Configuration:
   BARK_DEVICE_KEY is required. Missing or empty means skip and exit 0.
-  BARK_GROUP is optional.
+  BARK_GROUP is optional and overrides the computed Bark group.
   BARK_SERVER defaults to https://api.day.app.
+  AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE selects the computed group when BARK_GROUP is unset: agent, project, or project-branch.
   AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG=1 enables local JSONL audit logging.
   AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE overrides the audit log path.
 
@@ -40,6 +42,14 @@ cmd = make_typer(helptext)
 Runtime = Literal["auto", "codex", "claude", "openclaw"]
 Event = Literal["auto", "completion", "approval_needed", "failed"]
 SummaryMode = Literal["fixed", "extract"]
+GroupMode = Literal["agent", "project", "project-branch"]
+
+
+class GroupModeOption(str, Enum):
+    agent = "agent"
+    project = "project"
+    project_branch = "project-branch"
+
 
 CODEX_ICON_URL = "https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/light/codex-color.png"
 CLAUDE_CODE_ICON_URL = "https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/light/claudecode-color.png"
@@ -63,6 +73,8 @@ MAX_TRANSCRIPT_BYTES = 1024 * 1024
 DEDUP_TTL_SECONDS = 60 * 60
 TITLE_TEMPLATE_ENV = "AI_ASSISTANT_AGENT_BARK_NOTIFY_TITLE_TEMPLATE"
 DEFAULT_TITLE_TEMPLATE = "[{agent}][{event}][{project}][{branch}][{session}]"
+GROUP_MODE_ENV = "AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE"
+GROUP_MODE_CHOICES: tuple[GroupMode, ...] = ("agent", "project", "project-branch")
 AUDIT_LOG_ENV = "AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG"
 AUDIT_LOG_FILE_ENV = "AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE"
 DEFAULT_AUDIT_LOG_PATH = Path("~/.ai-assistant/agent-bark-notify.log")
@@ -375,6 +387,57 @@ def _env_value(env: dict[str, str], key: str, default: str = "") -> str:
     return value
 
 
+def _is_group_mode(value: str) -> TypeGuard[GroupMode]:
+    return value in GROUP_MODE_CHOICES
+
+
+def _group_mode_error(value: str) -> typer.BadParameter:
+    choices = ", ".join(GROUP_MODE_CHOICES)
+    return typer.BadParameter(f"{GROUP_MODE_ENV} must be one of: {choices}; got {value!r}")
+
+
+def resolve_group_mode(cli_group_mode: GroupModeOption | None, env: dict[str, str]) -> GroupMode:
+    if cli_group_mode is not None:
+        value = cli_group_mode.value
+        if _is_group_mode(value):
+            return value
+        raise _group_mode_error(value)
+
+    env_value = _env_value(env, GROUP_MODE_ENV)
+    if not env_value:
+        return "agent"
+    if _is_group_mode(env_value):
+        return env_value
+    raise _group_mode_error(env_value)
+
+
+def notification_group(
+    *,
+    identity: AgentIdentity,
+    payload: dict[str, Any],
+    env: dict[str, str],
+    group_mode: GroupMode,
+    cwd: Path | None = None,
+) -> str | None:
+    configured_group = _env_value(env, "BARK_GROUP")
+    if configured_group:
+        return configured_group
+
+    if group_mode == "agent":
+        return identity.name
+
+    project = project_name(payload, cwd).strip()
+    if group_mode == "project":
+        return project or identity.name
+
+    if not project:
+        return identity.name
+    branch = branch_name(payload, env, cwd).strip()
+    if not branch:
+        return project
+    return f"{project}@{branch}"
+
+
 def _session_id(payload: dict[str, Any]) -> str | None:
     value = payload.get("session_id") or payload.get("sessionId") or payload.get("sessionKey") or payload.get("conversation_id") or payload.get("transcript_path")
     return str(value) if value is not None else None
@@ -641,6 +704,7 @@ def build_notification(
     message: str | None,
     env: dict[str, str],
     payload: dict[str, Any],
+    group_mode: GroupMode = "agent",
     cwd: Path | None = None,
 ) -> Notification | None:
     device_key = _env_value(env, "BARK_DEVICE_KEY")
@@ -656,7 +720,7 @@ def build_notification(
         title=title,
         body=body,
         icon_url=identity.icon_url,
-        group=_env_value(env, "BARK_GROUP") or None,
+        group=notification_group(identity=identity, payload=payload, env=env, group_mode=group_mode, cwd=cwd),
         bark_url=f"{bark_server.rstrip('/')}/{device_key}",
         dedupe_key=dedupe_key,
     )
@@ -679,6 +743,7 @@ def hook(
     runtime: Runtime = typer.Option("auto", "--runtime", help="Hook runtime: codex, claude, openclaw, or auto."),
     event: Event = typer.Option("auto", "--event", help="Notification event override."),
     message: str | None = typer.Option(None, "--message", help="Override short notification body."),
+    group_mode: GroupModeOption | None = typer.Option(None, "--group-mode", help="Bark group mode: agent, project, or project-branch."),
     summary_mode: SummaryMode = typer.Option("fixed", "--summary-mode", help="Notification summary mode: fixed or extract."),
     summary_max_chars: int = typer.Option(DEFAULT_SUMMARY_MAX_CHARS, "--summary-max-chars", min=1, help="Maximum extractive summary length."),
     dry_run: bool = typer.Option(False, "--dry-run", help="Print notification summary without sending Bark request."),
@@ -689,6 +754,7 @@ def hook(
     payload = parse_hook_payload(_read_stdin())
     resolved_runtime = detect_runtime(runtime, env, payload)
     resolved_event = detect_event(event, payload)
+    resolved_group_mode = resolve_group_mode(group_mode, env)
     audit_record = _new_audit_record(runtime=resolved_runtime, event=resolved_event, payload=payload, summary_mode=summary_mode)
     try:
         if resolved_event is None:
@@ -707,6 +773,7 @@ def hook(
             message=resolved_message,
             env=env,
             payload=payload,
+            group_mode=resolved_group_mode,
         )
         if notification is None:
             _finish_audit_record(env, audit_record, status="skipped_missing_device_key")
