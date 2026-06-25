@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 
 const DEBUG_LOG_PATH = join(homedir(), ".ai-assistant", "openclaw-plugin-debug.log");
-const DEBUG_ENV = "AI_ASSISTANT_AGENT_BARK_NOTIFY_OPENCLAW_PLUGIN_DEBUG";
+const DEBUG_ENV = "AGENT_BARK_NOTIFY_OPENCLAW_PLUGIN_DEBUG";
 
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);

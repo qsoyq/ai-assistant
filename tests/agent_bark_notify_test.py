@@ -26,14 +26,15 @@ def _clear_agent_env(monkeypatch):
         "BARK_DEVICE_KEY",
         "BARK_GROUP",
         "BARK_SERVER",
-        "AI_ASSISTANT_AGENT_BARK_NOTIFY_TITLE_TEMPLATE",
-        "AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE",
-        "AI_ASSISTANT_AGENT_BARK_NOTIFY_PROJECT_NAME",
-        "AI_ASSISTANT_AGENT_BARK_NOTIFY_BRANCH_NAME",
-        "AI_ASSISTANT_AGENT_BARK_NOTIFY_SESSION_NAME",
-        "AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR",
-        "AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG",
-        "AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE",
+        "AGENT_BARK_NOTIFY_HOOK_URL",
+        "AGENT_BARK_NOTIFY_TITLE_TEMPLATE",
+        "AGENT_BARK_NOTIFY_GROUP_MODE",
+        "AGENT_BARK_NOTIFY_PROJECT_NAME",
+        "AGENT_BARK_NOTIFY_BRANCH_NAME",
+        "AGENT_BARK_NOTIFY_SESSION_NAME",
+        "AGENT_BARK_NOTIFY_STATE_DIR",
+        "AGENT_BARK_NOTIFY_AUDIT_LOG",
+        "AGENT_BARK_NOTIFY_AUDIT_LOG_FILE",
         "OPENCLAW_WORKSPACE_NAME",
         "OPENCLAW_SESSION_NAME",
         "CODEX_WORKSPACE_NAME",
@@ -56,7 +57,7 @@ def _read_jsonl(path):
 def test_dry_run_reports_missing_device_key(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.delenv("BARK_DEVICE_KEY", raising=False)
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
 
     result = runner.invoke(agent_bark_notify.cmd, ["hook", "--event", "completion", "--dry-run"], input="{}")
 
@@ -67,9 +68,9 @@ def test_dry_run_reports_missing_device_key(monkeypatch, tmp_path):
 def test_audit_log_is_disabled_by_default(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     audit_log = tmp_path / "audit.jsonl"
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE", str(audit_log))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_AUDIT_LOG_FILE", str(audit_log))
     monkeypatch.delenv("BARK_DEVICE_KEY", raising=False)
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
 
     result = runner.invoke(agent_bark_notify.cmd, ["hook", "--event", "completion", "--dry-run"], input="{}")
 
@@ -80,9 +81,9 @@ def test_audit_log_is_disabled_by_default(monkeypatch, tmp_path):
 def test_audit_log_uses_default_path_when_enabled(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG", "1")
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_AUDIT_LOG", "1")
     monkeypatch.delenv("BARK_DEVICE_KEY", raising=False)
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
 
     result = runner.invoke(agent_bark_notify.cmd, ["hook", "--runtime", "codex", "--event", "completion", "--dry-run"], input=json.dumps({"session_id": "s-audit-default"}))
 
@@ -99,7 +100,7 @@ def test_dry_run_prints_notification(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
     monkeypatch.setenv("BARK_GROUP", "agents")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -113,12 +114,13 @@ def test_dry_run_prints_notification(monkeypatch, tmp_path):
     assert body["body"] == "done"
     assert body["group"] == "agents"
     assert body["url"] == "https://api.day.app/device-key"
+    assert "click_url" not in body
 
 
 def test_default_group_mode_uses_agent_name(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -133,7 +135,7 @@ def test_default_group_mode_uses_agent_name(monkeypatch, tmp_path):
 def test_group_mode_agent_uses_runtime_identity(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -148,7 +150,7 @@ def test_group_mode_agent_uses_runtime_identity(monkeypatch, tmp_path):
 def test_group_mode_project_uses_project_name(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -163,7 +165,7 @@ def test_group_mode_project_uses_project_name(monkeypatch, tmp_path):
 def test_group_mode_project_branch_uses_project_and_branch(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -178,7 +180,7 @@ def test_group_mode_project_branch_uses_project_and_branch(monkeypatch, tmp_path
 def test_group_mode_project_branch_falls_back_to_project_without_branch(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -193,8 +195,8 @@ def test_group_mode_project_branch_falls_back_to_project_without_branch(monkeypa
 def test_group_mode_environment_value_is_used(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE", "project")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_GROUP_MODE", "project")
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -209,8 +211,8 @@ def test_group_mode_environment_value_is_used(monkeypatch, tmp_path):
 def test_quoted_group_mode_environment_value_is_normalized(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE", '"project"')
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_GROUP_MODE", '"project"')
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -225,8 +227,8 @@ def test_quoted_group_mode_environment_value_is_normalized(monkeypatch, tmp_path
 def test_group_mode_cli_overrides_environment_value(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE", "project")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_GROUP_MODE", "project")
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -242,8 +244,8 @@ def test_bark_group_overrides_group_mode(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
     monkeypatch.setenv("BARK_GROUP", "agents")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE", "project")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_GROUP_MODE", "project")
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -258,8 +260,8 @@ def test_bark_group_overrides_group_mode(monkeypatch, tmp_path):
 def test_invalid_group_mode_environment_value_fails(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE", "workspace")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_GROUP_MODE", "workspace")
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -268,14 +270,16 @@ def test_invalid_group_mode_environment_value_fails(monkeypatch, tmp_path):
     )
 
     assert result.exit_code != 0
-    assert "AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE" in result.output
-    assert "agent, project, project-branch" in result.output
+    assert "AGENT_BARK_NOTIFY_GROUP_MODE" in result.output
+    assert "agent" in result.output
+    assert "project" in result.output
+    assert "project-branch" in result.output
 
 
 def test_invalid_group_mode_cli_value_fails(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -294,7 +298,7 @@ def test_invalid_group_mode_cli_value_fails(monkeypatch, tmp_path):
 def test_openclaw_completion_dry_run_prints_notification(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -313,7 +317,7 @@ def test_openclaw_completion_dry_run_prints_notification(monkeypatch, tmp_path):
 def test_auto_runtime_detects_openclaw_source_icon(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -330,7 +334,7 @@ def test_auto_runtime_detects_openclaw_source_icon(monkeypatch, tmp_path):
 def test_openclaw_source_matching_does_not_override_more_specific_env(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
     monkeypatch.setenv("LODY_SESSION_ID", "lody-session")
 
     lody_result = runner.invoke(
@@ -346,7 +350,7 @@ def test_openclaw_source_matching_does_not_override_more_specific_env(monkeypatc
 
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
     monkeypatch.setenv("CLAUDE_CODE", "1")
 
     claude_result = runner.invoke(
@@ -362,7 +366,7 @@ def test_openclaw_source_matching_does_not_override_more_specific_env(monkeypatc
 
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
     monkeypatch.setenv("CODEX_THREAD_ID", "codex-thread")
 
     codex_result = runner.invoke(
@@ -380,7 +384,7 @@ def test_openclaw_source_matching_does_not_override_more_specific_env(monkeypatc
 def test_openclaw_source_matching_does_not_override_payload_runtime(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -397,7 +401,7 @@ def test_openclaw_source_matching_does_not_override_payload_runtime(monkeypatch,
 def test_openclaw_auto_event_maps_agent_end(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -412,7 +416,7 @@ def test_openclaw_auto_event_maps_agent_end(monkeypatch, tmp_path):
 def test_openclaw_agent_end_with_reply_context_sends_completion(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -438,10 +442,10 @@ def test_openclaw_agent_end_with_reply_context_sends_completion(monkeypatch, tmp
 def test_openclaw_message_sent_no_reply_is_skipped(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     audit_log = tmp_path / "audit.jsonl"
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG", "1")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE", str(audit_log))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_AUDIT_LOG", "1")
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_AUDIT_LOG_FILE", str(audit_log))
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -467,10 +471,10 @@ def test_openclaw_message_sent_no_reply_is_skipped(monkeypatch, tmp_path):
 def test_openclaw_agent_end_without_reply_context_is_skipped(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     audit_log = tmp_path / "audit.jsonl"
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG", "1")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE", str(audit_log))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_AUDIT_LOG", "1")
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_AUDIT_LOG_FILE", str(audit_log))
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -495,10 +499,10 @@ def test_openclaw_agent_end_without_reply_context_is_skipped(monkeypatch, tmp_pa
 def test_openclaw_agent_end_failed_without_context_is_skipped(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     audit_log = tmp_path / "audit.jsonl"
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG", "1")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE", str(audit_log))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_AUDIT_LOG", "1")
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_AUDIT_LOG_FILE", str(audit_log))
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -523,7 +527,7 @@ def test_openclaw_agent_end_failed_without_context_is_skipped(monkeypatch, tmp_p
 def test_openclaw_failed_title_omits_implicit_project_and_git_branch(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -550,7 +554,7 @@ def test_openclaw_failed_title_omits_implicit_project_and_git_branch(monkeypatch
 def test_openclaw_message_sent_extracts_delivered_content(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -578,10 +582,10 @@ def test_openclaw_message_sent_extracts_delivered_content(monkeypatch, tmp_path)
 def test_audit_log_records_sent_metadata_without_secrets(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     audit_log = tmp_path / "audit.jsonl"
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG", "1")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE", str(audit_log))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_AUDIT_LOG", "1")
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_AUDIT_LOG_FILE", str(audit_log))
     monkeypatch.setenv("BARK_DEVICE_KEY", "secret-device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -607,7 +611,7 @@ def test_send_bark_posts_form_with_group(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
     monkeypatch.setenv("BARK_GROUP", "agents")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
     calls: list[httpx.Request] = []
     real_client = httpx.Client
 
@@ -630,15 +634,116 @@ def test_send_bark_posts_form_with_group(monkeypatch, tmp_path):
     assert "title=%5BCodex%5D%5BApproval%5D%5Bdemo-project%5D" in form
     assert "body=%E9%9C%80%E8%A6%81%E4%BD%A0%E5%AE%A1%E6%89%B9%E5%BD%93%E5%89%8D%E6%93%8D%E4%BD%9C" in form
     assert "group=agents" in form
+    assert "url=" not in form
+
+
+def test_hook_url_template_renders_encoded_click_url_without_audit_leak(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    audit_log = tmp_path / "audit.jsonl"
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_AUDIT_LOG", "1")
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_AUDIT_LOG_FILE", str(audit_log))
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv(
+        "AGENT_BARK_NOTIFY_HOOK_URL",
+        "lody://session/{session_id}/{session_key}/{conversation_id}/{message_id}/{run_id}/{agent_id}/{workspace_dir}/{cwd_basename}/{runtime}/{agent}/{event}/{project}/{branch}/{session}",
+    )
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_SESSION_NAME", "main session")
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "openclaw", "--event", "completion", "--dry-run"],
+        input=json.dumps(
+            {
+                "project_name": "Demo Project",
+                "branch": "refs/heads/feature/click url",
+                "sessionId": "s/demo 1",
+                "sessionKey": "agent:main:telegram",
+                "conversationId": "conv/1",
+                "messageId": "msg 2",
+                "runId": "run:3",
+                "agentId": "agent/4",
+                "workspaceDir": "/tmp/demo project",
+            }
+        ),
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["click_url"] == (
+        "lody://session/s%2Fdemo%201/agent%3Amain%3Atelegram/conv%2F1/msg%202/run%3A3/agent%2F4/"
+        "%2Ftmp%2Fdemo%20project/demo%20project/openclaw/OpenClaw/completion/Demo%20Project/feature%2Fclick%20url/main%20session"
+    )
+    audit_text = audit_log.read_text()
+    assert "lody://session" not in audit_text
+    assert "s%2Fdemo%201" not in audit_text
+
+
+def test_send_bark_posts_form_with_click_url(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_HOOK_URL", "lody://session/{session_id}")
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    calls: list[httpx.Request] = []
+    real_client = httpx.Client
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        return httpx.Response(200, json={"code": 200})
+
+    monkeypatch.setattr(httpx, "Client", lambda **kw: real_client(transport=httpx.MockTransport(handler)))
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "codex", "--event", "completion"],
+        input=json.dumps({"cwd": "/tmp/demo-project", "session_id": "s/demo 1"}),
+    )
+
+    assert result.exit_code == 0
+    assert len(calls) == 1
+    form = calls[0].content.decode()
+    assert "url=lody%3A%2F%2Fsession%2Fs%252Fdemo%25201" in form
+
+
+def test_invalid_hook_url_template_is_omitted(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_HOOK_URL", "lody://session/{missing}")
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    calls: list[httpx.Request] = []
+    real_client = httpx.Client
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        return httpx.Response(200, json={"code": 200})
+
+    monkeypatch.setattr(httpx, "Client", lambda **kw: real_client(transport=httpx.MockTransport(handler)))
+
+    dry_run = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "codex", "--event", "completion", "--dry-run", "--no-dedupe"],
+        input=json.dumps({"cwd": "/tmp/demo-project", "session_id": "invalid-template-dry-run"}),
+    )
+    sent = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "codex", "--event", "completion", "--no-dedupe"],
+        input=json.dumps({"cwd": "/tmp/demo-project", "session_id": "invalid-template-post"}),
+    )
+
+    assert dry_run.exit_code == 0
+    assert "click_url" not in json.loads(dry_run.output)
+    assert sent.exit_code == 0
+    assert len(calls) == 1
+    assert "url=" not in calls[0].content.decode()
 
 
 def test_audit_log_records_http_error_without_url_secret(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     audit_log = tmp_path / "audit.jsonl"
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG", "1")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE", str(audit_log))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_AUDIT_LOG", "1")
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_AUDIT_LOG_FILE", str(audit_log))
     monkeypatch.setenv("BARK_DEVICE_KEY", "secret-device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
     real_client = httpx.Client
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -665,7 +770,7 @@ def test_audit_log_records_http_error_without_url_secret(monkeypatch, tmp_path):
 def test_duplicate_event_is_skipped(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
     payload = json.dumps({"cwd": "/tmp/demo-project", "session_id": "s3"})
 
     first = runner.invoke(agent_bark_notify.cmd, ["hook", "--event", "completion", "--dry-run"], input=payload)
@@ -679,9 +784,9 @@ def test_duplicate_event_is_skipped(monkeypatch, tmp_path):
 def test_audit_log_distinguishes_skip_statuses(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     audit_log = tmp_path / "audit.jsonl"
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG", "1")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE", str(audit_log))
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_AUDIT_LOG", "1")
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_AUDIT_LOG_FILE", str(audit_log))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
 
     unsupported = runner.invoke(agent_bark_notify.cmd, ["hook", "--runtime", "codex", "--dry-run"], input=json.dumps({"hook_event_name": "Notification", "session_id": "s-unsupported"}))
     missing_key = runner.invoke(agent_bark_notify.cmd, ["hook", "--runtime", "codex", "--event", "completion", "--dry-run"], input=json.dumps({"session_id": "s-missing"}))
@@ -703,10 +808,10 @@ def test_audit_log_distinguishes_skip_statuses(monkeypatch, tmp_path):
 
 def test_audit_log_write_failure_does_not_fail_hook(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG", "1")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_AUDIT_LOG", "1")
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_AUDIT_LOG_FILE", str(tmp_path))
     monkeypatch.delenv("BARK_DEVICE_KEY", raising=False)
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
 
     result = runner.invoke(agent_bark_notify.cmd, ["hook", "--event", "completion", "--dry-run"], input="{}")
 
@@ -717,9 +822,9 @@ def test_audit_log_write_failure_does_not_fail_hook(monkeypatch, tmp_path):
 def test_quoted_environment_values_are_normalized(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     audit_log = tmp_path / "audit.jsonl"
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG", '"1"')
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE", f'"{audit_log}"')
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_AUDIT_LOG", '"1"')
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_AUDIT_LOG_FILE", f'"{audit_log}"')
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
     monkeypatch.setenv("BARK_DEVICE_KEY", '"device-key"')
     monkeypatch.setenv("BARK_GROUP", '"Agent"')
     monkeypatch.setenv("BARK_SERVER", '"https://example.invalid"')
@@ -743,7 +848,7 @@ def test_quoted_environment_values_are_normalized(monkeypatch, tmp_path):
 def test_auto_event_maps_permission_request(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -760,7 +865,7 @@ def test_auto_event_maps_permission_request(monkeypatch, tmp_path):
 def test_titles_include_normalized_event_for_codex_and_claude(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
 
     cases = [
         (
@@ -800,7 +905,7 @@ def test_titles_include_normalized_event_for_codex_and_claude(monkeypatch, tmp_p
 def test_default_title_includes_branch_and_session_when_available(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -822,7 +927,7 @@ def test_default_title_includes_branch_and_session_when_available(monkeypatch, t
 def test_default_title_reads_branch_from_git_cwd(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
     repo = tmp_path / "repo"
     repo.mkdir()
 
@@ -845,8 +950,8 @@ def test_default_title_reads_branch_from_git_cwd(monkeypatch, tmp_path):
 def test_title_template_can_be_configured(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_TITLE_TEMPLATE", "{event}: {project} via {agent}/{runtime}/{cwd_basename}/{branch}/{session}")
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_TITLE_TEMPLATE", "{event}: {project} via {agent}/{runtime}/{cwd_basename}/{branch}/{session}")
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -861,7 +966,7 @@ def test_title_template_can_be_configured(monkeypatch, tmp_path):
 def test_project_name_prefers_payload_and_env_names_before_paths(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
     monkeypatch.setenv("CODEX_WORKSPACE_NAME", "Env Workspace")
 
     from_payload = runner.invoke(
@@ -885,7 +990,7 @@ def test_explicit_runtime_controls_title_even_in_lody_env(monkeypatch, tmp_path)
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("LODY_SESSION_ID", "lody-session")
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -900,7 +1005,7 @@ def test_explicit_runtime_controls_title_even_in_lody_env(monkeypatch, tmp_path)
 def test_extract_completion_uses_last_assistant_message(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -922,7 +1027,7 @@ def test_extract_completion_uses_last_assistant_message(monkeypatch, tmp_path):
 def test_extract_completion_falls_back_to_transcript(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
     transcript = tmp_path / "transcript.jsonl"
     transcript.write_text(
         "\n".join(
@@ -947,7 +1052,7 @@ def test_extract_completion_falls_back_to_transcript(monkeypatch, tmp_path):
 def test_extract_completion_falls_back_to_fixed_message(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -963,7 +1068,7 @@ def test_extract_completion_falls_back_to_fixed_message(monkeypatch, tmp_path):
 def test_extract_approval_uses_tool_description(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -979,7 +1084,7 @@ def test_extract_approval_uses_tool_description(monkeypatch, tmp_path):
 def test_extract_openclaw_approval_uses_require_approval_description(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -1003,7 +1108,7 @@ def test_extract_openclaw_approval_uses_require_approval_description(monkeypatch
 def test_extract_approval_uses_safe_tool_detail(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -1019,7 +1124,7 @@ def test_extract_approval_uses_safe_tool_detail(monkeypatch, tmp_path):
 def test_extract_approval_uses_tool_name_without_detail(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
 
     result = runner.invoke(
         agent_bark_notify.cmd,
@@ -1035,7 +1140,7 @@ def test_extract_approval_uses_tool_name_without_detail(monkeypatch, tmp_path):
 def test_extract_redacts_secrets_url_queries_and_long_commands(monkeypatch, tmp_path):
     _clear_agent_env(monkeypatch)
     monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
-    monkeypatch.setenv("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
 
     completion = runner.invoke(
         agent_bark_notify.cmd,

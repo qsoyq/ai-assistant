@@ -68,25 +68,36 @@ uvx 'ai-assistant[mcd]' ai-assistant mcd quickstart
 `ai-assistant agent-bark-notify hook` 默认不写本地审计日志。需要排查 Codex 或 Claude Code hook 是否被调用、为何跳过或 Bark 发送是否失败时，可以显式启用 JSONL 审计：
 
 ```shell
-AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG=1 \
-AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE=/tmp/agent-bark-notify.log \
+AGENT_BARK_NOTIFY_AUDIT_LOG=1 \
+AGENT_BARK_NOTIFY_AUDIT_LOG_FILE=/tmp/agent-bark-notify.log \
 ai-assistant agent-bark-notify hook --runtime codex --event completion --dry-run
 ```
 
-不设置 `AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE` 时，默认写入 `~/.ai-assistant/agent-bark-notify.log`。审计记录只包含 runtime、event、状态、项目名、标题、正文长度、session/dedupe 哈希和错误摘要；不会写入原始 hook payload、Bark device key、Bark URL 或完整通知正文。审计写入失败不会影响通知发送或 hook 退出。
+不设置 `AGENT_BARK_NOTIFY_AUDIT_LOG_FILE` 时，默认写入 `~/.ai-assistant/agent-bark-notify.log`。审计记录只包含 runtime、event、状态、项目名、标题、正文长度、session/dedupe 哈希和错误摘要；不会写入原始 hook payload、Bark device key、Bark URL、完整通知正文或点击跳转 URL。审计写入失败不会影响通知发送或 hook 退出。
 
-本地 dry-run 验证显示：通过 shell 启动的 Codex hook 命令可以读取命令环境里的 `AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG` 和 `AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE`。Claude Code hook 命令同样继承父进程环境。若从 GUI 或其他不继承 shell 环境的启动方式运行 agent，建议把审计环境变量写在 hook command、包装脚本或 agent 启动环境中。
+本地 dry-run 验证显示：通过 shell 启动的 Codex hook 命令可以读取命令环境里的 `AGENT_BARK_NOTIFY_AUDIT_LOG` 和 `AGENT_BARK_NOTIFY_AUDIT_LOG_FILE`。Claude Code hook 命令同样继承父进程环境。若从 GUI 或其他不继承 shell 环境的启动方式运行 agent，建议把审计环境变量写在 hook command、包装脚本或 agent 启动环境中。
 
-Bark `group` 优先使用显式 `BARK_GROUP`。未设置 `BARK_GROUP` 时，默认按 AgentName 分组；可通过 `AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE` 或 hook CLI 的 `--group-mode` 改为 `agent`、`project` 或 `project-branch`，其中 CLI 参数优先于环境变量。`project-branch` 的格式为 `{ProjectName}@{BranchName}`，缺少分支时退化为 ProjectName。
+Bark `group` 优先使用显式 `BARK_GROUP`。未设置 `BARK_GROUP` 时，默认按 AgentName 分组；可通过 `AGENT_BARK_NOTIFY_GROUP_MODE` 或 hook CLI 的 `--group-mode` 改为 `agent`、`project` 或 `project-branch`，其中 CLI 参数优先于环境变量。`project-branch` 的格式为 `{ProjectName}@{BranchName}`，缺少分支时退化为 ProjectName。
 
 ```shell
-AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE=project-branch \
+AGENT_BARK_NOTIFY_GROUP_MODE=project-branch \
 ai-assistant agent-bark-notify hook --runtime codex --event completion --dry-run
 
 ai-assistant agent-bark-notify hook --runtime codex --event completion --group-mode project --dry-run
 ```
 
-通知标题默认格式是 `[{agent}][{event}][{project}][{branch}][{session}]`，不存在的部分会直接省略。可通过 `AI_ASSISTANT_AGENT_BARK_NOTIFY_TITLE_TEMPLATE` 覆盖，支持 `{agent}`、`{event}`、`{project}`、`{branch}`、`{session}`、`{runtime}`、`{cwd_basename}`。项目名会优先使用 hook payload 里的 `project_name`、`workspace_name`、`repository`、`repo`、`name`，其次使用 `AI_ASSISTANT_AGENT_BARK_NOTIFY_PROJECT_NAME`、`CODEX_WORKSPACE_NAME`、`CODEX_PROJECT_NAME`、`LODY_WORKSPACE_NAME`、`LODY_PROJECT_NAME`，最后回退到 `cwd` / `workspace` / `project_path` 的目录名。分支名会优先使用 hook payload / 环境变量中的分支字段，最后基于项目目录执行只读 `git branch --show-current` 探测。
+通知标题默认格式是 `[{agent}][{event}][{project}][{branch}][{session}]`，不存在的部分会直接省略。可通过 `AGENT_BARK_NOTIFY_TITLE_TEMPLATE` 覆盖，支持 `{agent}`、`{event}`、`{project}`、`{branch}`、`{session}`、`{runtime}`、`{cwd_basename}`。项目名会优先使用 hook payload 里的 `project_name`、`workspace_name`、`repository`、`repo`、`name`，其次使用 `AGENT_BARK_NOTIFY_PROJECT_NAME`、`CODEX_WORKSPACE_NAME`、`CODEX_PROJECT_NAME`、`LODY_WORKSPACE_NAME`、`LODY_PROJECT_NAME`，最后回退到 `cwd` / `workspace` / `project_path` 的目录名。分支名会优先使用 hook payload / 环境变量中的分支字段，最后基于项目目录执行只读 `git branch --show-current` 探测。
+
+点击通知跳转 URL 可通过 `AGENT_BARK_NOTIFY_HOOK_URL` 设置。设置后，hook 会渲染模板并把结果作为 Bark API 的 `url` 表单字段发送；未设置时不会发送该字段，现有 Bark POST 行为不变。dry-run 输出会在渲染成功时额外包含 `click_url`，其中 `url` 字段仍表示 Bark API endpoint。
+
+```shell
+printf '%s' '{"session_id":"s/demo 1","cwd":"/tmp/demo-project"}' \
+  | env AGENT_BARK_NOTIFY_HOOK_URL='lody://session/{session_id}' \
+      BARK_DEVICE_KEY=device-key \
+      ai-assistant agent-bark-notify hook --runtime codex --event completion --dry-run
+```
+
+`AGENT_BARK_NOTIFY_HOOK_URL` 支持 `{runtime}`、`{agent}`、`{event}`、`{project}`、`{branch}`、`{session}`、`{session_id}`、`{session_key}`、`{conversation_id}`、`{message_id}`、`{run_id}`、`{agent_id}`、`{workspace_dir}`、`{cwd_basename}`。变量值会单独 percent-encode，模板静态部分不会整体重新编码；例如 `s/demo 1` 会渲染为 `s%2Fdemo%201`。snake_case 变量会读取对应 camelCase payload 字段，例如 `sessionId`、`sessionKey`、`conversationId`、`messageId`、`runId`、`agentId`、`workspaceDir`。未知变量、格式错误或空渲染结果会被视为非法模板，hook 会省略 click URL 且继续退出 0。
 
 ## 开发
 

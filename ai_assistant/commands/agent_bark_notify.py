@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any, Literal, TypeGuard
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import quote, urlsplit, urlunsplit
 
 import httpx
 import typer
@@ -28,9 +28,10 @@ Configuration:
   BARK_DEVICE_KEY is required. Missing or empty means skip and exit 0.
   BARK_GROUP is optional and overrides the computed Bark group.
   BARK_SERVER defaults to https://api.day.app.
-  AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE selects the computed group when BARK_GROUP is unset: agent, project, or project-branch.
-  AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG=1 enables local JSONL audit logging.
-  AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE overrides the audit log path.
+  AGENT_BARK_NOTIFY_HOOK_URL optionally sets a Bark click URL template.
+  AGENT_BARK_NOTIFY_GROUP_MODE selects the computed group when BARK_GROUP is unset: agent, project, or project-branch.
+  AGENT_BARK_NOTIFY_AUDIT_LOG=1 enables local JSONL audit logging.
+  AGENT_BARK_NOTIFY_AUDIT_LOG_FILE overrides the audit log path.
 
 OpenClaw plugin install and service env guide:
   ai-assistant plugins install-guide agent-bark-notify --target openclaw
@@ -71,12 +72,13 @@ MAX_MESSAGE_LENGTH = 80
 DEFAULT_SUMMARY_MAX_CHARS = 120
 MAX_TRANSCRIPT_BYTES = 1024 * 1024
 DEDUP_TTL_SECONDS = 60 * 60
-TITLE_TEMPLATE_ENV = "AI_ASSISTANT_AGENT_BARK_NOTIFY_TITLE_TEMPLATE"
+HOOK_URL_TEMPLATE_ENV = "AGENT_BARK_NOTIFY_HOOK_URL"
+TITLE_TEMPLATE_ENV = "AGENT_BARK_NOTIFY_TITLE_TEMPLATE"
 DEFAULT_TITLE_TEMPLATE = "[{agent}][{event}][{project}][{branch}][{session}]"
-GROUP_MODE_ENV = "AI_ASSISTANT_AGENT_BARK_NOTIFY_GROUP_MODE"
+GROUP_MODE_ENV = "AGENT_BARK_NOTIFY_GROUP_MODE"
 GROUP_MODE_CHOICES: tuple[GroupMode, ...] = ("agent", "project", "project-branch")
-AUDIT_LOG_ENV = "AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG"
-AUDIT_LOG_FILE_ENV = "AI_ASSISTANT_AGENT_BARK_NOTIFY_AUDIT_LOG_FILE"
+AUDIT_LOG_ENV = "AGENT_BARK_NOTIFY_AUDIT_LOG"
+AUDIT_LOG_FILE_ENV = "AGENT_BARK_NOTIFY_AUDIT_LOG_FILE"
 DEFAULT_AUDIT_LOG_PATH = Path("~/.ai-assistant/agent-bark-notify.log")
 SENSITIVE_KEY_RE = re.compile(r"(?i)\b(authorization|cookie|set-cookie|x-api-key|api[_-]?key|token|secret|password|passwd|bearer)\b")
 SENSITIVE_ASSIGNMENT_RE = re.compile(r"(?i)\b([a-z0-9_.-]*(?:token|secret|password|passwd|cookie|authorization|api[_-]?key)[a-z0-9_.-]*)\s*[:=]\s*('[^']*'|\"[^\"]*\"|[^\s,;]+)")
@@ -98,6 +100,7 @@ class Notification:
     icon_url: str
     group: str | None
     bark_url: str
+    click_url: str | None
     dedupe_key: str
 
 
@@ -187,7 +190,7 @@ def project_name(payload: dict[str, Any], cwd: Path | None = None) -> str:
             return raw_name.strip()
 
     env = os.environ
-    for key in ("AI_ASSISTANT_AGENT_BARK_NOTIFY_PROJECT_NAME", "OPENCLAW_WORKSPACE_NAME", "CODEX_WORKSPACE_NAME", "CODEX_PROJECT_NAME", "LODY_WORKSPACE_NAME", "LODY_PROJECT_NAME"):
+    for key in ("AGENT_BARK_NOTIFY_PROJECT_NAME", "OPENCLAW_WORKSPACE_NAME", "CODEX_WORKSPACE_NAME", "CODEX_PROJECT_NAME", "LODY_WORKSPACE_NAME", "LODY_PROJECT_NAME"):
         raw_name = env.get(key)
         if raw_name and raw_name.strip():
             return raw_name.strip()
@@ -199,7 +202,7 @@ def project_name(payload: dict[str, Any], cwd: Path | None = None) -> str:
 
 
 def _path_from_payload(payload: dict[str, Any], cwd: Path | None = None) -> Path:
-    for key in ("cwd", "workspace", "workspaceDir", "project_path"):
+    for key in ("cwd", "workspace", "workspaceDir", "workspace_dir", "project_path"):
         raw = payload.get(key)
         if isinstance(raw, str) and raw:
             return Path(raw)
@@ -207,10 +210,7 @@ def _path_from_payload(payload: dict[str, Any], cwd: Path | None = None) -> Path
 
 
 def cwd_basename(payload: dict[str, Any], cwd: Path | None = None) -> str:
-    raw = payload.get("cwd")
-    if isinstance(raw, str) and raw:
-        return Path(raw).name
-    return (cwd or Path.cwd()).name
+    return _path_from_payload(payload, cwd).name
 
 
 def branch_name(payload: dict[str, Any], env: dict[str, str], cwd: Path | None = None) -> str:
@@ -219,7 +219,7 @@ def branch_name(payload: dict[str, Any], env: dict[str, str], cwd: Path | None =
         if isinstance(raw_name, str) and raw_name.strip():
             return raw_name.strip().removeprefix("refs/heads/")
 
-    for key in ("AI_ASSISTANT_AGENT_BARK_NOTIFY_BRANCH_NAME", "CODEX_BRANCH_NAME", "GIT_BRANCH", "BRANCH_NAME"):
+    for key in ("AGENT_BARK_NOTIFY_BRANCH_NAME", "CODEX_BRANCH_NAME", "GIT_BRANCH", "BRANCH_NAME"):
         raw_name = env.get(key)
         if raw_name and raw_name.strip():
             return raw_name.strip().removeprefix("refs/heads/")
@@ -250,7 +250,7 @@ def _explicit_project_name(payload: dict[str, Any], env: dict[str, str], *, incl
             return raw_name.strip()
 
     env_keys = [
-        "AI_ASSISTANT_AGENT_BARK_NOTIFY_PROJECT_NAME",
+        "AGENT_BARK_NOTIFY_PROJECT_NAME",
         "OPENCLAW_WORKSPACE_NAME",
         "CODEX_WORKSPACE_NAME",
         "CODEX_PROJECT_NAME",
@@ -279,7 +279,7 @@ def title_branch_name(runtime: str, payload: dict[str, Any], env: dict[str, str]
         if isinstance(raw_name, str) and raw_name.strip():
             return raw_name.strip().removeprefix("refs/heads/")
 
-    for key in ("AI_ASSISTANT_AGENT_BARK_NOTIFY_BRANCH_NAME", "CODEX_BRANCH_NAME", "GIT_BRANCH", "BRANCH_NAME"):
+    for key in ("AGENT_BARK_NOTIFY_BRANCH_NAME", "CODEX_BRANCH_NAME", "GIT_BRANCH", "BRANCH_NAME"):
         raw_name = env.get(key)
         if raw_name and raw_name.strip():
             return raw_name.strip().removeprefix("refs/heads/")
@@ -292,7 +292,7 @@ def session_name(payload: dict[str, Any], env: dict[str, str]) -> str:
         if isinstance(raw_name, str) and raw_name.strip():
             return raw_name.strip()
 
-    for key in ("AI_ASSISTANT_AGENT_BARK_NOTIFY_SESSION_NAME", "OPENCLAW_SESSION_NAME", "CODEX_SESSION_NAME", "LODY_SESSION_NAME"):
+    for key in ("AGENT_BARK_NOTIFY_SESSION_NAME", "OPENCLAW_SESSION_NAME", "CODEX_SESSION_NAME", "LODY_SESSION_NAME"):
         raw_name = env.get(key)
         if raw_name and raw_name.strip():
             return raw_name.strip()
@@ -340,6 +340,49 @@ def notification_title(*, runtime: str, identity: AgentIdentity, event: str, pay
     except ValueError:
         title = _default_title(values)
     return " ".join(title.split()) or _default_title(values)
+
+
+def _payload_value(payload: dict[str, Any], *keys: str) -> str:
+    for key in keys:
+        value = payload.get(key)
+        if value is None or isinstance(value, dict | list):
+            continue
+        text = str(value).strip()
+        if text:
+            return text
+    return ""
+
+
+def _encoded_hook_url_vars(*, runtime: str, identity: AgentIdentity, event: str, payload: dict[str, Any], env: dict[str, str], cwd: Path | None = None) -> dict[str, str]:
+    values = {
+        "runtime": runtime,
+        "agent": identity.name,
+        "event": event,
+        "project": project_name(payload, cwd),
+        "branch": branch_name(payload, env, cwd),
+        "session": session_name(payload, env),
+        "session_id": _payload_value(payload, "session_id", "sessionId"),
+        "session_key": _payload_value(payload, "session_key", "sessionKey"),
+        "conversation_id": _payload_value(payload, "conversation_id", "conversationId"),
+        "message_id": _payload_value(payload, "message_id", "messageId"),
+        "run_id": _payload_value(payload, "run_id", "runId"),
+        "agent_id": _payload_value(payload, "agent_id", "agentId"),
+        "workspace_dir": _payload_value(payload, "workspace_dir", "workspaceDir", "workspace", "cwd", "project_path"),
+        "cwd_basename": cwd_basename(payload, cwd),
+    }
+    return {key: quote(value, safe="") for key, value in values.items()}
+
+
+def hook_click_url(*, runtime: str, identity: AgentIdentity, event: str, payload: dict[str, Any], env: dict[str, str], cwd: Path | None = None) -> str | None:
+    configured_template = _env_value(env, HOOK_URL_TEMPLATE_ENV)
+    if not configured_template:
+        return None
+    try:
+        rendered = configured_template.format_map(_encoded_hook_url_vars(runtime=runtime, identity=identity, event=event, payload=payload, env=env, cwd=cwd))
+    except (KeyError, ValueError):
+        return None
+    rendered = rendered.strip()
+    return rendered or None
 
 
 def _strip_url_query(value: str) -> str:
@@ -781,7 +824,7 @@ def build_dedupe_key(runtime: str, event: str, payload: dict[str, Any], body: st
 
 
 def _dedupe_dir(env: dict[str, str]) -> Path:
-    base = env.get("AI_ASSISTANT_AGENT_BARK_NOTIFY_STATE_DIR")
+    base = _env_value(env, "AGENT_BARK_NOTIFY_STATE_DIR")
     if base:
         return Path(base)
     return Path(tempfile.gettempdir()) / "ai-assistant-agent-bark-notify"
@@ -829,6 +872,7 @@ def build_notification(
         icon_url=identity.icon_url,
         group=notification_group(identity=identity, payload=payload, env=env, group_mode=group_mode, cwd=cwd),
         bark_url=f"{bark_server.rstrip('/')}/{device_key}",
+        click_url=hook_click_url(runtime=runtime, identity=identity, event=event, payload=payload, env=env, cwd=cwd),
         dedupe_key=dedupe_key,
     )
 
@@ -841,6 +885,8 @@ def send_bark(notification: Notification) -> None:
     }
     if notification.group:
         data["group"] = notification.group
+    if notification.click_url:
+        data["url"] = notification.click_url
     with httpx.Client(timeout=10) as client:
         client.post(notification.bark_url, data=data).raise_for_status()
 
@@ -903,9 +949,10 @@ def hook(
 
         if dry_run:
             _finish_audit_record(env, audit_record, status="sent", notification=notification)
-            typer.echo(
-                json.dumps({"title": notification.title, "body": notification.body, "icon": notification.icon_url, "group": notification.group, "url": notification.bark_url}, ensure_ascii=False)
-            )
+            output = {"title": notification.title, "body": notification.body, "icon": notification.icon_url, "group": notification.group, "url": notification.bark_url}
+            if notification.click_url:
+                output["click_url"] = notification.click_url
+            typer.echo(json.dumps(output, ensure_ascii=False))
             return
 
         try:
