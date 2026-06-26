@@ -42,7 +42,8 @@ Scope = Literal["global", "project"]
 PLUGIN_NAME = "agent-bark-notify"
 OPENCLAW_CONVERSATION_ACCESS_PATCH = '{"plugins":{"entries":{"agent-bark-notify-openclaw":{"hooks":{"allowConversationAccess":true}}}}}'
 OPTIONAL_RUNTIME_ENV = """Optional runtime env:
-  AGENT_BARK_NOTIFY_HOOK_URL=lody://session/{session_id}
+  AGENT_BARK_NOTIFY_HOOK_URL=  # empty by default; optional click URL template
+  # Example: AGENT_BARK_NOTIFY_HOOK_URL=https://lody.ai/users/{LODY_ELECTRON_SESSION_USER_ID}/sessions/{LODY_SESSION_ID}
   AGENT_BARK_NOTIFY_GROUP_MODE=agent
   AGENT_BARK_NOTIFY_GROUP_MODE=project
   AGENT_BARK_NOTIFY_GROUP_MODE=project-branch
@@ -95,7 +96,7 @@ def codex_snippet(scope: Scope) -> str:
   }
 }
 """
-        + "\n# Runtime env:\n#   BARK_DEVICE_KEY=<your Bark device key>\n#   AGENT_BARK_NOTIFY_HOOK_URL=lody://session/{session_id}  # optional click URL\n"
+        + "\n# Runtime env:\n#   BARK_DEVICE_KEY=<your Bark device key>\n#   AGENT_BARK_NOTIFY_HOOK_URL=  # empty by default; optional click URL template\n#   Example: AGENT_BARK_NOTIFY_HOOK_URL=https://lody.ai/users/{LODY_ELECTRON_SESSION_USER_ID}/sessions/{LODY_SESSION_ID}\n"
     )
 
 
@@ -138,7 +139,7 @@ def claude_snippet(scope: Scope) -> str:
   }
 }
 """
-        + "\n# Runtime env:\n#   BARK_DEVICE_KEY=<your Bark device key>\n#   AGENT_BARK_NOTIFY_HOOK_URL=lody://session/{session_id}  # optional click URL\n"
+        + "\n# Runtime env:\n#   BARK_DEVICE_KEY=<your Bark device key>\n#   AGENT_BARK_NOTIFY_HOOK_URL=  # empty by default; optional click URL template\n#   Example: AGENT_BARK_NOTIFY_HOOK_URL=https://lody.ai/users/{LODY_ELECTRON_SESSION_USER_ID}/sessions/{LODY_SESSION_ID}\n"
     )
 
 
@@ -159,7 +160,8 @@ openclaw plugins inspect agent-bark-notify-openclaw --runtime --json
 #   PATH="$HOME/.local/bin:$PATH"
 #   BARK_DEVICE_KEY=<your Bark device key>
 # Optional:
-#   AGENT_BARK_NOTIFY_HOOK_URL=lody://session/{{session_id}}
+#   AGENT_BARK_NOTIFY_HOOK_URL=  # empty by default; optional click URL template
+#   Example: AGENT_BARK_NOTIFY_HOOK_URL=https://lody.ai/users/{{LODY_ELECTRON_SESSION_USER_ID}}/sessions/{{LODY_SESSION_ID}}
 #   AGENT_BARK_NOTIFY_GROUP_MODE=agent
 #   BARK_GROUP=OpenClaw  # fixed group override
 #   BARK_SERVER=https://api.day.app
@@ -241,7 +243,8 @@ put env exports in a wrapper and reinstall the service with --wrapper:
   export PATH="$HOME/.local/bin:$PATH"
   export BARK_DEVICE_KEY=<your Bark device key>
   # Default group mode is agent. Use project or project-branch to split notifications.
-  # export AGENT_BARK_NOTIFY_HOOK_URL='lody://session/{{session_id}}'
+  # export AGENT_BARK_NOTIFY_HOOK_URL=''  # empty by default; optional click URL template
+  # Example: export AGENT_BARK_NOTIFY_HOOK_URL='https://lody.ai/users/{{LODY_ELECTRON_SESSION_USER_ID}}/sessions/{{LODY_SESSION_ID}}'
   # export AGENT_BARK_NOTIFY_GROUP_MODE=project-branch
   # export BARK_GROUP=OpenClaw  # fixed group override
   # export BARK_SERVER=https://api.day.app

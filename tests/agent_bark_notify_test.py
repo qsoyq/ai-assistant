@@ -13,6 +13,7 @@ def _clear_agent_env(monkeypatch):
         "LODY_SESSION_ID",
         "LODY_WORKSPACE_SESSION_ID",
         "LODY_ELECTRON_BOOTSTRAP",
+        "LODY_ELECTRON_SESSION_USER_ID",
         "__CFBundleIdentifier",
         "CLAUDECODE",
         "CLAUDE_CODE",
@@ -605,6 +606,90 @@ def test_audit_log_records_sent_metadata_without_secrets(monkeypatch, tmp_path):
     raw_record = json.dumps(record)
     assert "secret-device-key" not in raw_record
     assert "done with token=secret" not in raw_record
+    assert "lody" not in record
+
+
+def test_audit_log_records_lody_settings_passthrough(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    audit_log = tmp_path / "audit.jsonl"
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_AUDIT_LOG", "1")
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_AUDIT_LOG_FILE", str(audit_log))
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("LODY_ELECTRON_BOOTSTRAP", " bootstrap ")
+    monkeypatch.setenv("LODY_ELECTRON_SESSION_USER_ID", "user-1")
+    monkeypatch.setenv("LODY_SESSION_ID", "session-1")
+    monkeypatch.setenv("LODY_WORKSPACE_SESSION_ID", "workspace-session-1")
+    monkeypatch.setenv("LODY_EXTRA_SECRET", "not-recorded")
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "codex", "--event", "completion", "--dry-run"],
+        input=json.dumps({"cwd": "/tmp/demo-project", "session_id": "audit-lody"}),
+    )
+
+    assert result.exit_code == 0
+    record = _read_jsonl(audit_log)[0]
+    assert record["lody"] == {
+        "LODY_ELECTRON_BOOTSTRAP": "bootstrap",
+        "LODY_ELECTRON_SESSION_USER_ID": "user-1",
+        "LODY_SESSION_ID": "session-1",
+        "LODY_WORKSPACE_SESSION_ID": "workspace-session-1",
+    }
+    assert "LODY_EXTRA_SECRET" not in record["lody"]
+
+
+def test_hook_url_template_renders_lody_settings_encoded(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_HOOK_URL", "https://lody.ai/users/{LODY_ELECTRON_SESSION_USER_ID}/sessions/{LODY_SESSION_ID}")
+    monkeypatch.setenv("LODY_ELECTRON_SESSION_USER_ID", "user 1")
+    monkeypatch.setenv("LODY_SESSION_ID", "s/demo 1")
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "codex", "--event", "completion", "--dry-run"],
+        input=json.dumps({"cwd": "/tmp/demo-project", "session_id": "hook-url-lody"}),
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output)["click_url"] == "https://lody.ai/users/user%201/sessions/s%2Fdemo%201"
+
+
+def test_title_template_renders_lody_settings_without_url_encoding(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_TITLE_TEMPLATE", "Lody   {LODY_SESSION_ID}")
+    monkeypatch.setenv("LODY_SESSION_ID", "s/demo 1")
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "codex", "--event", "completion", "--dry-run"],
+        input=json.dumps({"cwd": "/tmp/demo-project", "session_id": "title-lody"}),
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output)["title"] == "Lody s/demo 1"
+
+
+def test_lody_electron_session_user_id_detects_lody_runtime(monkeypatch, tmp_path):
+    _clear_agent_env(monkeypatch)
+    monkeypatch.setenv("BARK_DEVICE_KEY", "device-key")
+    monkeypatch.setenv("AGENT_BARK_NOTIFY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("LODY_ELECTRON_SESSION_USER_ID", "user-1")
+
+    result = runner.invoke(
+        agent_bark_notify.cmd,
+        ["hook", "--runtime", "auto", "--event", "completion", "--dry-run"],
+        input=json.dumps({"cwd": "/tmp/demo-project", "session_id": "lody-user-id"}),
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["title"] == "[Lody][Done][demo-project]"
+    assert body["group"] == "Lody"
 
 
 def test_send_bark_posts_form_with_group(monkeypatch, tmp_path):
