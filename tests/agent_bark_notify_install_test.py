@@ -1,4 +1,9 @@
 import json
+import os
+import subprocess
+import sys
+import zipfile
+from pathlib import Path
 
 from typer.testing import CliRunner
 
@@ -7,6 +12,13 @@ from ai_assistant.commands import agent_bark_notify
 runner = CliRunner()
 
 OLD_AGENT_BARK_NOTIFY_PREFIX = "AI_ASSISTANT" + "_AGENT_BARK_NOTIFY_"
+OPENCLAW_PLUGIN_WHEEL_FILES = {
+    "plugins/agent-bark-notify-openclaw/package.json",
+    "plugins/agent-bark-notify-openclaw/openclaw.plugin.json",
+    "plugins/agent-bark-notify-openclaw/index.js",
+    "plugins/agent-bark-notify-openclaw/index.ts",
+}
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 class _Completed:
@@ -19,6 +31,49 @@ class _Completed:
 
 def _plain(text: str) -> str:
     return text.replace("│", " ").replace("┃", " ").replace("┏", " ").replace("┓", " ").replace("└", " ").replace("┘", " ")
+
+
+def test_wheel_includes_openclaw_plugin_assets_and_resolves_installed_plugin_dir(tmp_path):
+    dist_dir = tmp_path / "dist"
+    result = subprocess.run(
+        ["uv", "build", "--wheel", "--out-dir", str(dist_dir)],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    wheels = sorted(dist_dir.glob("ai_assistant-*.whl"))
+    assert len(wheels) == 1
+
+    with zipfile.ZipFile(wheels[0]) as wheel:
+        wheel_files = set(wheel.namelist())
+        wheel.extractall(tmp_path / "site-packages")
+
+    assert OPENCLAW_PLUGIN_WHEEL_FILES <= wheel_files
+
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(tmp_path / "site-packages")
+    installed_result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from ai_assistant.commands.agent_bark_notify import _openclaw_plugin_dir; "
+            "plugin_dir = _openclaw_plugin_dir(); "
+            "assert plugin_dir.is_dir(), plugin_dir; "
+            "expected = {'package.json', 'openclaw.plugin.json', 'index.js', 'index.ts'}; "
+            "assert expected <= {path.name for path in plugin_dir.iterdir()}, plugin_dir",
+        ],
+        cwd=tmp_path,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert installed_result.returncode == 0, installed_result.stdout + installed_result.stderr
 
 
 def test_install_skips_missing_agent_clis(monkeypatch):
