@@ -2,6 +2,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 import time
@@ -14,6 +15,8 @@ from urllib.parse import quote, urlsplit, urlunsplit
 
 import httpx
 import typer
+from rich.console import Console
+from rich.table import Table
 
 from ai_assistant.commands import make_typer
 
@@ -44,6 +47,7 @@ Runtime = Literal["auto", "codex", "claude", "openclaw"]
 Event = Literal["auto", "completion", "approval_needed", "failed"]
 SummaryMode = Literal["fixed", "extract"]
 GroupMode = Literal["agent", "project", "project-branch"]
+InstallStatus = Literal["installed", "updated", "downgraded", "unchanged", "failed", "skipped"]
 
 
 class GroupModeOption(str, Enum):
@@ -85,6 +89,26 @@ SENSITIVE_ASSIGNMENT_RE = re.compile(r"(?i)\b([a-z0-9_.-]*(?:token|secret|passwo
 BEARER_RE = re.compile(r"(?i)\bbearer\s+[a-z0-9._~+/=-]+")
 FENCED_CODE_RE = re.compile(r"```.*?```", re.DOTALL)
 SHELL_PREFIX_RE = re.compile(r"^\s*(?:bash|zsh|sh|fish|python|python3|node|npm|pnpm|yarn|curl|ssh|scp|rsync)\b", re.IGNORECASE)
+OPENCLAW_CONVERSATION_ACCESS_PATCH = '{"plugins":{"entries":{"agent-bark-notify-openclaw":{"hooks":{"allowConversationAccess":true}}}}}'
+
+
+@dataclass(frozen=True)
+class CommandResult:
+    args: list[str]
+    returncode: int
+    stdout: str
+    stderr: str
+
+
+@dataclass(frozen=True)
+class InstallResult:
+    agent: str
+    status: InstallStatus
+    before_version: str | None
+    after_version: str | None
+    cli_path: str | None
+    note: str
+    failed_command: list[str] | None = None
 
 
 @dataclass(frozen=True)
@@ -889,6 +913,331 @@ def send_bark(notification: Notification) -> None:
         data["url"] = notification.click_url
     with httpx.Client(timeout=10) as client:
         client.post(notification.bark_url, data=data).raise_for_status()
+
+
+def _run_install_command(args: list[str], *, input_text: str | None = None) -> CommandResult:
+    proc = subprocess.run(
+        args,
+        input=input_text,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return CommandResult(args=args, returncode=proc.returncode, stdout=proc.stdout or "", stderr=proc.stderr or "")
+
+
+def _run_required(args: list[str], *, input_text: str | None = None) -> CommandResult:
+    result = _run_install_command(args, input_text=input_text)
+    if result.returncode != 0:
+        raise RuntimeError(_command_failure_message(result))
+    return result
+
+
+def _run_required_idempotent(args: list[str], *, input_text: str | None = None) -> CommandResult:
+    result = _run_install_command(args, input_text=input_text)
+    if result.returncode == 0 or _looks_already_configured(result):
+        return result
+    raise RuntimeError(_command_failure_message(result))
+
+
+def _looks_already_configured(result: CommandResult) -> bool:
+    message = f"{result.stdout} {result.stderr}".lower()
+    return "already" in message and any(word in message for word in ("exist", "configured", "installed", "enabled"))
+
+
+def _command_failure_message(result: CommandResult) -> str:
+    detail = " ".join((result.stderr or result.stdout).split())
+    command = " ".join(result.args)
+    if detail:
+        return f"{command} exited {result.returncode}: {detail}"
+    return f"{command} exited {result.returncode}"
+
+
+def _json_from_command(args: list[str]) -> Any:
+    result = _run_install_command(args)
+    if result.returncode != 0:
+        return None
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return None
+
+
+def _codex_installed_version() -> str | None:
+    data = _json_from_command(["codex", "plugin", "list", "--json"])
+    if not isinstance(data, dict):
+        return None
+    installed = data.get("installed")
+    if not isinstance(installed, list):
+        return None
+    for item in installed:
+        if not isinstance(item, dict):
+            continue
+        if item.get("pluginId") == "agent-bark-notify-codex@ai-assistant":
+            version = item.get("version")
+            return str(version) if version is not None else None
+    return None
+
+
+def _claude_installed_version() -> str | None:
+    data = _json_from_command(["claude", "plugin", "list", "--json"])
+    if not isinstance(data, list):
+        return None
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        if item.get("id") == "agent-bark-notify@ai-assistant" and item.get("scope") == "user":
+            version = item.get("version")
+            return str(version) if version is not None else None
+    return None
+
+
+def _find_version(value: Any) -> str | None:
+    if isinstance(value, dict):
+        version = value.get("version")
+        if version is not None and not isinstance(version, dict | list):
+            return str(version)
+        for item in value.values():
+            found = _find_version(item)
+            if found:
+                return found
+    if isinstance(value, list):
+        for item in value:
+            found = _find_version(item)
+            if found:
+                return found
+    return None
+
+
+def _openclaw_installed_version() -> str | None:
+    data = _json_from_command(["openclaw", "plugins", "inspect", "agent-bark-notify-openclaw", "--runtime", "--json"])
+    return _find_version(data)
+
+
+def _parse_version_parts(version: str) -> list[int] | None:
+    parts: list[int] = []
+    for raw_part in version.split("."):
+        if not raw_part.isdigit():
+            return None
+        parts.append(int(raw_part))
+    return parts or None
+
+
+def _version_change(before: str | None, after: str | None) -> InstallStatus:
+    if before is None:
+        return "installed"
+    if after is None:
+        return "updated"
+    if before == after:
+        return "unchanged"
+    before_parts = _parse_version_parts(before)
+    after_parts = _parse_version_parts(after)
+    if before_parts is None or after_parts is None:
+        return "updated"
+    return "updated" if after_parts > before_parts else "downgraded"
+
+
+def _version_text(before: str | None, after: str | None) -> str:
+    before_text = before or "none"
+    after_text = after or "unknown"
+    if before is not None and after is not None and before == after:
+        return after
+    return f"{before_text} -> {after_text}"
+
+
+def _openclaw_plugin_dir() -> Path:
+    return Path(__file__).resolve().parents[2] / "plugins" / "agent-bark-notify-openclaw"
+
+
+def _install_codex(cli_path: str) -> InstallResult:
+    before = _codex_installed_version()
+    try:
+        _run_required_idempotent(["codex", "plugin", "marketplace", "add", "qsoyq/ai-assistant"])
+        _run_required(["codex", "plugin", "marketplace", "upgrade", "ai-assistant"])
+        _run_required_idempotent(["codex", "plugin", "add", "agent-bark-notify-codex@ai-assistant"])
+    except RuntimeError as e:
+        return InstallResult("Codex", "failed", before, None, cli_path, str(e), _extract_command_from_error(str(e)))
+    after = _codex_installed_version()
+    status = _version_change(before, after)
+    return InstallResult("Codex", status, before, after, cli_path, cli_path)
+
+
+def _install_claude(cli_path: str) -> InstallResult:
+    before = _claude_installed_version()
+    try:
+        _run_required_idempotent(["claude", "plugin", "marketplace", "add", "qsoyq/ai-assistant", "--scope", "user"])
+        _run_required(["claude", "plugin", "marketplace", "update", "ai-assistant"])
+        if before is None:
+            _run_required(["claude", "plugin", "install", "agent-bark-notify@ai-assistant", "--scope", "user"])
+        else:
+            _run_required(["claude", "plugin", "update", "agent-bark-notify@ai-assistant", "--scope", "user"])
+    except RuntimeError as e:
+        return InstallResult("Claude Code", "failed", before, None, cli_path, str(e), _extract_command_from_error(str(e)))
+    after = _claude_installed_version()
+    status = _version_change(before, after)
+    return InstallResult("Claude Code", status, before, after, cli_path, cli_path)
+
+
+def _install_openclaw(cli_path: str) -> InstallResult:
+    before = _openclaw_installed_version()
+    plugin_dir = _openclaw_plugin_dir()
+    if not plugin_dir.is_dir():
+        return InstallResult(
+            "OpenClaw",
+            "failed",
+            before,
+            None,
+            cli_path,
+            f"Missing local plugin directory: {plugin_dir}",
+        )
+    try:
+        _run_required_idempotent(["openclaw", "plugins", "install", "--link", str(plugin_dir)])
+        _run_required_idempotent(["openclaw", "plugins", "enable", "agent-bark-notify-openclaw"])
+        _run_required(["openclaw", "config", "patch", "--stdin"], input_text=OPENCLAW_CONVERSATION_ACCESS_PATCH)
+        _run_required(["openclaw", "gateway", "restart"])
+    except RuntimeError as e:
+        return InstallResult("OpenClaw", "failed", before, None, cli_path, str(e), _extract_command_from_error(str(e)))
+    after = _openclaw_installed_version()
+    status = _version_change(before, after)
+    return InstallResult("OpenClaw", status, before, after, cli_path, cli_path)
+
+
+def _extract_command_from_error(message: str) -> list[str] | None:
+    command = message.split(" exited ", 1)[0].strip()
+    return command.split() if command else None
+
+
+def _install_for_available_agents() -> list[InstallResult]:
+    installers = [
+        ("Codex", "codex", _install_codex),
+        ("Claude Code", "claude", _install_claude),
+        ("OpenClaw", "openclaw", _install_openclaw),
+    ]
+    results: list[InstallResult] = []
+    for agent, command, installer in installers:
+        cli_path = shutil.which(command)
+        if cli_path is None:
+            results.append(InstallResult(agent, "skipped", None, None, None, "CLI not found"))
+            continue
+        results.append(installer(cli_path))
+    return results
+
+
+def _status_style(status: InstallStatus) -> str:
+    return {
+        "installed": "green",
+        "updated": "cyan",
+        "downgraded": "yellow",
+        "unchanged": "blue",
+        "failed": "red",
+        "skipped": "dim",
+    }[status]
+
+
+def _succeeded(results: list[InstallResult]) -> int:
+    return sum(1 for result in results if result.status in {"installed", "updated", "downgraded", "unchanged"})
+
+
+def _skipped(results: list[InstallResult]) -> int:
+    return sum(1 for result in results if result.status == "skipped")
+
+
+def _failed(results: list[InstallResult]) -> int:
+    return sum(1 for result in results if result.status == "failed")
+
+
+def _found_cli_count(results: list[InstallResult]) -> int:
+    return sum(1 for result in results if result.status != "skipped")
+
+
+def _print_install_results(results: list[InstallResult], console: Console) -> None:
+    console.print("[bold]Agent Bark Notify install[/bold]")
+    console.print()
+    table = Table()
+    table.add_column("Agent")
+    table.add_column("Status")
+    table.add_column("Version")
+    table.add_column("CLI / Notes")
+    for result in results:
+        note = result.note
+        if result.status in {"installed", "updated", "downgraded", "unchanged"} and result.cli_path:
+            note = result.cli_path
+        table.add_row(
+            result.agent,
+            f"[{_status_style(result.status)}]{result.status}[/{_status_style(result.status)}]",
+            _version_text(result.before_version, result.after_version) if result.status != "skipped" else "-",
+            note,
+        )
+    console.print(table)
+    console.print()
+    console.print(f"Summary: {_succeeded(results)} succeeded, {_skipped(results)} skipped, {_failed(results)} failed.")
+    if _found_cli_count(results) == 0:
+        console.print("No plugin installation was attempted because no supported agent CLI was found.")
+    failed_results = [result for result in results if result.status == "failed"]
+    if failed_results:
+        console.print()
+        console.print("[red]Failed agents:[/red]")
+        for result in failed_results:
+            command = " ".join(result.failed_command or [])
+            detail = command or result.note
+            console.print(f"  {result.agent}: {detail}")
+    console.print()
+    _print_install_next_steps(results, console)
+
+
+def _print_install_next_steps(results: list[InstallResult], console: Console) -> None:
+    if _found_cli_count(results) == 0:
+        console.print("[bold]Next steps:[/bold]")
+        console.print("  Install Codex, Claude Code, or OpenClaw first, then run:")
+        console.print("  ai-assistant agent-bark-notify install")
+        console.print()
+        console.print("  Set BARK_DEVICE_KEY=<your Bark device key> before testing notifications.")
+        return
+    console.print("[bold]Next steps:[/bold]")
+    console.print("  Set BARK_DEVICE_KEY=<your Bark device key>")
+    console.print("  Optional: BARK_SERVER=https://api.day.app")
+    console.print("  Optional: BARK_GROUP=<fixed Bark group>")
+    console.print("  Optional: AGENT_BARK_NOTIFY_GROUP_MODE=agent|project|project-branch")
+    console.print("  Optional: AGENT_BARK_NOTIFY_HOOK_URL=lody://session/{session_id}")
+    console.print("  Optional: AGENT_BARK_NOTIFY_AUDIT_LOG=1")
+    console.print("  Optional: AGENT_BARK_NOTIFY_AUDIT_LOG_FILE=~/.ai-assistant/agent-bark-notify.log")
+    console.print()
+    console.print("[bold]Codex note:[/bold]")
+    console.print("  If Codex runs hooks in a restricted shell/sandbox, set these variables in the environment inherited by Codex hook commands.")
+    console.print()
+    console.print("[bold]OpenClaw note:[/bold]")
+    console.print("  If OpenClaw Gateway runs as a service, set these variables in its wrapper/launchd/systemd/schtasks environment, then restart the gateway.")
+    if any(result.agent == "OpenClaw" and result.status == "failed" and "Missing local plugin directory" in result.note for result in results):
+        console.print()
+        console.print("OpenClaw install currently requires the local plugin directory from the ai-assistant source checkout.")
+        console.print("Run from the source checkout, or add packaged/remote OpenClaw plugin support in a follow-up.")
+
+
+@cmd.command()
+def install() -> None:
+    """Install agent-bark-notify plugins for locally available agents.
+
+    This command checks for codex, claude, and openclaw CLIs in PATH.
+    When a CLI is present, it installs the matching agent-bark-notify plugin
+    with user/global scope. Missing CLIs are skipped.
+
+    Installed plugins:
+      Codex:        agent-bark-notify-codex@ai-assistant
+      Claude Code:  agent-bark-notify@ai-assistant --scope user
+      OpenClaw:     local linked plugin from plugins/agent-bark-notify-openclaw
+
+    After installation, set BARK_DEVICE_KEY where hook commands can read it.
+    Optional env vars include BARK_SERVER, BARK_GROUP,
+    AGENT_BARK_NOTIFY_GROUP_MODE, AGENT_BARK_NOTIFY_HOOK_URL,
+    AGENT_BARK_NOTIFY_AUDIT_LOG, and AGENT_BARK_NOTIFY_AUDIT_LOG_FILE.
+
+    Codex and OpenClaw may run hooks in a restricted or service environment;
+    set env vars in the environment inherited by those hook processes.
+    """
+    results = _install_for_available_agents()
+    _print_install_results(results, Console(highlight=False, width=120))
+    if _found_cli_count(results) > 0 and _succeeded(results) == 0:
+        raise typer.Exit(1)
 
 
 @cmd.command()

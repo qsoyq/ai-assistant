@@ -101,7 +101,39 @@ $ ai-assistant agent-bark-notify [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
+* `install`: Install agent-bark-notify plugins for...
 * `hook`: Read hook JSON from stdin and send a...
+
+### `ai-assistant agent-bark-notify install`
+
+Install agent-bark-notify plugins for locally available agents.
+
+This command checks for codex, claude, and openclaw CLIs in PATH.
+When a CLI is present, it installs the matching agent-bark-notify plugin
+with user/global scope. Missing CLIs are skipped.
+
+Installed plugins:
+  Codex:        agent-bark-notify-codex@ai-assistant
+  Claude Code:  agent-bark-notify@ai-assistant --scope user
+  OpenClaw:     local linked plugin from plugins/agent-bark-notify-openclaw
+
+After installation, set BARK_DEVICE_KEY where hook commands can read it.
+Optional env vars include BARK_SERVER, BARK_GROUP,
+AGENT_BARK_NOTIFY_GROUP_MODE, AGENT_BARK_NOTIFY_HOOK_URL,
+AGENT_BARK_NOTIFY_AUDIT_LOG, and AGENT_BARK_NOTIFY_AUDIT_LOG_FILE.
+
+Codex and OpenClaw may run hooks in a restricted or service environment;
+set env vars in the environment inherited by those hook processes.
+
+**Usage**:
+
+```console
+$ ai-assistant agent-bark-notify install [OPTIONS]
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
 
 ### `ai-assistant agent-bark-notify hook`
 
