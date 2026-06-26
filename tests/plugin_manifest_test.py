@@ -32,10 +32,10 @@ def test_bark_plugin_versions_are_bumped_for_extract_hooks():
     openclaw_package = json.loads(Path("plugins/agent-bark-notify-openclaw/package.json").read_text())
     openclaw_manifest = json.loads(Path("plugins/agent-bark-notify-openclaw/openclaw.plugin.json").read_text())
 
-    assert codex_manifest["version"] == "0.1.5"
-    assert claude_manifest["version"] == "0.1.5"
-    assert openclaw_package["version"] == "0.1.5"
-    assert openclaw_manifest["version"] == "0.1.5"
+    assert codex_manifest["version"] == "0.1.6"
+    assert claude_manifest["version"] == "0.1.6"
+    assert openclaw_package["version"] == "0.1.6"
+    assert openclaw_manifest["version"] == "0.1.6"
 
 
 def test_bark_plugin_versions_stay_in_sync_across_targets():
@@ -46,7 +46,7 @@ def test_bark_plugin_versions_stay_in_sync_across_targets():
         "openclaw-manifest": json.loads(Path("plugins/agent-bark-notify-openclaw/openclaw.plugin.json").read_text())["version"],
     }
 
-    assert set(versions.values()) == {"0.1.5"}
+    assert set(versions.values()) == {"0.1.6"}
 
 
 def test_claude_marketplace_exposes_bark_plugin():

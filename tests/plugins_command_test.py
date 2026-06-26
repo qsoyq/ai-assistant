@@ -49,7 +49,8 @@ def test_codex_config_snippet_contains_hooks_json_command():
     assert "global Codex plugin hook file" in result.output
     assert "hooks/hooks.json" in result.output
     assert "ai-assistant agent-bark-notify hook --runtime codex --event completion --summary-mode extract" in result.output
-    assert "AGENT_BARK_NOTIFY_HOOK_URL=lody://session/{session_id}" in result.output
+    assert "AGENT_BARK_NOTIFY_HOOK_URL=  # empty by default" in result.output
+    assert "https://lody.ai/users/{LODY_ELECTRON_SESSION_USER_ID}/sessions/{LODY_SESSION_ID}" in result.output
     assert "PermissionRequest" in result.output
 
 
@@ -59,7 +60,8 @@ def test_claude_config_snippet_contains_settings_hook_command():
     assert result.exit_code == 0
     assert "global Claude Code settings hook snippet" in result.output
     assert "ai-assistant agent-bark-notify hook --runtime claude --event approval_needed --summary-mode extract" in result.output
-    assert "AGENT_BARK_NOTIFY_HOOK_URL=lody://session/{session_id}" in result.output
+    assert "AGENT_BARK_NOTIFY_HOOK_URL=  # empty by default" in result.output
+    assert "https://lody.ai/users/{LODY_ELECTRON_SESSION_USER_ID}/sessions/{LODY_SESSION_ID}" in result.output
     assert "Notification" in result.output
 
 
@@ -74,7 +76,8 @@ def test_openclaw_config_snippet_contains_local_install_commands():
     assert "openclaw plugins inspect agent-bark-notify-openclaw --runtime --json" in result.output
     assert 'PATH="$HOME/.local/bin:$PATH"' in result.output
     assert "BARK_DEVICE_KEY=<your Bark device key>" in result.output
-    assert "AGENT_BARK_NOTIFY_HOOK_URL=lody://session/{session_id}" in result.output
+    assert "AGENT_BARK_NOTIFY_HOOK_URL=  # empty by default" in result.output
+    assert "https://lody.ai/users/{LODY_ELECTRON_SESSION_USER_ID}/sessions/{LODY_SESSION_ID}" in result.output
     assert "ai-assistant agent-bark-notify hook --runtime openclaw --event completion --summary-mode extract" in result.output
     assert '"hook_event_name":"message_sent"' in result.output
 
@@ -91,13 +94,15 @@ def test_install_guides_explain_manual_and_agent_assisted_paths():
     assert "codex plugin add agent-bark-notify-codex@ai-assistant" in codex.output
     assert "review the hook command before trusting it" in codex.output
     assert "Scope: global" in codex.output
-    assert "AGENT_BARK_NOTIFY_HOOK_URL=lody://session/{session_id}" in codex.output
+    assert "AGENT_BARK_NOTIFY_HOOK_URL=  # empty by default" in codex.output
+    assert "https://lody.ai/users/{LODY_ELECTRON_SESSION_USER_ID}/sessions/{LODY_SESSION_ID}" in codex.output
     assert "Manual fallback" in codex.output
     assert "claude plugin marketplace add qsoyq/ai-assistant" in claude.output
     assert "claude plugin install agent-bark-notify@ai-assistant --scope user" in claude.output
     assert "--scope user" in claude.output
     assert "/plugin install agent-bark-notify@ai-assistant" in claude.output
-    assert "AGENT_BARK_NOTIFY_HOOK_URL=lody://session/{session_id}" in claude.output
+    assert "AGENT_BARK_NOTIFY_HOOK_URL=  # empty by default" in claude.output
+    assert "https://lody.ai/users/{LODY_ELECTRON_SESSION_USER_ID}/sessions/{LODY_SESSION_ID}" in claude.output
     assert "Manual fallback" in claude.output
     assert "openclaw plugins install --link ./plugins/agent-bark-notify-openclaw" in openclaw.output
     assert "openclaw plugins enable agent-bark-notify-openclaw" in openclaw.output
@@ -105,7 +110,8 @@ def test_install_guides_explain_manual_and_agent_assisted_paths():
     assert "openclaw plugins inspect agent-bark-notify-openclaw --runtime --json" in openclaw.output
     assert "openclaw gateway install --force --wrapper" in openclaw.output
     assert "Default group mode is agent" in openclaw.output
-    assert "AGENT_BARK_NOTIFY_HOOK_URL='lody://session/{session_id}'" in openclaw.output
+    assert "export AGENT_BARK_NOTIFY_HOOK_URL=''  # empty by default" in openclaw.output
+    assert "https://lody.ai/users/{LODY_ELECTRON_SESSION_USER_ID}/sessions/{LODY_SESSION_ID}" in openclaw.output
     assert "AGENT_BARK_NOTIFY_GROUP_MODE=project-branch" in openclaw.output
     assert "BARK_GROUP=OpenClaw  # fixed group override" in openclaw.output
     assert "AGENT_BARK_NOTIFY_AUDIT_LOG=1" in openclaw.output

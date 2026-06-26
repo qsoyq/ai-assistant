@@ -94,7 +94,7 @@ def test_install_skips_missing_agent_clis(monkeypatch):
 
 def test_install_codex_first_install(monkeypatch):
     calls = []
-    codex_versions = iter([None, "0.1.5"])
+    codex_versions = iter([None, "0.1.6"])
 
     def fake_which(command):
         return "/opt/homebrew/bin/codex" if command == "codex" else None
@@ -115,14 +115,14 @@ def test_install_codex_first_install(monkeypatch):
     assert result.exit_code == 0
     assert "Codex" in result.output
     assert "installed" in result.output
-    assert "none -> 0.1.5" in result.output
+    assert "none -> 0.1.6" in result.output
     assert ["codex", "plugin", "marketplace", "add", "qsoyq/ai-assistant"] in calls
     assert ["codex", "plugin", "marketplace", "upgrade", "ai-assistant"] in calls
     assert ["codex", "plugin", "add", "agent-bark-notify-codex@ai-assistant"] in calls
 
 
 def test_install_codex_continues_when_marketplace_is_already_configured(monkeypatch):
-    codex_versions = iter([None, "0.1.5"])
+    codex_versions = iter([None, "0.1.6"])
 
     def fake_which(command):
         return "/opt/homebrew/bin/codex" if command == "codex" else None
@@ -143,12 +143,12 @@ def test_install_codex_continues_when_marketplace_is_already_configured(monkeypa
 
     assert result.exit_code == 0
     assert "installed" in result.output
-    assert "none -> 0.1.5" in result.output
+    assert "none -> 0.1.6" in result.output
 
 
 def test_install_claude_updates_existing_user_plugin(monkeypatch):
     calls = []
-    claude_versions = iter(["0.1.4", "0.1.5"])
+    claude_versions = iter(["0.1.5", "0.1.6"])
 
     def fake_which(command):
         return "/Users/me/.local/bin/claude" if command == "claude" else None
@@ -168,7 +168,7 @@ def test_install_claude_updates_existing_user_plugin(monkeypatch):
     assert result.exit_code == 0
     assert "Claude Code" in result.output
     assert "updated" in result.output
-    assert "0.1.4 -> 0.1.5" in result.output
+    assert "0.1.5 -> 0.1.6" in result.output
     assert ["claude", "plugin", "marketplace", "add", "qsoyq/ai-assistant", "--scope", "user"] in calls
     assert ["claude", "plugin", "marketplace", "update", "ai-assistant"] in calls
     assert ["claude", "plugin", "update", "agent-bark-notify@ai-assistant", "--scope", "user"] in calls
@@ -176,7 +176,7 @@ def test_install_claude_updates_existing_user_plugin(monkeypatch):
 
 
 def test_install_reports_downgrade(monkeypatch):
-    codex_versions = iter(["0.1.5", "0.1.4"])
+    codex_versions = iter(["0.1.6", "0.1.5"])
 
     def fake_which(command):
         return "/opt/homebrew/bin/codex" if command == "codex" else None
@@ -194,11 +194,11 @@ def test_install_reports_downgrade(monkeypatch):
 
     assert result.exit_code == 0
     assert "downgraded" in result.output
-    assert "0.1.5 -> 0.1.4" in result.output
+    assert "0.1.6 -> 0.1.5" in result.output
 
 
 def test_install_reports_unchanged(monkeypatch):
-    codex_versions = iter(["0.1.5", "0.1.5"])
+    codex_versions = iter(["0.1.6", "0.1.6"])
 
     def fake_which(command):
         return "/opt/homebrew/bin/codex" if command == "codex" else None
@@ -216,12 +216,12 @@ def test_install_reports_unchanged(monkeypatch):
 
     assert result.exit_code == 0
     assert "unchanged" in result.output
-    assert "0.1.5" in result.output
+    assert "0.1.6" in result.output
 
 
 def test_install_continues_after_agent_failure(monkeypatch):
-    codex_versions = iter([None, "0.1.5"])
-    claude_versions = iter(["0.1.4"])
+    codex_versions = iter([None, "0.1.6"])
+    claude_versions = iter(["0.1.5"])
 
     def fake_which(command):
         return {
@@ -283,7 +283,7 @@ def test_install_openclaw_fails_when_local_plugin_directory_is_missing(monkeypat
 
     def fake_run(args, **kwargs):
         if args == ["openclaw", "plugins", "inspect", "agent-bark-notify-openclaw", "--runtime", "--json"]:
-            return _Completed(args, stdout=json.dumps({"version": "0.1.5"}))
+            return _Completed(args, stdout=json.dumps({"version": "0.1.6"}))
         return _Completed(args)
 
     monkeypatch.setattr(agent_bark_notify.shutil, "which", fake_which)
