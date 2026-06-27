@@ -19,7 +19,7 @@ dependencies = [
     "psutil>=5.9",
     "pyobjc-framework-Cocoa>=10.3 ; sys_platform == 'darwin'",
     "pyobjc-framework-ApplicationServices>=10.3 ; sys_platform == 'darwin'",
-    "cryptography>=48.0.1",
+    "cryptography>=49.0.0",
 ]
 
 [project.optional-dependencies]
