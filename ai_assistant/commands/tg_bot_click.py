@@ -294,4 +294,5 @@ def main(
     typer.echo(f"Clicked button: {selection.text}")
 
 
-cmd = typer.main.get_command(_app)
+app = _app
+cmd = typer.main.get_command(app)
