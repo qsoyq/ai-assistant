@@ -23,7 +23,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-mcd = ["openai>=2.44.0"]
+mcd = ["openai>=2.45.0"]
 oss = ["oss2>=2.18.0"]
 freshrss = ["sqlalchemy>=2.0.51", "pymysql>=1.1.2", "psycopg[binary]>=3.3.4"]
 docker = ["docker>=7.2.0"]
