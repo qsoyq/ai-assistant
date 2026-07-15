@@ -233,7 +233,10 @@ class RouteBackend:
             return args
         if self.platform is Platform.macos:
             family = ["-inet6"] if spec.family == "ipv6" else ["-inet"]
-            return ["route", "-n", "delete", *family, "-net", spec.dest, spec.gateway]
+            args = ["route", "-n", "delete", *family, "-net", spec.dest, spec.gateway]
+            if spec.interface:
+                args.extend(["-ifscope", spec.interface])
+            return args
         script = _windows_remove_route_script(spec)
         return ["powershell", "-NoProfile", "-Command", script]
 
@@ -286,16 +289,134 @@ def _windows_remove_route_script(spec: RouteSpec) -> str:
     return " ".join(parts) + " | Remove-NetRoute -Confirm:$false"
 
 
-def route_state(route: ManagedRoute, system_routes: str | None) -> RouteState:
-    if system_routes is None:
+@dataclass(frozen=True)
+class SystemRouteEntry:
+    dest: str
+    gateway: str
+    flags: str
+    interface: str
+
+
+def normalize_macos_dest(value: str) -> str | None:
+    text = value.strip()
+    if not text:
+        return None
+    if text == "default":
+        return "0.0.0.0/0"
+    if ":" in text:
+        addr, _, prefix = text.partition("/")
+        addr = addr.split("%", 1)[0]
+        try:
+            return str(ipaddress.ip_network(f"{addr}/{prefix or '128'}", strict=False))
+        except ValueError:
+            return None
+    addr, _, prefix = text.partition("/")
+    octets = addr.split(".")
+    if not 1 <= len(octets) <= 4 or not all(part.isdigit() for part in octets):
+        return None
+    padded = ".".join(octets + ["0"] * (4 - len(octets)))
+    prefix_len = prefix or ("32" if len(octets) == 4 else str(8 * len(octets)))
+    try:
+        return str(ipaddress.ip_network(f"{padded}/{prefix_len}", strict=False))
+    except ValueError:
+        return None
+
+
+def parse_macos_netstat(output: str) -> list[SystemRouteEntry]:
+    entries: list[SystemRouteEntry] = []
+    inet6 = False
+    columns: dict[str, int] = {}
+    for line in output.splitlines():
+        text = line.strip()
+        if not text or text.startswith("Routing tables"):
+            continue
+        if text.startswith("Internet6:") or text.startswith("Internet:"):
+            inet6 = text.startswith("Internet6:")
+            columns = {}
+            continue
+        tokens = text.split()
+        if tokens[0] == "Destination":
+            columns = {name: index for index, name in enumerate(tokens)}
+            continue
+        gateway_index, flags_index, netif_index = columns.get("Gateway"), columns.get("Flags"), columns.get("Netif")
+        if gateway_index is None or flags_index is None or netif_index is None or len(tokens) <= netif_index:
+            continue
+        dest = "::/0" if inet6 and tokens[0] == "default" else normalize_macos_dest(tokens[0])
+        if dest is None:
+            continue
+        entries.append(SystemRouteEntry(dest=dest, gateway=tokens[gateway_index], flags=tokens[flags_index], interface=tokens[netif_index]))
+    return entries
+
+
+def _token_after(tokens: list[str], keyword: str) -> str:
+    if keyword in tokens:
+        index = tokens.index(keyword) + 1
+        if index < len(tokens):
+            return tokens[index]
+    return ""
+
+
+def parse_linux_ip_route(output: str) -> list[SystemRouteEntry]:
+    entries: list[SystemRouteEntry] = []
+    for line in output.splitlines():
+        tokens = line.split()
+        if not tokens:
+            continue
+        gateway = _token_after(tokens, "via")
+        interface = _token_after(tokens, "dev")
+        if tokens[0] == "default":
+            dest = "::/0" if ":" in gateway else "0.0.0.0/0"
+        else:
+            candidate = tokens[0] if "/" in tokens[0] else f"{tokens[0]}/{'128' if ':' in tokens[0] else '32'}"
+            try:
+                dest = str(ipaddress.ip_network(candidate, strict=False))
+            except ValueError:
+                continue
+        entries.append(SystemRouteEntry(dest=dest, gateway=gateway, flags="", interface=interface))
+    return entries
+
+
+def parse_windows_routes(output: str) -> list[SystemRouteEntry]:
+    text = output.strip()
+    if not text:
+        return []
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return []
+    entries: list[SystemRouteEntry] = []
+    for item in data if isinstance(data, list) else [data]:
+        if not isinstance(item, dict) or not item.get("DestinationPrefix"):
+            continue
+        try:
+            dest = str(ipaddress.ip_network(str(item["DestinationPrefix"]), strict=False))
+        except ValueError:
+            continue
+        entries.append(SystemRouteEntry(dest=dest, gateway=str(item.get("NextHop") or ""), flags="", interface=str(item.get("InterfaceAlias") or "")))
+    return entries
+
+
+def parse_system_routes(platform: Platform, output: str) -> list[SystemRouteEntry]:
+    if platform is Platform.macos:
+        return parse_macos_netstat(output)
+    if platform is Platform.linux:
+        return parse_linux_ip_route(output)
+    return parse_windows_routes(output)
+
+
+def route_state(route: ManagedRoute, entries: list[SystemRouteEntry] | None) -> RouteState:
+    if entries is None:
         return RouteState.unknown
-    dest_seen = route.dest in system_routes
-    gateway_seen = route.gateway in system_routes
-    if dest_seen and gateway_seen:
-        return RouteState.active
-    if dest_seen:
+    same_dest = [entry for entry in entries if entry.dest == route.dest]
+    if not same_dest:
+        return RouteState.missing
+    matched = [entry for entry in same_dest if entry.gateway == route.gateway]
+    if not matched:
         return RouteState.changed
-    return RouteState.missing
+    if route.interface is None and all("I" in entry.flags for entry in matched):
+        # macOS: 只有 interface-scoped 条目时, 普通(未绑定接口)流量不会命中这条路由。
+        return RouteState.changed
+    return RouteState.active
 
 
 def shell_join(args: list[str]) -> str:
@@ -344,10 +465,11 @@ def list_routes(
         rich.print(f"State file: {store.path}")
         return
 
-    system_routes, _results = backend.run_show()
+    output, _results = backend.run_show()
+    entries = parse_system_routes(backend.platform, output) if output is not None else None
     rich.print("ID           DEST                GATEWAY             IFACE        METRIC  STATE")
     for route in routes:
-        state = route_state(route, system_routes).value
+        state = route_state(route, entries).value
         rich.print(f"{route.id:<12} {route.dest:<19} {route.gateway:<19} {(route.interface or '-'): <12} {str(route.metric or '-'): <7} {state}")
 
 
