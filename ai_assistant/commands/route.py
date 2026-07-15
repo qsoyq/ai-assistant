@@ -40,11 +40,12 @@ JSON 状态文件, list 默认只展示这些 managed routes, 并尽量和当前
 - 第一版只管理运行时路由。重启后是否保留取决于系统, 本工具不会改写发行版
   网络配置、launchd、NetworkManager、netplan 或 Windows 持久策略。
 - macOS: 部分 VPN 客户端 (如 Tailscale 开启 accept-routes) 会通过 routing socket
-  安装带 RTF_IFSCOPE|RTF_GLOBAL 标志的子网路由并遮蔽物理网卡直连路由, 此时任何
-  经 route(8) 添加的路由都会被内核自动打上 IFSCOPE, 在全局路由查找中不会被选中。
-  可用 `add --macos-global` 通过 PF_ROUTE socket 添加带 RTF_GLOBAL 的路由绕过
-  (仅 IPv4, 需 sudo)。注意这类路由不会随网络环境自动回落, 离开对应网络后需手动
-  delete。
+  安装带 RTF_IFSCOPE|RTF_GLOBAL 标志的子网路由并遮蔽物理网卡直连路由, 导致经
+  route(8) 添加的路由可能被内核打上 IFSCOPE, 在全局路由查找中不会被选中。可用
+  `add --macos-global` 通过 PF_ROUTE socket 直接下发路由消息 (请求 RTF_GLOBAL;
+  实测内核对非 scoped 路由会忽略该标志, 实际生效的是路由以非 scoped 形式安装,
+  从而按最长前缀参与全局查找并战胜 VPN 子网路由)。仅 IPv4, 需 sudo。注意这类
+  路由不会随网络环境自动回落, 离开对应网络后需手动 delete。
 
 示例:
 - 查看本工具管理的路由:
@@ -480,8 +481,6 @@ def route_state(route: ManagedRoute, entries: list[SystemRouteEntry] | None) -> 
     if route.interface is None and all("I" in entry.flags for entry in matched):
         # macOS: 只有 interface-scoped 条目时, 普通(未绑定接口)流量不会命中这条路由。
         return RouteState.changed
-    if route.macos_global and not any("g" in entry.flags for entry in matched):
-        return RouteState.changed
     return RouteState.active
 
 
@@ -548,7 +547,7 @@ def add(
     macos_global: bool = typer.Option(
         False,
         "--macos-global",
-        help="[仅 macOS] 通过 PF_ROUTE socket 添加带 RTF_GLOBAL 的全局路由, 绕过内核自动 -ifscope。用于 VPN (如 Tailscale accept-routes) 子网路由遮蔽物理网卡路由的场景。仅 IPv4, 不可与 --interface 同用, 需要 sudo。",
+        help="[仅 macOS] 通过 PF_ROUTE socket 以非 scoped 形式添加全局路由 (请求 RTF_GLOBAL, 内核可能忽略该标志), 避免路由被 -ifscope 后在全局查找中失效。用于 VPN (如 Tailscale accept-routes) 子网路由遮蔽物理网卡路由的场景。仅 IPv4, 不可与 --interface 同用, 需要 sudo。",
     ),
     dry_run: bool = typer.Option(False, "--dry-run", help="只打印将执行的平台命令, 不修改系统路由表, 也不写状态文件。"),
     state_file: Path | None = typer.Option(None, "--state-file", help="managed route JSON 状态文件路径。"),

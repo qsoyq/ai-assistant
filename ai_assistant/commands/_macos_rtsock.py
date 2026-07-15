@@ -2,9 +2,11 @@
 
 `route(8)` 无法设置 RTF_GLOBAL (0x40000000)。部分 VPN 客户端 (如 Tailscale 开启
 accept-routes) 会安装 RTF_IFSCOPE|RTF_GLOBAL 的子网路由并遮蔽物理网卡直连路由,
-此时经 `route(8)` 添加的路由会被内核自动打上 IFSCOPE, 在全局路由查找中永远不会
-被选中。本模块通过 PF_ROUTE socket 直接下发 RTM_ADD/RTM_DELETE 消息, 为路由携带
-RTF_GLOBAL, 使其能参与全局查找。仅支持 IPv4。
+导致经 `route(8)` 添加的路由可能被内核打上 IFSCOPE, 在全局路由查找中不被选中。
+本模块通过 PF_ROUTE socket 直接下发 RTM_ADD/RTM_DELETE 消息并请求 RTF_GLOBAL。
+实测 (macOS 15/Darwin 25) 内核会忽略非 scoped 路由上的 RTF_GLOBAL 标志; 实际
+生效的是路由以非 scoped 形式安装, 从而按最长前缀参与全局查找并战胜 VPN 的
+scoped 子网路由。仅支持 IPv4。
 """
 
 from __future__ import annotations

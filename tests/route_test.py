@@ -313,12 +313,14 @@ def test_macos_global_describe_pseudo_commands():
     assert backend.describe_add(plain) == "route -n add -inet -net 10.20.0.0/16 198.51.100.254"
 
 
-def test_route_state_macos_global_requires_global_flag():
+def test_route_state_macos_global_active_without_global_flag():
+    # 实测内核会忽略非 scoped 路由上的 RTF_GLOBAL 标志 (netstat 无 g),
+    # 只要存在非 scoped 的同 dest+gateway 条目就应视为 active。
     item = route.ManagedRoute("abc", "10.20.0.0/16", "198.51.100.254", None, None, "ipv4", "now", macos_global=True)
-    without_g = [route.SystemRouteEntry("10.20.0.0/16", "198.51.100.254", "UGSc", "en0")]
-    with_g = [route.SystemRouteEntry("10.20.0.0/16", "198.51.100.254", "UGSg", "en0")]
-    assert route.route_state(item, without_g) is route.RouteState.changed
-    assert route.route_state(item, with_g) is route.RouteState.active
+    unscoped = [route.SystemRouteEntry("10.20.0.0/16", "198.51.100.254", "UGSc", "en0")]
+    scoped_only = [route.SystemRouteEntry("10.20.0.0/16", "198.51.100.254", "UGScI", "en0")]
+    assert route.route_state(item, unscoped) is route.RouteState.active
+    assert route.route_state(item, scoped_only) is route.RouteState.changed
 
 
 @pytest.mark.skipif(sys.platform != "darwin", reason="--macos-global uses the live-platform backend")

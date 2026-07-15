@@ -2512,7 +2512,7 @@ $ ai-assistant route add [OPTIONS]
 * `--gateway TEXT`: 下一跳网关 IP, 必须和 --dest 使用同一地址族。  [required]
 * `-i, --interface TEXT`: 可选出口网卡名/接口别名, 如 macOS en0、Linux eth0、Windows Ethernet。
 * `--metric INTEGER`: 可选路由 metric/优先级。不同平台语义略有差异。
-* `--macos-global`: [仅 macOS] 通过 PF_ROUTE socket 添加带 RTF_GLOBAL 的全局路由, 绕过内核自动 -ifscope。用于 VPN (如 Tailscale accept-routes) 子网路由遮蔽物理网卡路由的场景。仅 IPv4, 不可与 --interface 同用, 需要 sudo。
+* `--macos-global`: [仅 macOS] 通过 PF_ROUTE socket 以非 scoped 形式添加全局路由 (请求 RTF_GLOBAL, 内核可能忽略该标志), 避免路由被 -ifscope 后在全局查找中失效。用于 VPN (如 Tailscale accept-routes) 子网路由遮蔽物理网卡路由的场景。仅 IPv4, 不可与 --interface 同用, 需要 sudo。
 * `--dry-run`: 只打印将执行的平台命令, 不修改系统路由表, 也不写状态文件。
 * `--state-file PATH`: managed route JSON 状态文件路径。
 * `--help`: Show this message and exit.
