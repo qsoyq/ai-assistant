@@ -1,11 +1,13 @@
+import hashlib
 import json
+import struct
 import sys
 
 import pytest
 import typer
 from typer.testing import CliRunner
 
-from ai_assistant.commands import route
+from ai_assistant.commands import _macos_rtsock, route
 
 runner = CliRunner()
 
@@ -242,3 +244,104 @@ def test_root_command_registers_route():
     result = runner.invoke(root_cmd, ["route", "add", "--dest", "10.0.0.0/8", "--gateway", "192.168.1.1", "--dry-run"])
     assert result.exit_code == 0
     assert "ip -4 route add 10.0.0.0/8 via 192.168.1.1" in result.output
+
+
+def test_pack_sockaddr_in_golden():
+    assert _macos_rtsock.pack_sockaddr_in("192.168.1.1") == bytes([16, 2, 0, 0, 192, 168, 1, 1]) + b"\x00" * 8
+
+
+def test_build_route_message_golden():
+    msg = _macos_rtsock.build_route_message(_macos_rtsock.RTM_ADD, "10.20.0.0/16", "192.168.1.1", seq=7, pid=1234)
+    assert len(msg) == 140
+    assert struct.unpack_from("=HBBH", msg) == (140, 5, _macos_rtsock.RTM_ADD, 0)
+    flags, addrs, pid, seq = struct.unpack_from("=iiii", msg, 8)
+    assert flags == 0x40000803  # RTF_UP | RTF_GATEWAY | RTF_STATIC | RTF_GLOBAL
+    assert addrs == 0x7  # RTA_DST | RTA_GATEWAY | RTA_NETMASK
+    assert (pid, seq) == (1234, 7)
+    assert msg[36:92] == b"\x00" * 56
+    assert msg[92:108] == _macos_rtsock.pack_sockaddr_in("10.20.0.0")
+    assert msg[108:124] == _macos_rtsock.pack_sockaddr_in("192.168.1.1")
+    assert msg[124:140] == _macos_rtsock.pack_sockaddr_in("255.255.0.0")
+
+    delete_msg = _macos_rtsock.build_route_message(_macos_rtsock.RTM_DELETE, "10.20.0.0/16", "192.168.1.1", seq=7, pid=1234)
+    assert delete_msg[3] == _macos_rtsock.RTM_DELETE
+    assert delete_msg[4:] == msg[4:]
+
+
+def test_build_route_message_rejects_ipv6():
+    with pytest.raises(ValueError):
+        _macos_rtsock.build_route_message(_macos_rtsock.RTM_ADD, "2001:db8::/32", "2001:db8::1", seq=1, pid=1)
+
+
+def test_parse_route_ack_roundtrip():
+    msg = _macos_rtsock.build_route_message(_macos_rtsock.RTM_ADD, "10.0.0.0/8", "192.168.1.1", seq=3, pid=1)
+    assert _macos_rtsock.parse_route_ack(msg) == (_macos_rtsock.RTM_ADD, 3, 0)
+
+
+def test_parse_route_spec_rejects_macos_global_with_ipv6_or_interface():
+    with pytest.raises(typer.BadParameter):
+        route.parse_route_spec("2001:db8::/32", "2001:db8::1", macos_global=True)
+    with pytest.raises(typer.BadParameter):
+        route.parse_route_spec("10.0.0.0/8", "192.168.1.1", "en0", macos_global=True)
+
+
+def test_stable_id_backward_compat_and_global_variant():
+    plain = route.parse_route_spec("10.0.0.0/8", "192.168.1.1")
+    legacy_raw = "|".join(["10.0.0.0/8", "192.168.1.1", "", ""])
+    assert plain.stable_id == hashlib.sha256(legacy_raw.encode("utf-8")).hexdigest()[:12]
+    assert plain.stable_id != route.parse_route_spec("10.0.0.0/8", "192.168.1.1", macos_global=True).stable_id
+
+
+def test_managed_route_legacy_json_without_macos_global(tmp_path):
+    state_file = tmp_path / "routes.json"
+    legacy = {
+        "version": 1,
+        "routes": [{"id": "abc", "dest": "10.0.0.0/8", "gateway": "192.168.1.1", "interface": None, "metric": None, "family": "ipv4", "created_at": "2026-01-01T00:00:00+00:00"}],
+    }
+    state_file.write_text(json.dumps(legacy), encoding="utf-8")
+    loaded = route.RouteStore(state_file).load()
+    assert loaded[0].macos_global is False
+    assert loaded[0].spec.macos_global is False
+
+
+def test_macos_global_describe_pseudo_commands():
+    spec = route.parse_route_spec("10.20.0.0/16", "198.51.100.254", macos_global=True)
+    backend = route.RouteBackend(route.Platform.macos)
+    assert backend.describe_add(spec) == "pf-route RTM_ADD -net 10.20.0.0/16 198.51.100.254 flags=UP,GATEWAY,STATIC,GLOBAL"
+    assert backend.describe_delete(spec) == "pf-route RTM_DELETE -net 10.20.0.0/16 198.51.100.254 flags=UP,GATEWAY,STATIC,GLOBAL"
+    plain = route.parse_route_spec("10.20.0.0/16", "198.51.100.254")
+    assert backend.describe_add(plain) == "route -n add -inet -net 10.20.0.0/16 198.51.100.254"
+
+
+def test_route_state_macos_global_active_without_global_flag():
+    # 实测内核会忽略非 scoped 路由上的 RTF_GLOBAL 标志 (netstat 无 g),
+    # 只要存在非 scoped 的同 dest+gateway 条目就应视为 active。
+    item = route.ManagedRoute("abc", "10.20.0.0/16", "198.51.100.254", None, None, "ipv4", "now", macos_global=True)
+    unscoped = [route.SystemRouteEntry("10.20.0.0/16", "198.51.100.254", "UGSc", "en0")]
+    scoped_only = [route.SystemRouteEntry("10.20.0.0/16", "198.51.100.254", "UGScI", "en0")]
+    assert route.route_state(item, unscoped) is route.RouteState.active
+    assert route.route_state(item, scoped_only) is route.RouteState.changed
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="--macos-global uses the live-platform backend")
+def test_cli_add_macos_global_dry_run_does_not_write_state(tmp_path):
+    state_file = tmp_path / "routes.json"
+    result = runner.invoke(route.cmd, ["add", "--dest", "10.20.0.0/16", "--gateway", "198.51.100.254", "--macos-global", "--state-file", str(state_file), "--dry-run"])
+    assert result.exit_code == 0, result.output
+    assert "pf-route RTM_ADD" in result.output
+    assert not state_file.exists()
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="--macos-global uses the live-platform backend")
+def test_cli_delete_macos_global_dry_run_prints_pseudo_command(tmp_path):
+    state_file = tmp_path / "routes.json"
+    managed = route.RouteStore(state_file).upsert(route.parse_route_spec("10.20.0.0/16", "198.51.100.254", macos_global=True))
+    result = runner.invoke(route.cmd, ["delete", managed.id, "--state-file", str(state_file), "--dry-run"])
+    assert result.exit_code == 0, result.output
+    assert "pf-route RTM_DELETE" in result.output
+
+
+@pytest.mark.skipif(sys.platform == "darwin", reason="platform guard only fires off macOS")
+def test_cli_add_macos_global_rejected_off_macos():
+    result = runner.invoke(route.cmd, ["add", "--dest", "10.20.0.0/16", "--gateway", "198.51.100.254", "--macos-global", "--dry-run"])
+    assert result.exit_code != 0

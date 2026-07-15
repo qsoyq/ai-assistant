@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno as errno_module
 import hashlib
 import ipaddress
 import json
@@ -17,7 +18,7 @@ from pathlib import Path
 import rich
 import typer
 
-from ai_assistant.commands import make_typer
+from ai_assistant.commands import _macos_rtsock, make_typer
 
 helptext = """
 跨平台运行时路由管理工具。
@@ -38,6 +39,13 @@ JSON 状态文件, list 默认只展示这些 managed routes, 并尽量和当前
   管理员 PowerShell/CMD 运行。
 - 第一版只管理运行时路由。重启后是否保留取决于系统, 本工具不会改写发行版
   网络配置、launchd、NetworkManager、netplan 或 Windows 持久策略。
+- macOS: 部分 VPN 客户端 (如 Tailscale 开启 accept-routes) 会通过 routing socket
+  安装带 RTF_IFSCOPE|RTF_GLOBAL 标志的子网路由并遮蔽物理网卡直连路由, 导致经
+  route(8) 添加的路由可能被内核打上 IFSCOPE, 在全局路由查找中不会被选中。可用
+  `add --macos-global` 通过 PF_ROUTE socket 直接下发路由消息 (请求 RTF_GLOBAL;
+  实测内核对非 scoped 路由会忽略该标志, 实际生效的是路由以非 scoped 形式安装,
+  从而按最长前缀参与全局查找并战胜 VPN 子网路由)。仅 IPv4, 需 sudo。注意这类
+  路由不会随网络环境自动回落, 离开对应网络后需手动 delete。
 
 示例:
 - 查看本工具管理的路由:
@@ -74,6 +82,7 @@ class RouteSpec:
     gateway: str
     interface: str | None = None
     metric: int | None = None
+    macos_global: bool = False
 
     @property
     def family(self) -> str:
@@ -82,6 +91,9 @@ class RouteSpec:
     @property
     def stable_id(self) -> str:
         raw = "|".join([self.dest, self.gateway, self.interface or "", str(self.metric or "")])
+        if self.macos_global:
+            # 仅在启用时参与哈希, 保证存量 route ID 不变。
+            raw += "|macos-global"
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:12]
 
 
@@ -94,10 +106,11 @@ class ManagedRoute:
     metric: int | None
     family: str
     created_at: str
+    macos_global: bool = False
 
     @property
     def spec(self) -> RouteSpec:
-        return RouteSpec(dest=self.dest, gateway=self.gateway, interface=self.interface, metric=self.metric)
+        return RouteSpec(dest=self.dest, gateway=self.gateway, interface=self.interface, metric=self.metric, macos_global=self.macos_global)
 
 
 @dataclass(frozen=True)
@@ -119,7 +132,7 @@ def detect_platform(value: str | None = None) -> Platform:
     raise RuntimeError(f"unsupported platform: {name}")
 
 
-def parse_route_spec(dest: str, gateway: str, interface: str | None = None, metric: int | None = None) -> RouteSpec:
+def parse_route_spec(dest: str, gateway: str, interface: str | None = None, metric: int | None = None, macos_global: bool = False) -> RouteSpec:
     if "/" not in dest:
         raise typer.BadParameter("dest must be CIDR, e.g. 10.0.0.0/8 or 2001:db8::/32")
     try:
@@ -135,7 +148,12 @@ def parse_route_spec(dest: str, gateway: str, interface: str | None = None, metr
     if metric is not None and metric < 0:
         raise typer.BadParameter("metric must be >= 0")
     clean_interface = interface.strip() if interface else None
-    return RouteSpec(dest=str(network), gateway=str(gateway_ip), interface=clean_interface, metric=metric)
+    if macos_global:
+        if network.version != 4:
+            raise typer.BadParameter("--macos-global only supports IPv4 routes")
+        if clean_interface:
+            raise typer.BadParameter("--macos-global cannot be combined with --interface (RTF_GLOBAL 与 -ifscope 语义相反)")
+    return RouteSpec(dest=str(network), gateway=str(gateway_ip), interface=clean_interface, metric=metric, macos_global=macos_global)
 
 
 def parse_query_ip(value: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address:
@@ -180,6 +198,7 @@ class RouteStore:
             metric=spec.metric,
             family=spec.family,
             created_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            macos_global=spec.macos_global,
         )
         routes = [item for item in self.load() if item.id != route.id]
         routes.append(route)
@@ -258,6 +277,35 @@ class RouteBackend:
         script = "Get-NetRoute | Select-Object DestinationPrefix,NextHop,InterfaceAlias,RouteMetric,AddressFamily | ConvertTo-Json -Depth 2"
         return [["powershell", "-NoProfile", "-Command", script]]
 
+    def add(self, spec: RouteSpec) -> CommandResult:
+        if spec.macos_global:
+            return self._run_rtsock(spec, _macos_rtsock.RTM_ADD)
+        return self.run(self.add_args(spec))
+
+    def delete(self, spec: RouteSpec) -> CommandResult:
+        if spec.macos_global:
+            return self._run_rtsock(spec, _macos_rtsock.RTM_DELETE)
+        return self.run(self.delete_args(spec))
+
+    def describe_add(self, spec: RouteSpec) -> str:
+        if spec.macos_global:
+            return _rtsock_pseudo_command(_macos_rtsock.RTM_ADD, spec)
+        return shell_join(self.add_args(spec))
+
+    def describe_delete(self, spec: RouteSpec) -> str:
+        if spec.macos_global:
+            return _rtsock_pseudo_command(_macos_rtsock.RTM_DELETE, spec)
+        return shell_join(self.delete_args(spec))
+
+    def _run_rtsock(self, spec: RouteSpec, msg_type: int) -> CommandResult:
+        pseudo = _rtsock_pseudo_command(msg_type, spec)
+        message = _macos_rtsock.build_route_message(msg_type, spec.dest, spec.gateway, seq=1, pid=os.getpid())
+        try:
+            _macos_rtsock.send_route_message(message)
+        except OSError as exc:
+            return CommandResult(args=[pseudo], returncode=exc.errno or 1, stdout="", stderr=_rtsock_error_message(exc))
+        return CommandResult(args=[pseudo], returncode=0, stdout="", stderr="")
+
     def run(self, args: list[str]) -> CommandResult:
         proc = subprocess.run(args, capture_output=True, text=True, check=False)
         return CommandResult(args=args, returncode=proc.returncode, stdout=proc.stdout, stderr=proc.stderr)
@@ -267,6 +315,23 @@ class RouteBackend:
         if any(result.returncode != 0 for result in results):
             return None, results
         return "\n".join(result.stdout for result in results), results
+
+
+def _rtsock_pseudo_command(msg_type: int, spec: RouteSpec) -> str:
+    action = "RTM_ADD" if msg_type == _macos_rtsock.RTM_ADD else "RTM_DELETE"
+    return f"pf-route {action} -net {spec.dest} {spec.gateway} flags={_macos_rtsock.ROUTE_FLAGS_LABEL}"
+
+
+def _rtsock_error_message(exc: OSError) -> str:
+    if exc.errno in (errno_module.EPERM, errno_module.EACCES):
+        return "operation not permitted: RTF_GLOBAL routes require root, re-run with sudo"
+    if exc.errno == errno_module.EEXIST:
+        return "route already exists"
+    if exc.errno == errno_module.ESRCH:
+        return "no such route"
+    if exc.errno == errno_module.ENETUNREACH:
+        return "gateway not reachable"
+    return exc.strerror or str(exc)
 
 
 def _ps_quote(value: str) -> str:
@@ -467,10 +532,10 @@ def list_routes(
 
     output, _results = backend.run_show()
     entries = parse_system_routes(backend.platform, output) if output is not None else None
-    rich.print("ID           DEST                GATEWAY             IFACE        METRIC  STATE")
+    rich.print("ID           DEST                GATEWAY             IFACE        METRIC  GLOBAL  STATE")
     for route in routes:
         state = route_state(route, entries).value
-        rich.print(f"{route.id:<12} {route.dest:<19} {route.gateway:<19} {(route.interface or '-'): <12} {str(route.metric or '-'): <7} {state}")
+        rich.print(f"{route.id:<12} {route.dest:<19} {route.gateway:<19} {(route.interface or '-'): <12} {str(route.metric or '-'): <7} {('g' if route.macos_global else '-'): <7} {state}")
 
 
 @cmd.command()
@@ -479,6 +544,11 @@ def add(
     gateway: str = typer.Option(..., "--gateway", help="下一跳网关 IP, 必须和 --dest 使用同一地址族。"),
     interface: str | None = typer.Option(None, "--interface", "-i", help="可选出口网卡名/接口别名, 如 macOS en0、Linux eth0、Windows Ethernet。"),
     metric: int | None = typer.Option(None, "--metric", help="可选路由 metric/优先级。不同平台语义略有差异。"),
+    macos_global: bool = typer.Option(
+        False,
+        "--macos-global",
+        help="[仅 macOS] 通过 PF_ROUTE socket 以非 scoped 形式添加全局路由 (请求 RTF_GLOBAL, 内核可能忽略该标志), 避免路由被 -ifscope 后在全局查找中失效。用于 VPN (如 Tailscale accept-routes) 子网路由遮蔽物理网卡路由的场景。仅 IPv4, 不可与 --interface 同用, 需要 sudo。",
+    ),
     dry_run: bool = typer.Option(False, "--dry-run", help="只打印将执行的平台命令, 不修改系统路由表, 也不写状态文件。"),
     state_file: Path | None = typer.Option(None, "--state-file", help="managed route JSON 状态文件路径。"),
 ):
@@ -491,15 +561,17 @@ def add(
     使用示例:
     - sudo ai-assistant route add --dest 10.0.0.0/8 --gateway 192.168.1.1
     - sudo ai-assistant route add --dest 10.20.0.0/16 --gateway 192.168.1.1 --interface en0 --metric 20
+    - sudo ai-assistant route add --dest 10.20.0.0/16 --gateway 198.51.100.254 --macos-global
     - ai-assistant route add --dest 10.0.0.0/8 --gateway 192.168.1.1 --dry-run
     """
-    spec = parse_route_spec(dest=dest, gateway=gateway, interface=interface, metric=metric)
+    spec = parse_route_spec(dest=dest, gateway=gateway, interface=interface, metric=metric, macos_global=macos_global)
     backend = RouteBackend()
-    args = backend.add_args(spec)
+    if spec.macos_global and backend.platform is not Platform.macos:
+        raise typer.BadParameter("--macos-global is only supported on macOS")
     if dry_run:
-        rich.print(f"[cyan](dry-run)[/cyan] {shell_join(args)}")
+        rich.print(f"[cyan](dry-run)[/cyan] {backend.describe_add(spec)}")
         return
-    result = backend.run(args)
+    result = backend.add(spec)
     if result.returncode != 0:
         rich.print(f"[red]route add failed:[/red] {result.stderr.strip() or result.stdout.strip()}")
         raise typer.Exit(result.returncode)
@@ -549,18 +621,17 @@ def delete(
         routes_and_specs = [(route, route.spec) for route in routes]
 
     backend = RouteBackend()
-    planned = [(route, spec, backend.delete_args(spec)) for route, spec in routes_and_specs]
     if dry_run:
-        for _route, _spec, args in planned:
-            rich.print(f"[cyan](dry-run)[/cyan] {shell_join(args)}")
+        for _route, spec in routes_and_specs:
+            rich.print(f"[cyan](dry-run)[/cyan] {backend.describe_delete(spec)}")
         return
 
     removed_ids: set[str] = set()
-    for route, spec, args in planned:
+    for route, spec in routes_and_specs:
         if force_state and route is None:
             raise typer.BadParameter("--force-state only applies to managed routes")
         if not force_state:
-            result = backend.run(args)
+            result = backend.delete(spec)
             if result.returncode != 0:
                 rich.print(f"[red]route delete failed:[/red] {result.stderr.strip() or result.stdout.strip()}")
                 raise typer.Exit(result.returncode)
