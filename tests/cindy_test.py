@@ -85,3 +85,15 @@ def test_cli_requires_output_option(tmp_path: Path):
     result = runner.invoke(cmd, ["cshare-to-markdown", str(source), "--output", str(output)])
     assert result.exit_code == 0, result.output
     assert output.read_text(encoding="utf-8").startswith("---")
+
+
+def test_renderer_rejects_unlisted_zip_payload():
+    payload = _bundle()
+    source = BytesIO(payload)
+    target = BytesIO()
+    with ZipFile(source) as input_archive, ZipFile(target, "w", ZIP_DEFLATED) as output_archive:
+        for info in input_archive.infolist():
+            output_archive.writestr(info, input_archive.read(info))
+        output_archive.writestr("unexpected.txt", "not declared")
+    with pytest.raises(Exception, match="do not match manifest"):
+        cshare_bytes_to_markdown(target.getvalue())

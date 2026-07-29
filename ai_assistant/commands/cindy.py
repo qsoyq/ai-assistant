@@ -94,10 +94,23 @@ def cshare_bytes_to_markdown(zip_bytes: bytes, *, include_tools: bool = False, i
         session = json.loads(archive.read("session.json"))
     except (KeyError, json.JSONDecodeError) as exc:
         raise CshareError("invalid share metadata") from exc
-    for entry in manifest.get("entries", []):
-        data = archive.read(entry["path"])
+    entries = manifest.get("entries")
+    if not isinstance(entries, list):
+        raise CshareError("manifest entries must be a list")
+    declared: set[str] = set()
+    for entry in entries:
+        if not isinstance(entry, dict) or not isinstance(entry.get("path"), str) or not isinstance(entry.get("bytes"), int) or not isinstance(entry.get("sha256"), str):
+            raise CshareError("invalid manifest entry")
+        entry_path = entry["path"]
+        declared.add(entry_path)
+        if entry_path not in names:
+            raise CshareError("manifest entry is missing from ZIP")
+        data = archive.read(entry_path)
         if len(data) != entry["bytes"] or hashlib.sha256(data).hexdigest() != entry["sha256"]:
             raise CshareError("manifest integrity check failed")
+    payload_names = {name for name in names if not name.endswith("/") and name != "manifest.json"}
+    if declared != payload_names:
+        raise CshareError("ZIP entries do not match manifest")
     if extract_media_dir:
         extract_media_dir.mkdir(parents=True, exist_ok=True)
         for info in infos:
