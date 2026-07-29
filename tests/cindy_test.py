@@ -111,6 +111,30 @@ print(\"code\")
     assert "## 助手 ·" not in markdown
 
 
+def test_renderer_prefers_structured_user_text_and_preserves_unknown_objects():
+    empty_text = {"text": "", "images": []}
+    missing_text = {"images": []}
+    nested_text = {"text": {"value": "unknown"}}
+    markdown = cshare_bytes_to_markdown(
+        _bundle(
+            [
+                {"role": "user", "content": json.dumps({"text": "用户输入", "images": []}), "createdAt": 0},
+                {"role": "user", "content": json.dumps(empty_text), "createdAt": 1000},
+                {"role": "user", "content": json.dumps(missing_text), "createdAt": 2000},
+                {"role": "user", "content": json.dumps(nested_text), "createdAt": 3000},
+            ]
+        )
+    )
+
+    bodies = re.findall(r"\*\*[^*]+\*\* · [^\n]+\n\n(.*?)\n\n<!-- cshare-message:end -->", markdown, re.DOTALL)
+    assert bodies == [
+        "用户输入",
+        f"```json\n{json.dumps(empty_text, ensure_ascii=False, indent=2)}\n```",
+        f"```json\n{json.dumps(missing_text, ensure_ascii=False, indent=2)}\n```",
+        f"```json\n{json.dumps(nested_text, ensure_ascii=False, indent=2)}\n```",
+    ]
+
+
 def test_read_cshare_encrypted_and_requires_password(tmp_path: Path):
     path = tmp_path / "demo.cshare"
     path.write_bytes(_share(_bundle(), "secret"))

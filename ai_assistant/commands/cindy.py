@@ -158,8 +158,12 @@ def _render_content(raw: object) -> str:
     if isinstance(value, str):
         return value
     if isinstance(value, list):
-        text = [part["text"] for part in value if isinstance(part, dict) and part.get("type") in {"text", "input_text", "output_text"} and isinstance(part.get("text"), str)]
-        return "\n\n".join(text) if text else f"```json\n{json.dumps(value, ensure_ascii=False, indent=2)}\n```"
+        parts = [part["text"] for part in value if isinstance(part, dict) and part.get("type") in {"text", "input_text", "output_text"} and isinstance(part.get("text"), str)]
+        return "\n\n".join(parts) if parts else f"```json\n{json.dumps(value, ensure_ascii=False, indent=2)}\n```"
+    if isinstance(value, dict):
+        structured_text = value.get("text")
+        if isinstance(structured_text, str) and structured_text.strip():
+            return structured_text
     return f"```json\n{json.dumps(value, ensure_ascii=False, indent=2)}\n```"
 
 
