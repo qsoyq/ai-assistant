@@ -500,6 +500,8 @@ $ ai-assistant cindy [OPTIONS] COMMAND [ARGS]...
 
 Convert a Cindy `.cshare` or legacy `.xdtshare` file to Markdown.
 
+Each message is enclosed in `cshare-message:start/end` HTML comments, allowing third-party Agents to split messages without relying on Markdown headings.
+
 **Usage**:
 
 ```console
