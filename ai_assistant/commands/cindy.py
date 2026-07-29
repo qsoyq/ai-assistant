@@ -7,7 +7,7 @@ import json
 import os
 import unicodedata
 import zipfile
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
 
@@ -137,7 +137,7 @@ def cshare_bytes_to_markdown(zip_bytes: bytes, *, include_tools: bool = False, i
             content = content.replace(source, replacement)
         if not content:
             continue
-        stamp = datetime.fromtimestamp(row.get("createdAt", 0) / 1000, tz=UTC).strftime("%Y-%m-%d %H:%M UTC")
+        stamp = datetime.fromtimestamp(row.get("createdAt", 0) / 1000, tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
         role = {"user": "用户", "assistant": "助手"}.get(row.get("role"), str(row.get("role")))
         messages.append(f"## {role} · {stamp}\n\n{content}")
     title = manifest.get("title") or session.get("title") or "Cindy Session"
