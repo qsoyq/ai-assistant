@@ -73,7 +73,7 @@ def read_cshare_input(input_path: Path, *, password: str | None = None) -> bytes
     return payload
 
 
-def cshare_bytes_to_markdown(zip_bytes: bytes, *, include_tools: bool = False, include_meta: bool = False) -> str:
+def cshare_bytes_to_markdown(zip_bytes: bytes, *, include_tools: bool = False, include_meta: bool = False, extract_media_dir: Path | None = None) -> str:
     """Validate a Cindy share ZIP and render its visible messages as Markdown."""
     try:
         archive = zipfile.ZipFile(BytesIO(zip_bytes))
@@ -85,6 +85,8 @@ def cshare_bytes_to_markdown(zip_bytes: bytes, *, include_tools: bool = False, i
     names = {info.filename for info in infos}
     if any(name.startswith("/") or ".." in Path(name).parts for name in names):
         raise CshareError("unsafe ZIP entry path")
+    if any((info.external_attr >> 16) & 0o170000 == 0o120000 for info in infos):
+        raise CshareError("symbolic links are not allowed in ZIP entries")
     if not {"manifest.json", "session.json", "messages.jsonl"} <= names:
         raise CshareError("missing required share entries")
     try:
@@ -96,6 +98,12 @@ def cshare_bytes_to_markdown(zip_bytes: bytes, *, include_tools: bool = False, i
         data = archive.read(entry["path"])
         if len(data) != entry["bytes"] or hashlib.sha256(data).hexdigest() != entry["sha256"]:
             raise CshareError("manifest integrity check failed")
+    if extract_media_dir:
+        extract_media_dir.mkdir(parents=True, exist_ok=True)
+        for info in infos:
+            if info.filename.startswith("media/") and not info.is_dir():
+                target = extract_media_dir / Path(info.filename).name
+                target.write_bytes(archive.read(info))
     messages = []
     for line in archive.read("messages.jsonl").decode().splitlines():
         row = json.loads(line)
@@ -128,14 +136,22 @@ def _render_content(raw: object) -> str:
 
 
 @cmd.command("cshare-to-markdown")
-def cshare_to_markdown(input_path: Path, output: Path, password_env: str | None = None, include_tools: bool = False, include_meta: bool = False, verify_only: bool = False) -> None:
+def cshare_to_markdown(
+    input_path: Path,
+    output: Path = typer.Option(..., "--output", "-o"),
+    password_env: str | None = None,
+    include_tools: bool = False,
+    include_meta: bool = False,
+    extract_media: Path | None = None,
+    verify_only: bool = False,
+) -> None:
     """Convert a Cindy .cshare or legacy .xdtshare file to Markdown."""
     password = os.environ.get(password_env) if password_env else None
     try:
-        markdown = cshare_bytes_to_markdown(read_cshare_input(input_path, password=password), include_tools=include_tools, include_meta=include_meta)
+        markdown = cshare_bytes_to_markdown(read_cshare_input(input_path, password=password), include_tools=include_tools, include_meta=include_meta, extract_media_dir=extract_media)
     except PasswordRequiredError:
         password = typer.prompt("Password", hide_input=True)
-        markdown = cshare_bytes_to_markdown(read_cshare_input(input_path, password=password), include_tools=include_tools, include_meta=include_meta)
+        markdown = cshare_bytes_to_markdown(read_cshare_input(input_path, password=password), include_tools=include_tools, include_meta=include_meta, extract_media_dir=extract_media)
     except CshareError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1) from exc
