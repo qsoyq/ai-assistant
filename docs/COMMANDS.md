@@ -20,6 +20,7 @@ $ ai-assistant [OPTIONS] COMMAND [ARGS]...
 * `aliyun-oss`: 阿里云 OSS 工具集
 * `bump-version`: 对当前目录的 pyproject.toml 的 project.version 加一。
 * `cf-tunnel-watcher`: 监听 Cloudflare Tunnel 连接状态变化并执行命令
+* `cindy`: Cindy 会话分享文件工具。
 * `cloudflare-dns`: 管理 Cloudflare DNS 记录, 支持添加/修改 A 和 CNAME 记录
 * `cookies`: 从本地浏览器中提取指定域名的 Cookie。
 * `cursor-usage`: Get usage of Cursor.
@@ -476,6 +477,47 @@ $ ai-assistant cf-tunnel-watcher watch [OPTIONS] RUN_CMD
 * `--run-on-start`: 启动时立即执行一次命令
 * `--run-on-unhealthy`: 仅在状态变为不健康时执行命令（默认任何状态变化都执行）
 * `-s, --sleep-after-run FLOAT RANGE`: 执行命令后等待时间（秒）  [default: 60; x&gt;=0]
+* `--help`: Show this message and exit.
+
+## `ai-assistant cindy`
+
+**Usage**:
+
+```console
+$ ai-assistant cindy [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--version, -v, -V`: Show version and exit.
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `cshare-to-markdown`: Convert a Cindy `.cshare` or legacy `.xdtshare` file to Markdown.
+
+### `ai-assistant cindy cshare-to-markdown`
+
+Convert a Cindy `.cshare` or legacy `.xdtshare` file to Markdown.
+
+**Usage**:
+
+```console
+$ ai-assistant cindy cshare-to-markdown [OPTIONS] INPUT_PATH
+```
+
+**Arguments**:
+
+* `INPUT_PATH`: [required]
+
+**Options**:
+
+* `-o, --output PATH`: [required]
+* `--password-env TEXT`
+* `--include-tools`
+* `--include-meta`
+* `--extract-media PATH`
+* `--verify-only`
 * `--help`: Show this message and exit.
 
 ## `ai-assistant cloudflare-dns`
