@@ -137,9 +137,12 @@ def cshare_bytes_to_markdown(zip_bytes: bytes, *, include_tools: bool = False, i
             content = content.replace(source, replacement)
         if not content:
             continue
-        stamp = datetime.fromtimestamp(row.get("createdAt", 0) / 1000, tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-        role = {"user": "用户", "assistant": "助手"}.get(row.get("role"), str(row.get("role")))
-        messages.append(f"## {role} · {stamp}\n\n{content}")
+        created_at = datetime.fromtimestamp(row.get("createdAt", 0) / 1000, tz=timezone.utc)
+        stamp = created_at.strftime("%Y-%m-%d %H:%M UTC")
+        role_key = row.get("role")
+        role = {"user": "用户", "assistant": "助手"}.get(role_key, str(role_key))
+        envelope = json.dumps({"role": role_key, "created_at": created_at.isoformat().replace("+00:00", "Z")}, ensure_ascii=False)
+        messages.append(f"<!-- cshare-message:start {envelope} -->\n\n---\n\n**{role}** · {stamp}\n\n{content}\n\n<!-- cshare-message:end -->")
     title = manifest.get("title") or session.get("title") or "Cindy Session"
     front = ["---", f"title: {json.dumps(title, ensure_ascii=False)}", f"source_format: cshare-v{manifest.get('formatVersion', 1)}", f"message_count: {len(messages)}"]
     if include_meta:
