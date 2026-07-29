@@ -177,7 +177,10 @@ def cshare_to_markdown(
     extract_media: Path | None = None,
     verify_only: bool = False,
 ) -> None:
-    """Convert a Cindy .cshare or legacy .xdtshare file to Markdown."""
+    """Convert a Cindy .cshare or legacy .xdtshare file to Markdown.
+
+    Each message is enclosed in cshare-message:start/end HTML comments for third-party Agent parsing.
+    """
     password = os.environ.get(password_env) if password_env else None
     try:
         markdown = cshare_bytes_to_markdown(read_cshare_input(input_path, password=password), include_tools=include_tools, include_meta=include_meta, extract_media_dir=extract_media)
