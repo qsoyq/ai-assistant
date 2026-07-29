@@ -115,14 +115,26 @@ def cshare_bytes_to_markdown(zip_bytes: bytes, *, include_tools: bool = False, i
         extract_media_dir.mkdir(parents=True, exist_ok=True)
         for info in infos:
             if info.filename.startswith("media/") and not info.is_dir():
-                target = extract_media_dir / Path(info.filename).name
-                target.write_bytes(archive.read(info))
+                extracted_path = extract_media_dir / Path(info.filename).name
+                extracted_path.write_bytes(archive.read(info))
+    media_rewrites: dict[str, str] = {}
+    if extract_media_dir and "media-map.json" in names:
+        try:
+            media_map = json.loads(archive.read("media-map.json"))
+        except json.JSONDecodeError as exc:
+            raise CshareError("invalid media map") from exc
+        for item in media_map.get("entries", []):
+            if not isinstance(item, dict) or not isinstance(item.get("url"), str) or not isinstance(item.get("zipPath"), str):
+                continue
+            media_rewrites[item["url"]] = f"{extract_media_dir.name}/{Path(item['zipPath']).name}"
     messages = []
     for line in archive.read("messages.jsonl").decode().splitlines():
         row = json.loads(line)
         if row.get("role") not in {"user", "assistant"} and not include_tools:
             continue
         content = _render_content(row.get("content", ""))
+        for source, replacement in media_rewrites.items():
+            content = content.replace(source, replacement)
         if not content:
             continue
         stamp = datetime.fromtimestamp(row.get("createdAt", 0) / 1000, tz=UTC).strftime("%Y-%m-%d %H:%M UTC")
