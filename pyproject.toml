@@ -34,7 +34,7 @@ all = ["ai-assistant[mcd,oss,freshrss,docker,cookies,cursor,telegram]"]
 
 [dependency-groups]
 dev = [
-    "pre-commit>=4.5.1",
+    "pre-commit>=4.6.1",
     "pytest>=9.1.1",
     "tox-uv>=1.16",
     "mypy>=2.3.0",
