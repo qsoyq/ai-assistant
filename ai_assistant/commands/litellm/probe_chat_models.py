@@ -13,6 +13,15 @@ from typing import Any, cast
 
 import httpx
 import typer
+from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    Progress,
+    TaskProgressColumn,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
 
 from ai_assistant.commands import version_callback
 
@@ -268,6 +277,44 @@ def markdown_report(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _stderr_is_tty() -> bool:
+    stream = typer.get_text_stream("stderr")
+    return bool(getattr(stream, "isatty", lambda: False)())
+
+
+def _model_attempts(item: dict[str, Any]) -> int:
+    attempts = int(item.get("chat", {}).get("attempts", 0))
+    attempts += sum(int(value.get("attempts", 0)) for value in item.get("reasoning", {}).get("levels", {}).values())
+    attempts += sum(int(value.get("attempts", 0)) for value in item.get("features", {}).values())
+    return attempts
+
+
+def _model_duration_ms(item: dict[str, Any]) -> int:
+    duration = int(item.get("chat", {}).get("durationMs", 0))
+    duration += sum(int(value.get("durationMs", 0)) for value in item.get("reasoning", {}).get("levels", {}).values())
+    duration += sum(int(value.get("durationMs", 0)) for value in item.get("features", {}).values())
+    return duration
+
+
+def _verbose_line(item: dict[str, Any]) -> str:
+    chat = item.get("chat", {})
+    failure = chat.get("failure", {}).get("category", "-")
+    return f"model={item['id']} status={chat.get('status', 'unknown')} chat={chat.get('wireApi', '-')} attempts={_model_attempts(item)} durationMs={_model_duration_ms(item)} failure={failure}"
+
+
+def _progress(no_progress: bool) -> Progress | None:
+    if no_progress or not _stderr_is_tty():
+        return None
+    return Progress(
+        TextColumn("{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeElapsedColumn(),
+        TimeRemainingColumn(),
+        console=Console(file=typer.get_text_stream("stderr")),
+    )
+
+
 @cmd.callback(invoke_without_command=True)
 def main(
     ctx: typer.Context,
@@ -282,6 +329,8 @@ def main(
     output_dir: Path = typer.Option(Path("model-capability-report"), "--output-dir", help="报告输出目录"),
     output_format: str = typer.Option("both", "--format", help="输出 json、md 或 both"),
     dry_run: bool = typer.Option(False, "--dry-run", help="只获取并分类模型，不发送能力探测请求"),
+    verbose: bool = typer.Option(False, "--verbose", help="在 stderr 输出每个模型的探测摘要"),
+    no_progress: bool = typer.Option(False, "--no-progress", help="关闭 TTY 中的动态进度条"),
     _: bool = typer.Option(False, "--version", "-v", "-V", callback=version_callback),
 ) -> None:
     if ctx.invoked_subcommand is not None:
@@ -304,10 +353,30 @@ def main(
                 for model, classification in classified
                 if classification["kind"] == "chat"
             ]
+            if verbose:
+                for item in probed:
+                    typer.echo(_verbose_line(item), err=True)
         else:
             with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as pool:
-                futures = [pool.submit(probe_model, client, model, base_url, api_key, wire_api, levels, timeout, retries) for model in candidates]
-                probed = [future.result() for future in futures]
+                futures = {pool.submit(probe_model, client, model, base_url, api_key, wire_api, levels, timeout, retries): model["id"] for model in candidates}
+                probed = []
+                progress = _progress(no_progress)
+                if progress is not None:
+                    progress.start()
+                    progress_task = progress.add_task("Probing models", total=len(futures))
+                else:
+                    progress_task = None
+                try:
+                    for future in concurrent.futures.as_completed(futures):
+                        item = future.result()
+                        probed.append(item)
+                        if progress is not None and progress_task is not None:
+                            progress.advance(progress_task)
+                        if verbose:
+                            typer.echo(_verbose_line(item), err=True)
+                finally:
+                    if progress is not None:
+                        progress.stop()
     by_id = {item["id"]: item for item in probed}
     output_models = [
         by_id.get(model["id"], {"id": model["id"], "classification": classification, "chat": {"status": "excluded"}, "reasoning": {"levels": {}}, "features": {}})

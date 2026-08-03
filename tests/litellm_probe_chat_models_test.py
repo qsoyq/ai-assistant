@@ -7,7 +7,13 @@ import httpx
 from typer.testing import CliRunner
 
 from ai_assistant.commands import main as root_commands
-from ai_assistant.commands.litellm.probe_chat_models import ProbeResponse, cmd, result
+from ai_assistant.commands.litellm import probe_chat_models as probe_module
+from ai_assistant.commands.litellm.probe_chat_models import (
+    ProbeResponse,
+    _verbose_line,
+    cmd,
+    result,
+)
 
 runner = CliRunner()
 _REAL_CLIENT = httpx.Client
@@ -76,6 +82,8 @@ def test_probe_filters_retries_and_redacts(monkeypatch, tmp_path: Path):
             "1",
             "--concurrency",
             "2",
+            "--verbose",
+            "--no-progress",
             "--reasoning-levels",
             "low,high",
             "--output-dir",
@@ -97,6 +105,8 @@ def test_probe_filters_retries_and_redacts(monkeypatch, tmp_path: Path):
     assert "do-not-report" not in output
     assert ("POST", "/v1/responses") in calls
     assert 1 < max_active <= 2
+    assert "model=chat-model" in result.stderr
+    assert result.stdout.strip().startswith("{")
 
 
 def test_probe_dry_run_does_not_probe_capabilities(monkeypatch, tmp_path: Path):
@@ -137,3 +147,13 @@ def test_failure_reports_are_generic_and_redacted():
     }
     assert "deployment-secret" not in json.dumps(temporary)
     assert "secret-token" not in json.dumps(network)
+    verbose = _verbose_line({"id": "temporary-model", "chat": temporary, "reasoning": {"levels": {}}, "features": {}})
+    assert "failure=temporary_unavailable" in verbose
+    assert "deployment-secret" not in verbose
+
+
+def test_progress_can_be_disabled_even_on_tty(monkeypatch):
+    monkeypatch.setattr(probe_module, "_stderr_is_tty", lambda: True)
+
+    assert probe_module._progress(True) is None
+    assert probe_module._progress(False) is not None

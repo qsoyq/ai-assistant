@@ -1961,6 +1961,8 @@ $ ai-assistant litellm probe-chat-models [OPTIONS]
 * `--output-dir PATH`: 报告输出目录  [default: model-capability-report]
 * `--format TEXT`: 输出 json、md 或 both  [default: both]
 * `--dry-run`: 只获取并分类模型，不发送能力探测请求
+* `--verbose`: 在 stderr 输出每个模型的探测摘要
+* `--no-progress`: 关闭 TTY 中的动态进度条
 * `--version`, `-v`, `-V`
 * `--help`: Show this message and exit.
 
