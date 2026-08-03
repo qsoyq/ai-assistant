@@ -16,7 +16,7 @@ resolution-markers = [
 
 [[package]]
 name = "ai-assistant"
-version = "0.4.14"
+version = "0.4.15"
 source = { editable = "." }
 dependencies = [
     { name = "cryptography" },
