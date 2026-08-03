@@ -36,6 +36,7 @@ $ ai-assistant [OPTIONS] COMMAND [ARGS]...
 * `httpx-disable-verify`: 通过 site-packages 下的 .pth 文件，对当前 Python 解释器全局禁用 httpx 的 SSL verify。
 * `httpx-rfc-cache`: 通过 site-packages 下的 .pth 文件，为指定 Python 解释器全局启用 httpx 的 RFC 9111 HTTP cache。
 * `lan-ddns`: 根据局域网设备的 MAC 地址定位其 IP, 并更新 Cloudflare 上的 A 记录 (DDNS)
+* `litellm`: LiteLLM 网关诊断工具。
 * `mcd`: 基于 OpenAI Responses API 的 mcp-mcd 工具
 * `mcp-cli`: MCP Client
 * `opml`: Fetch RSS feeds from OPML file periodically.
@@ -1916,6 +1917,53 @@ $ ai-assistant lan-ddns update [OPTIONS]
 * `--workers INTEGER`: --sweep 时并发扫描线程数  [default: 64]
 * `-i, --interval FLOAT`: 循环间隔秒数, 0 表示只执行一次  [default: 0]
 * `--dry-run`: 只打印将要执行的变更, 不真正调用 API
+* `--help`: Show this message and exit.
+
+## `ai-assistant litellm`
+
+LiteLLM 网关诊断工具。
+
+**Usage**:
+
+```console
+$ ai-assistant litellm [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--version`, `-v`, `-V`
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `probe-chat-models`: 探测 LiteLLM 网关中的聊天模型、reasoning 和常用 API 能力。
+
+### `ai-assistant litellm probe-chat-models`
+
+探测 LiteLLM 网关中的聊天模型、reasoning 和常用 API 能力。
+
+**Usage**:
+
+```console
+$ ai-assistant litellm probe-chat-models [OPTIONS]
+```
+
+**Options**:
+
+* `--base-url TEXT`: OpenAI-compatible LiteLLM 网关地址  [required]
+* `--api-key TEXT`: LiteLLM 网关 API key；不会写入报告  [required]
+* `--concurrency INTEGER`: 并发探测模型数  [default: 4]
+* `--timeout FLOAT`: 单次请求超时时间（秒）  [default: 30.0]
+* `--retries INTEGER`: 瞬态失败的重试次数  [default: 2]
+* `--wire-api TEXT`: 使用 auto、chat 或 responses  [default: auto]
+* `--reasoning-levels TEXT`: 逗号分隔的 reasoning levels
+* `--max-models INTEGER`: 最多探测多少个聊天模型
+* `--output-dir PATH`: 报告输出目录  [default: model-capability-report]
+* `--format TEXT`: 输出 json、md 或 both  [default: both]
+* `--dry-run`: 只获取并分类模型，不发送能力探测请求
+* `--verbose`: 在 stderr 输出每个模型的探测摘要
+* `--no-progress`: 关闭 TTY 中的动态进度条
+* `--version`, `-v`, `-V`
 * `--help`: Show this message and exit.
 
 ## `ai-assistant mcd`
