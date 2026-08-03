@@ -4,6 +4,7 @@ import time
 from pathlib import Path
 
 import httpx
+from rich.progress import MofNCompleteColumn
 from typer.testing import CliRunner
 
 from ai_assistant.commands import main as root_commands
@@ -156,4 +157,6 @@ def test_progress_can_be_disabled_even_on_tty(monkeypatch):
     monkeypatch.setattr(probe_module, "_stderr_is_tty", lambda: True)
 
     assert probe_module._progress(True) is None
-    assert probe_module._progress(False) is not None
+    progress = probe_module._progress(False)
+    assert progress is not None
+    assert any(isinstance(column, MofNCompleteColumn) for column in progress.columns)

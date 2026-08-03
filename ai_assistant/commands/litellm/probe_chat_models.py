@@ -16,8 +16,8 @@ import typer
 from rich.console import Console
 from rich.progress import (
     BarColumn,
+    MofNCompleteColumn,
     Progress,
-    TaskProgressColumn,
     TextColumn,
     TimeElapsedColumn,
     TimeRemainingColumn,
@@ -308,7 +308,7 @@ def _progress(no_progress: bool) -> Progress | None:
     return Progress(
         TextColumn("{task.description}"),
         BarColumn(),
-        TaskProgressColumn(),
+        MofNCompleteColumn(),
         TimeElapsedColumn(),
         TimeRemainingColumn(),
         console=Console(file=typer.get_text_stream("stderr")),
