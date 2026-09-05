@@ -181,8 +181,28 @@ def truncate_log_file(log_path: str) -> None:
     if not path.is_file():
         raise RuntimeError(f"日志路径不是文件: {log_path}")
 
-    with path.open("r+b") as file:
-        file.truncate(0)
+    rotated_paths = sorted(path.parent.glob(f"{path.name}.[0-9]*"))
+    for candidate in [*rotated_paths, path]:
+        if not candidate.is_file():
+            continue
+        with candidate.open("r+b") as file:
+            file.truncate(0)
+
+
+def _build_log_clear_command(log_paths: list[str]) -> list[str]:
+    script = """
+for active in "$@"; do
+    if [ ! -f "$active" ]; then
+        echo "日志文件不存在: $active" >&2
+        exit 1
+    fi
+    for file in "$active".[0-9]* "$active"; do
+        [ -f "$file" ] || continue
+        : > "$file"
+    done
+done
+"""
+    return ["sh", "-ceu", script, "sh", *log_paths]
 
 
 def can_clear_with_helper_container(log_path: str) -> bool:
@@ -204,7 +224,7 @@ def clear_logs_with_helper_container(
     helper_image: str,
 ) -> None:
     log_paths = [target.log_path for target in targets]
-    command = ["sh", "-ceu", 'for file in "$@"; do : > "$file"; done', "sh", *log_paths]
+    command = _build_log_clear_command(log_paths)
     volumes = {str(_DAEMON_LOG_ROOT): {"bind": str(_DAEMON_LOG_ROOT), "mode": "rw"}}
 
     try:
@@ -272,7 +292,7 @@ def log_clear(
     - 传入容器 ID 时，支持完整 ID 或短 ID 精确匹配
     - 传入 `*` 时，清空所有容器日志
 
-    优先直接清空 Docker 返回的 `LogPath`；
+    优先直接清空 Docker 返回的 `LogPath` 及其轮转日志文件；
     如果当前环境无法直接访问日志文件，会回退到临时辅助容器执行清理，
     以兼容 Docker Desktop 等 daemon 文件系统不直接暴露给当前机器的场景。
 

@@ -913,7 +913,7 @@ $ ai-assistant docker [OPTIONS] COMMAND [ARGS]...
 - 传入容器 ID 时，支持完整 ID 或短 ID 精确匹配
 - 传入 `*` 时，清空所有容器日志
 
-优先直接清空 Docker 返回的 `LogPath`；
+优先直接清空 Docker 返回的 `LogPath` 及其轮转日志文件；
 如果当前环境无法直接访问日志文件，会回退到临时辅助容器执行清理，
 以兼容 Docker Desktop 等 daemon 文件系统不直接暴露给当前机器的场景。
 
