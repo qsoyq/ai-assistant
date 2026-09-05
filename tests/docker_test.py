@@ -1,9 +1,12 @@
+import subprocess
+
 import pytest
 import typer
 from typer.testing import CliRunner
 
 from ai_assistant.commands.docker import (
     ContainerLogTarget,
+    _build_log_clear_command,
     _get_current_docker_context,
     _get_docker_context_host,
     can_clear_with_helper_container,
@@ -82,6 +85,36 @@ def test_truncate_log_file_clears_existing_file(tmp_path):
     truncate_log_file(str(log_file))
 
     assert log_file.read_bytes() == b""
+
+
+def test_truncate_log_file_clears_rotated_files(tmp_path):
+    log_file = tmp_path / "container-json.log"
+    rotated_log_files = [
+        tmp_path / "container-json.log.1",
+        tmp_path / "container-json.log.2",
+    ]
+    for path in [log_file, *rotated_log_files]:
+        path.write_bytes(b'{"log":"hello"}\n')
+
+    truncate_log_file(str(log_file))
+
+    assert all(path.read_bytes() == b"" for path in [log_file, *rotated_log_files])
+
+
+def test_helper_command_clears_active_and_rotated_log_files(tmp_path):
+    log_file = tmp_path / "container-json.log"
+    rotated_log_files = [
+        tmp_path / "container-json.log.1",
+        tmp_path / "container-json.log.2",
+    ]
+    unrelated_file = tmp_path / "container-json.log.metadata"
+    for path in [log_file, *rotated_log_files, unrelated_file]:
+        path.write_bytes(b'{"log":"hello"}\n')
+
+    subprocess.run(_build_log_clear_command([str(log_file)]), check=True)
+
+    assert all(path.read_bytes() == b"" for path in [log_file, *rotated_log_files])
+    assert unrelated_file.read_bytes() == b'{"log":"hello"}\n'
 
 
 def test_can_clear_with_helper_container_requires_daemon_log_root():
