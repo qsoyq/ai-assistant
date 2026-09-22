@@ -566,6 +566,7 @@ def sync(
     max_files: Optional[int] = typer.Option(None, "--max-files", help="本次最多同步多少个文件, 默认无限"),
     workers: int = typer.Option(4, "--workers", help="并发传输数"),
     force: bool = typer.Option(False, "-f", "--force", help="忽略 size/mtime 比较, 全部覆盖"),
+    verbose: bool = typer.Option(False, "--verbose", help="输出扫描、列举及对象元数据比对的进度"),
 ) -> None:
     """目录同步: 本地 ↔ OSS, 默认按 size + x-oss-meta-mtime 比对.
 
@@ -594,7 +595,8 @@ def sync(
     bucket = _get_bucket(ctx)
 
     try:
-        plan = compute_sync_plan(bucket, src, dst, delete=delete, force=force, max_files=max_files)
+        on_plan_progress = (lambda message: typer.echo(f"[verbose] {message}")) if verbose else None
+        plan = compute_sync_plan(bucket, src, dst, delete=delete, force=force, max_files=max_files, on_plan_progress=on_plan_progress)
     except ValueError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1)

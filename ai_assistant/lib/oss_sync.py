@@ -13,6 +13,7 @@ import oss2
 
 OSS_PREFIX = "oss:"
 META_MTIME_KEY = "x-oss-meta-mtime"
+PlanProgressCb = Callable[[str], None]
 
 
 @dataclasses.dataclass
@@ -161,6 +162,7 @@ def compute_sync_plan(
     delete: bool = False,
     force: bool = False,
     max_files: int | None = None,
+    on_plan_progress: PlanProgressCb | None = None,
 ) -> SyncPlan:
     src_is_oss, src_uri_bucket, src_path = parse_oss_path(src)
     dst_is_oss, dst_uri_bucket, dst_path = parse_oss_path(dst)
@@ -173,8 +175,8 @@ def compute_sync_plan(
             raise ValueError(f"{label} URI 指定的 bucket={uri_bucket!r} 与当前配置 bucket={bucket.bucket_name!r} 不一致")
 
     if src_is_oss:
-        return _plan_download(bucket, src_path, Path(dst_path), delete, force, max_files)
-    return _plan_upload(bucket, Path(src_path), dst_path, delete, force, max_files)
+        return _plan_download(bucket, src_path, Path(dst_path), delete, force, max_files, on_plan_progress)
+    return _plan_upload(bucket, Path(src_path), dst_path, delete, force, max_files, on_plan_progress)
 
 
 def _plan_upload(
@@ -184,14 +186,21 @@ def _plan_upload(
     delete: bool,
     force: bool,
     max_files: int | None,
+    on_plan_progress: PlanProgressCb | None,
 ) -> SyncPlan:
+    if on_plan_progress:
+        on_plan_progress(f"正在扫描本地目录: {local_root}")
     local_files = _walk_local(local_root)
+    if on_plan_progress:
+        on_plan_progress(f"本地扫描完成: {len(local_files)} 个文件; 正在列举 OSS 前缀: {oss_prefix or '/'}")
     remote_files = _walk_oss(bucket, oss_prefix)
+    if on_plan_progress:
+        on_plan_progress(f"OSS 列举完成: {len(remote_files)} 个对象; 正在比较 {len(local_files)} 个本地文件")
     norm_prefix = oss_prefix if not oss_prefix or oss_prefix.endswith("/") else oss_prefix + "/"
 
     items: list[SyncItem] = []
 
-    for rel, (size, mtime) in sorted(local_files.items()):
+    for index, (rel, (size, mtime)) in enumerate(sorted(local_files.items()), start=1):
         oss_key = norm_prefix + rel
         if force:
             items.append(SyncItem("upload", rel, size, local_root / rel, oss_key, reason="force"))
@@ -203,6 +212,8 @@ def _plan_upload(
         if remote_size != size:
             items.append(SyncItem("upload", rel, size, local_root / rel, oss_key, reason="size-changed"))
             continue
+        if on_plan_progress:
+            on_plan_progress(f"正在读取 OSS 元数据 ({index}/{len(local_files)}): {oss_key}")
         meta_mtime = _head_meta_mtime(bucket, oss_key)
         if meta_mtime is not None:
             if abs(meta_mtime - mtime) > 1.0:
@@ -234,14 +245,21 @@ def _plan_download(
     delete: bool,
     force: bool,
     max_files: int | None,
+    on_plan_progress: PlanProgressCb | None,
 ) -> SyncPlan:
+    if on_plan_progress:
+        on_plan_progress(f"正在扫描本地目录: {local_root}")
     local_files = _walk_local(local_root)
+    if on_plan_progress:
+        on_plan_progress(f"本地扫描完成: {len(local_files)} 个文件; 正在列举 OSS 前缀: {oss_prefix or '/'}")
     remote_files = _walk_oss(bucket, oss_prefix)
+    if on_plan_progress:
+        on_plan_progress(f"OSS 列举完成: {len(remote_files)} 个对象; 正在比较 {len(remote_files)} 个 OSS 对象")
     norm_prefix = oss_prefix if not oss_prefix or oss_prefix.endswith("/") else oss_prefix + "/"
 
     items: list[SyncItem] = []
 
-    for rel, (size, remote_lm) in sorted(remote_files.items()):
+    for index, (rel, (size, remote_lm)) in enumerate(sorted(remote_files.items()), start=1):
         local_path = local_root / rel
         oss_key = norm_prefix + rel
         if force:
@@ -254,6 +272,8 @@ def _plan_download(
         if local_size != size:
             items.append(SyncItem("download", rel, size, local_path, oss_key, reason="size-changed"))
             continue
+        if on_plan_progress:
+            on_plan_progress(f"正在读取 OSS 元数据 ({index}/{len(remote_files)}): {oss_key}")
         meta_mtime = _head_meta_mtime(bucket, oss_key)
         if meta_mtime is not None:
             if abs(meta_mtime - local_mtime) > 1.0:

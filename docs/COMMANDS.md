@@ -395,6 +395,7 @@ $ ai-assistant aliyun-oss sync [OPTIONS] SRC DST
 * `--max-files INTEGER`: 本次最多同步多少个文件, 默认无限
 * `--workers INTEGER`: 并发传输数  [default: 4]
 * `-f, --force`: 忽略 size/mtime 比较, 全部覆盖
+* `--verbose`: 输出扫描、列举及对象元数据比对的进度
 * `--access-key-id TEXT`: AccessKey ID  [env var: OSS_ACCESS_KEY_ID]
 * `--access-key-secret TEXT`: AccessKey Secret  [env var: OSS_ACCESS_KEY_SECRET]
 * `--endpoint TEXT`: OSS endpoint, 如 https://oss-cn-hangzhou.aliyuncs.com  [env var: OSS_ENDPOINT]
