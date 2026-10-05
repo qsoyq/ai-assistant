@@ -30,7 +30,8 @@ docker = ["docker>=7.2.0"]
 cookies = ["browser-cookie3>=0.16.6"]
 cursor = ["matplotlib>=3.10.8", "pandas>=2.3.3"]
 telegram = ["telethon>=1.44.0"]
-all = ["ai-assistant[mcd,oss,freshrss,docker,cookies,cursor,telegram]"]
+shell-env = ["bashkit==0.18.2 ; sys_platform == 'win32'"]
+all = ["ai-assistant[mcd,oss,freshrss,docker,cookies,cursor,telegram,shell-env]"]
 
 [dependency-groups]
 dev = [

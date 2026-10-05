@@ -39,6 +39,7 @@ dependencies = [
 
 [package.optional-dependencies]
 all = [
+    { name = "bashkit", marker = "sys_platform == 'win32'" },
     { name = "browser-cookie3" },
     { name = "docker" },
     { name = "matplotlib" },
@@ -73,6 +74,9 @@ mcd = [
 oss = [
     { name = "oss2" },
 ]
+shell-env = [
+    { name = "bashkit", marker = "sys_platform == 'win32'" },
+]
 telegram = [
     { name = "telethon" },
 ]
@@ -91,7 +95,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "ai-assistant", extras = ["mcd", "oss", "freshrss", "docker", "cookies", "cursor", "telegram"], marker = "extra == 'all'" },
+    { name = "ai-assistant", extras = ["mcd", "oss", "freshrss", "docker", "cookies", "cursor", "telegram", "shell-env"], marker = "extra == 'all'" },
+    { name = "bashkit", marker = "sys_platform == 'win32' and extra == 'shell-env'", specifier = "==0.18.2" },
     { name = "browser-cookie3", marker = "extra == 'cookies'", specifier = ">=0.16.6" },
     { name = "cryptography", specifier = ">=50.0.0" },
     { name = "docker", marker = "extra == 'docker'", specifier = ">=7.2.0" },
@@ -118,7 +123,7 @@ requires-dist = [
     { name = "watchfiles", specifier = ">=1.2.0" },
     { name = "xmltodict", specifier = ">=1.0.2" },
 ]
-provides-extras = ["mcd", "oss", "freshrss", "docker", "cookies", "cursor", "telegram", "all"]
+provides-extras = ["mcd", "oss", "freshrss", "docker", "cookies", "cursor", "telegram", "shell-env", "all"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -245,6 +250,16 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/86/72/cd9b395f25e290e633655a100af28cb253e4393396264a98bd5f5951d50f/backports_tarfile-1.2.0.tar.gz", hash = "sha256:d75e02c268746e1b8144c278978b6e98e85de6ad16f8e4b0844a154557eca991", size = 86406, upload-time = "2024-05-28T17:01:54.731Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b9/fa/123043af240e49752f1c4bd24da5053b6bd00cad78c2be53c0d1e8b975bc/backports.tarfile-1.2.0-py3-none-any.whl", hash = "sha256:77e284d754527b01fb1e6fa8a1afe577858ebe4e9dad8919e34c862cb399bc34", size = 30181, upload-time = "2024-05-28T17:01:53.112Z" },
+]
+
+[[package]]
+name = "bashkit"
+version = "0.18.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/dc/08/38dab01273d385f310b4ba9c92f83f97966c2851f1da1c8045612c087f33/bashkit-0.18.2.tar.gz", hash = "sha256:d33ea35de29f871c94fb645b12e04736e3e9a9a845bd221f9b8c2a881d1f09fc", size = 1942374, upload-time = "2026-09-22T22:28:51.213Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0d/30/106e04788bcba28501f3a73a499b9b8991881129aae88e99aee26d185ee2/bashkit-0.18.2-cp39-abi3-pyemscripten_2025_0_wasm32.whl", hash = "sha256:e9878cb674b26d0b88a2f469781158119fda6b76214138482374d0ab4d27449d", size = 5034861, upload-time = "2026-09-22T22:28:46.59Z" },
+    { url = "https://files.pythonhosted.org/packages/8f/3e/1808731be97850b031e4da53d7ccf0ce659c4232293f823b1f843451c4c8/bashkit-0.18.2-cp39-abi3-win_amd64.whl", hash = "sha256:128d39563f0c5fa1d98fd6909179cc3f87af1de295fbeb884e124dbd8848ce6a", size = 15582611, upload-time = "2026-09-22T22:28:48.957Z" },
 ]
 
 [[package]]

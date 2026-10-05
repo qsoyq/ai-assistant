@@ -36,6 +36,7 @@ class _Root(LazyRootGroup):
         "pypi-mirror": ("ai_assistant.commands.pypi_mirror:cmd", None),
         "pypi-upload": ("ai_assistant.commands.pypi_upload:cmd", None),
         "win-env": ("ai_assistant.commands.win_env:cmd", None),
+        "shell-env-to-win": ("ai_assistant.commands.shell_env_to_win:cmd", "shell-env", "command"),
         "adb": ("ai_assistant.commands.adb:cmd", None),
         "lan-ddns": ("ai_assistant.commands.lan_ddns:cmd", None),
         "cloudflare-dns": ("ai_assistant.commands.cloudflare_dns:cmd", None),
