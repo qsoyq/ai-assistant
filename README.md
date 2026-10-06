@@ -33,9 +33,54 @@ uvx 'ai-assistant[mcd]' ai-assistant mcd quickstart
 | `cookies` | `cookies` | `browser-cookie3` |
 | `cursor` | `cursor-usage` | `matplotlib` + `pandas` |
 | `telegram` | `tg-bot-click` | `telethon` |
+| `shell-env` | `shell-env-to-win`（Windows） | `bashkit==0.18.2` |
 | `all` | 全部 | 上述并集 |
 
+## Shell 环境变量导入 Windows
+
+`shell-env-to-win` 通过 Python 库 Bashkit 执行 Bash 兼容的 Shell 文件，将新增或值发生变化的导出变量写入 Windows。无需安装 Bash、Git Bash 或 WSL；Windows x64 的 Bashkit 预编译 wheel 下载约 15.6 MB。
+
+```powershell
+uv tool install 'ai-assistant[shell-env]'
+
+# 执行脚本并预览变量名、字符数和写入动作，不写入 Windows
+ai-assistant shell-env-to-win ./paseo.zshrc --dry-run
+
+# 默认写入当前用户变量；同名变量覆盖，采用 REG_SZ
+ai-assistant shell-env-to-win ./paseo.zshrc
+
+# 显式提供初始环境；不会自动继承当前进程的环境变量
+ai-assistant shell-env-to-win ./settings.bashrc --env 'HOME=/home/user' --env 'MODEL=example'
+
+# 写入系统变量，需要管理员权限
+ai-assistant shell-env-to-win ./settings.bashrc --scope system
+```
+
+支持多行引号、quoted heredoc、变量展开、函数和条件分支，也支持先赋值再 `export NAME`。例如以下正文中的中文、空行、`$HOME` 和反引号均保持字面内容，末尾换行按 Shell 命令替换规则删除：
+
+```bash
+PROMPT="$(cat <<'PROMPT_EOF'
+中文第一行
+
+$HOME `literal`
+PROMPT_EOF
+)"
+export PROMPT
+```
+
+源文件按 UTF-8 读取，兼容 BOM，LF/CRLF 源文件行结束符读取为 LF。求值后的字符串不额外改写，包括脚本显式转义产生的 CRLF、换行和空白。源目录只读映射为解释器的 `/input`，同时作为工作目录，因此 `source ./other.sh` 可以读取同目录文件。临时文件可写入虚拟 `/tmp`。`HOME` 等变量和绝对路径采用虚拟环境中的值，macOS 路径不会自动转换成 Windows 路径。
+
+此命令采用 **Bash 语义**，文件名为 `.zshrc` 也不会切换到 Zsh；不保证 Zsh 专有语法或 macOS 命令兼容。Bashkit 执行的是其内置命令，不调用宿主程序，网络不启用。未导出的局部变量不导入；与初始环境相同的变量不导入；脚本删除变量也不会删除 Windows 中的变量。
+
+默认跳过 `PATH` 并报告，避免将 Unix 路径覆盖到 Windows；显式传入 `--include-path` 才按原值覆盖，不转换路径或分隔符。脚本在 `set -e` 模式下执行；非零退出、stderr 输出、解析失败或超时（10 秒）会中止整批导入。Windows 不区分变量名大小写，源文件同时导出 `FOO` 和 `foo` 时也会中止。预检成功后才写入；注册表写入不是事务，中途失败会报告已写入的变量，不自动回滚。
+
+写入后同步更新命令自身的 Python 进程环境并广播一次刷新通知。已打开的终端和应用需重新启动才能使用新值。
+
 ## ⚠️ 安全提示
+
+### `shell-env-to-win`
+
+`--dry-run` 仍会在 Bashkit 虚拟环境中执行脚本。命令允许读取源目录中的文件，但该目录只读挂载，不启用宿主命令和网络。输出仅包含变量名、字符数和状态，不打印变量值、脚本日志或包含源代码的解释器错误。实际导入会将变量持久写入 Windows，按环境变量的访问权限保存；不要将包含真实凭据的配置或导出值提交到仓库。
 
 ### `disable-ssl-verify` / `httpx-disable-verify` / `requests-disable-verify`
 

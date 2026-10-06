@@ -47,6 +47,7 @@ $ ai-assistant [OPTIONS] COMMAND [ARGS]...
 * `realm`: 生成、查看、校验、安装 realm (https://github.com/zhboner/realm) TCP/UDP 中继。
 * `requests-disable-verify`: 通过 site-packages 下的 .pth 文件，对当前 Python 解释器全局禁用 requests 的 SSL verify。
 * `route`: 跨平台运行时路由管理工具。
+* `shell-env-to-win`: 使用 Bashkit 执行 Shell 文件, 将导出的环境变量写入 Windows。
 * `similar-questions`: Generate N similar questions by input query.
 * `ssl`: 生成和管理 SSL 证书
 * `stash-log`: Stash 抓包日志解析工具
@@ -2672,6 +2673,38 @@ $ ai-assistant route query [OPTIONS] IP
 **Options**:
 
 * `--state-file PATH`: managed route JSON 状态文件路径; 用于提示该 IP 是否落入某条 managed route 的目标网段。
+* `--help`: Show this message and exit.
+
+## `ai-assistant shell-env-to-win`
+
+使用 Bashkit 执行 Shell 文件, 将导出的环境变量写入 Windows。
+
+采用 Bash 语义, 不保证 Zsh 专有语法兼容。不会继承当前进程环境;
+可通过 --env 显式提供初始变量。源目录只读映射, 网络及宿主命令不启用。
+脚本在 errexit 模式下执行; 非零退出、stderr 输出或超时会中止导入。
+默认跳过 PATH, 多行值保持原样, 使用 REG_SZ 覆盖同名变量。
+--dry-run 仍执行脚本, 但不写入 Windows。输出不包含变量值或脚本日志。
+仅支持 Windows; --scope system 需要管理员权限。
+
+**Usage**:
+
+```console
+$ ai-assistant shell-env-to-win [OPTIONS] {file}
+```
+
+**Arguments**:
+
+* `file`: UTF-8 编码的 Bash 兼容 Shell 文件  [required]
+
+**Options**:
+
+* `-s, --scope <user|system>`: user / system  [default: user]
+* `--dry-run`: 执行并预览, 不写入 Windows
+* `--env <str>`: 初始变量 NAME=VALUE, 可重复指定
+* `--include-path`: 允许按原值覆盖 PATH, 不转换路径
+* `-v, -V, --version`
+* `--install-completion`: Install completion for the current shell.
+* `--show-completion`: Show completion for the current shell, to copy it or customize the installation.
 * `--help`: Show this message and exit.
 
 ## `ai-assistant similar-questions`
