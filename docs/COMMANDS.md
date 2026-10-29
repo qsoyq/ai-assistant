@@ -20,7 +20,7 @@ $ ai-assistant [OPTIONS] COMMAND [ARGS]...
 * `aliyun-oss`: 阿里云 OSS 工具集
 * `bump-version`: 对当前目录的 pyproject.toml 的 project.version 加一。
 * `cf-tunnel-watcher`: 监听 Cloudflare Tunnel 连接状态变化并执行命令
-* `cindy`: Cindy 会话分享文件工具。
+* `cindy`: Cindy 会话转换、数据备份恢复与客户端安装工具。
 * `cloudflare-dns`: 管理 Cloudflare DNS 记录, 支持添加/修改 A 和 CNAME 记录
 * `cookies`: 从本地浏览器中提取指定域名的 Cookie。
 * `cursor-usage`: Get usage of Cursor.
@@ -84,8 +84,8 @@ $ ai-assistant adb restart-all [OPTIONS]
 
 **Options**:
 
-* `-P, --port INTEGER`: adb server 端口 (探测 + 启动均使用)  [default: 5037]
-* `-t, --timeout FLOAT`: adb devices 探活超时 (秒)  [default: 5.0]
+* `-P, --port <int>`: adb server 端口 (探测 + 启动均使用)  [default: 5037]
+* `-t, --timeout <float>`: adb devices 探活超时 (秒)  [default: 5.0]
 * `-f, --force`: 无视当前状态强制重启
 * `-v, --verbose`: 打印 adb 详细输出
 * `--help`: Show this message and exit.
@@ -150,12 +150,12 @@ $ ai-assistant agent-bark-notify hook [OPTIONS]
 
 **Options**:
 
-* `--runtime [auto|codex|claude|openclaw]`: Hook runtime: codex, claude, openclaw, or auto.  [default: auto]
-* `--event [auto|completion|approval_needed|failed]`: Notification event override.  [default: auto]
-* `--message TEXT`: Override short notification body.
-* `--group-mode [agent|project|project-branch]`: Bark group mode: agent, project, or project-branch.
-* `--summary-mode [fixed|extract]`: Notification summary mode: fixed or extract.  [default: fixed]
-* `--summary-max-chars INTEGER RANGE`: Maximum extractive summary length.  [default: 120; x&gt;=1]
+* `--runtime <auto|codex|claude|openclaw>`: Hook runtime: codex, claude, openclaw, or auto.  [default: auto]
+* `--event <auto|completion|approval_needed|failed>`: Notification event override.  [default: auto]
+* `--message <str>`: Override short notification body.
+* `--group-mode <agent|project|project-branch>`: Bark group mode: agent, project, or project-branch.
+* `--summary-mode <fixed|extract>`: Notification summary mode: fixed or extract.  [default: fixed]
+* `--summary-max-chars <int range>`: Maximum extractive summary length.  [default: 120; x&gt;=1]
 * `--dry-run`: Print notification summary without sending Bark request.
 * `--no-dedupe`: Disable duplicate suppression.
 * `--help`: Show this message and exit.
@@ -190,23 +190,23 @@ $ ai-assistant aliyun-oss [OPTIONS] COMMAND [ARGS]...
 **Usage**:
 
 ```console
-$ ai-assistant aliyun-oss upload [OPTIONS] LOCAL_PATH OSS_KEY
+$ ai-assistant aliyun-oss upload [OPTIONS] {local_path} {oss_key}
 ```
 
 **Arguments**:
 
-* `LOCAL_PATH`: 本地文件路径  [required]
-* `OSS_KEY`: OSS 对象 key  [required]
+* `local_path`: 本地文件路径  [required]
+* `oss_key`: OSS 对象 key  [required]
 
 **Options**:
 
 * `-f, --force`: 目标已存在时仍上传 (覆盖)
-* `--access-key-id TEXT`: AccessKey ID  [env var: OSS_ACCESS_KEY_ID]
-* `--access-key-secret TEXT`: AccessKey Secret  [env var: OSS_ACCESS_KEY_SECRET]
-* `--endpoint TEXT`: OSS endpoint, 如 https://oss-cn-hangzhou.aliyuncs.com  [env var: OSS_ENDPOINT]
-* `--region TEXT`: OSS 区域, 如 cn-hangzhou; 与 --endpoint 二选一  [env var: OSS_REGION]
-* `--bucket TEXT`: Bucket 名称  [env var: OSS_BUCKET]
-* `--security-token TEXT`: STS 临时凭证 Token, 可选  [env var: OSS_SESSION_TOKEN]
+* `--access-key-id <str>`: AccessKey ID  [env var: OSS_ACCESS_KEY_ID]
+* `--access-key-secret <str>`: AccessKey Secret  [env var: OSS_ACCESS_KEY_SECRET]
+* `--endpoint <str>`: OSS endpoint, 如 https://oss-cn-hangzhou.aliyuncs.com  [env var: OSS_ENDPOINT]
+* `--region <str>`: OSS 区域, 如 cn-hangzhou; 与 --endpoint 二选一  [env var: OSS_REGION]
+* `--bucket <str>`: Bucket 名称  [env var: OSS_BUCKET]
+* `--security-token <str>`: STS 临时凭证 Token, 可选  [env var: OSS_SESSION_TOKEN]
 * `--help`: Show this message and exit.
 
 ### `ai-assistant aliyun-oss download`
@@ -216,23 +216,23 @@ $ ai-assistant aliyun-oss upload [OPTIONS] LOCAL_PATH OSS_KEY
 **Usage**:
 
 ```console
-$ ai-assistant aliyun-oss download [OPTIONS] OSS_KEY LOCAL_PATH
+$ ai-assistant aliyun-oss download [OPTIONS] {oss_key} {local_path}
 ```
 
 **Arguments**:
 
-* `OSS_KEY`: OSS 对象 key  [required]
-* `LOCAL_PATH`: 本地保存路径  [required]
+* `oss_key`: OSS 对象 key  [required]
+* `local_path`: 本地保存路径  [required]
 
 **Options**:
 
 * `-f, --force`: 本地已存在时仍下载 (覆盖)
-* `--access-key-id TEXT`: AccessKey ID  [env var: OSS_ACCESS_KEY_ID]
-* `--access-key-secret TEXT`: AccessKey Secret  [env var: OSS_ACCESS_KEY_SECRET]
-* `--endpoint TEXT`: OSS endpoint, 如 https://oss-cn-hangzhou.aliyuncs.com  [env var: OSS_ENDPOINT]
-* `--region TEXT`: OSS 区域, 如 cn-hangzhou; 与 --endpoint 二选一  [env var: OSS_REGION]
-* `--bucket TEXT`: Bucket 名称  [env var: OSS_BUCKET]
-* `--security-token TEXT`: STS 临时凭证 Token, 可选  [env var: OSS_SESSION_TOKEN]
+* `--access-key-id <str>`: AccessKey ID  [env var: OSS_ACCESS_KEY_ID]
+* `--access-key-secret <str>`: AccessKey Secret  [env var: OSS_ACCESS_KEY_SECRET]
+* `--endpoint <str>`: OSS endpoint, 如 https://oss-cn-hangzhou.aliyuncs.com  [env var: OSS_ENDPOINT]
+* `--region <str>`: OSS 区域, 如 cn-hangzhou; 与 --endpoint 二选一  [env var: OSS_REGION]
+* `--bucket <str>`: Bucket 名称  [env var: OSS_BUCKET]
+* `--security-token <str>`: STS 临时凭证 Token, 可选  [env var: OSS_SESSION_TOKEN]
 * `--help`: Show this message and exit.
 
 ### `ai-assistant aliyun-oss ls`
@@ -242,24 +242,24 @@ $ ai-assistant aliyun-oss download [OPTIONS] OSS_KEY LOCAL_PATH
 **Usage**:
 
 ```console
-$ ai-assistant aliyun-oss ls [OPTIONS] [PREFIX]
+$ ai-assistant aliyun-oss ls [OPTIONS] [prefix]
 ```
 
 **Arguments**:
 
-* `[PREFIX]`: 对象 key 前缀
+* `prefix`: 对象 key 前缀
 
 **Options**:
 
 * `-r, --recursive`: 递归列举所有层级
-* `-n, --limit INTEGER`: 最多返回多少条, 0 表示无限  [default: 100]
+* `-n, --limit <int>`: 最多返回多少条, 0 表示无限  [default: 100]
 * `-l, --long`: 显示大小、修改时间、存储类型
-* `--access-key-id TEXT`: AccessKey ID  [env var: OSS_ACCESS_KEY_ID]
-* `--access-key-secret TEXT`: AccessKey Secret  [env var: OSS_ACCESS_KEY_SECRET]
-* `--endpoint TEXT`: OSS endpoint, 如 https://oss-cn-hangzhou.aliyuncs.com  [env var: OSS_ENDPOINT]
-* `--region TEXT`: OSS 区域, 如 cn-hangzhou; 与 --endpoint 二选一  [env var: OSS_REGION]
-* `--bucket TEXT`: Bucket 名称  [env var: OSS_BUCKET]
-* `--security-token TEXT`: STS 临时凭证 Token, 可选  [env var: OSS_SESSION_TOKEN]
+* `--access-key-id <str>`: AccessKey ID  [env var: OSS_ACCESS_KEY_ID]
+* `--access-key-secret <str>`: AccessKey Secret  [env var: OSS_ACCESS_KEY_SECRET]
+* `--endpoint <str>`: OSS endpoint, 如 https://oss-cn-hangzhou.aliyuncs.com  [env var: OSS_ENDPOINT]
+* `--region <str>`: OSS 区域, 如 cn-hangzhou; 与 --endpoint 二选一  [env var: OSS_REGION]
+* `--bucket <str>`: Bucket 名称  [env var: OSS_BUCKET]
+* `--security-token <str>`: STS 临时凭证 Token, 可选  [env var: OSS_SESSION_TOKEN]
 * `--help`: Show this message and exit.
 
 ### `ai-assistant aliyun-oss rm`
@@ -269,23 +269,23 @@ $ ai-assistant aliyun-oss ls [OPTIONS] [PREFIX]
 **Usage**:
 
 ```console
-$ ai-assistant aliyun-oss rm [OPTIONS] KEYS...
+$ ai-assistant aliyun-oss rm [OPTIONS] {keys}...
 ```
 
 **Arguments**:
 
-* `KEYS...`: OSS 对象 key, 可多个  [required]
+* `keys...`: OSS 对象 key, 可多个  [required]
 
 **Options**:
 
 * `-y, --yes`: 跳过确认
 * `-r, --recursive`: 按前缀递归删除
-* `--access-key-id TEXT`: AccessKey ID  [env var: OSS_ACCESS_KEY_ID]
-* `--access-key-secret TEXT`: AccessKey Secret  [env var: OSS_ACCESS_KEY_SECRET]
-* `--endpoint TEXT`: OSS endpoint, 如 https://oss-cn-hangzhou.aliyuncs.com  [env var: OSS_ENDPOINT]
-* `--region TEXT`: OSS 区域, 如 cn-hangzhou; 与 --endpoint 二选一  [env var: OSS_REGION]
-* `--bucket TEXT`: Bucket 名称  [env var: OSS_BUCKET]
-* `--security-token TEXT`: STS 临时凭证 Token, 可选  [env var: OSS_SESSION_TOKEN]
+* `--access-key-id <str>`: AccessKey ID  [env var: OSS_ACCESS_KEY_ID]
+* `--access-key-secret <str>`: AccessKey Secret  [env var: OSS_ACCESS_KEY_SECRET]
+* `--endpoint <str>`: OSS endpoint, 如 https://oss-cn-hangzhou.aliyuncs.com  [env var: OSS_ENDPOINT]
+* `--region <str>`: OSS 区域, 如 cn-hangzhou; 与 --endpoint 二选一  [env var: OSS_REGION]
+* `--bucket <str>`: Bucket 名称  [env var: OSS_BUCKET]
+* `--security-token <str>`: STS 临时凭证 Token, 可选  [env var: OSS_SESSION_TOKEN]
 * `--help`: Show this message and exit.
 
 ### `ai-assistant aliyun-oss stat`
@@ -295,21 +295,21 @@ $ ai-assistant aliyun-oss rm [OPTIONS] KEYS...
 **Usage**:
 
 ```console
-$ ai-assistant aliyun-oss stat [OPTIONS] OSS_KEY
+$ ai-assistant aliyun-oss stat [OPTIONS] {oss_key}
 ```
 
 **Arguments**:
 
-* `OSS_KEY`: OSS 对象 key  [required]
+* `oss_key`: OSS 对象 key  [required]
 
 **Options**:
 
-* `--access-key-id TEXT`: AccessKey ID  [env var: OSS_ACCESS_KEY_ID]
-* `--access-key-secret TEXT`: AccessKey Secret  [env var: OSS_ACCESS_KEY_SECRET]
-* `--endpoint TEXT`: OSS endpoint, 如 https://oss-cn-hangzhou.aliyuncs.com  [env var: OSS_ENDPOINT]
-* `--region TEXT`: OSS 区域, 如 cn-hangzhou; 与 --endpoint 二选一  [env var: OSS_REGION]
-* `--bucket TEXT`: Bucket 名称  [env var: OSS_BUCKET]
-* `--security-token TEXT`: STS 临时凭证 Token, 可选  [env var: OSS_SESSION_TOKEN]
+* `--access-key-id <str>`: AccessKey ID  [env var: OSS_ACCESS_KEY_ID]
+* `--access-key-secret <str>`: AccessKey Secret  [env var: OSS_ACCESS_KEY_SECRET]
+* `--endpoint <str>`: OSS endpoint, 如 https://oss-cn-hangzhou.aliyuncs.com  [env var: OSS_ENDPOINT]
+* `--region <str>`: OSS 区域, 如 cn-hangzhou; 与 --endpoint 二选一  [env var: OSS_REGION]
+* `--bucket <str>`: Bucket 名称  [env var: OSS_BUCKET]
+* `--security-token <str>`: STS 临时凭证 Token, 可选  [env var: OSS_SESSION_TOKEN]
 * `--help`: Show this message and exit.
 
 ### `ai-assistant aliyun-oss cat`
@@ -319,22 +319,22 @@ $ ai-assistant aliyun-oss stat [OPTIONS] OSS_KEY
 **Usage**:
 
 ```console
-$ ai-assistant aliyun-oss cat [OPTIONS] OSS_KEY
+$ ai-assistant aliyun-oss cat [OPTIONS] {oss_key}
 ```
 
 **Arguments**:
 
-* `OSS_KEY`: OSS 对象 key  [required]
+* `oss_key`: OSS 对象 key  [required]
 
 **Options**:
 
-* `--max-size INTEGER`: 允许打印的最大字节数, 防止误打印巨大文件  [default: 1048576]
-* `--access-key-id TEXT`: AccessKey ID  [env var: OSS_ACCESS_KEY_ID]
-* `--access-key-secret TEXT`: AccessKey Secret  [env var: OSS_ACCESS_KEY_SECRET]
-* `--endpoint TEXT`: OSS endpoint, 如 https://oss-cn-hangzhou.aliyuncs.com  [env var: OSS_ENDPOINT]
-* `--region TEXT`: OSS 区域, 如 cn-hangzhou; 与 --endpoint 二选一  [env var: OSS_REGION]
-* `--bucket TEXT`: Bucket 名称  [env var: OSS_BUCKET]
-* `--security-token TEXT`: STS 临时凭证 Token, 可选  [env var: OSS_SESSION_TOKEN]
+* `--max-size <int>`: 允许打印的最大字节数, 防止误打印巨大文件  [default: 1048576]
+* `--access-key-id <str>`: AccessKey ID  [env var: OSS_ACCESS_KEY_ID]
+* `--access-key-secret <str>`: AccessKey Secret  [env var: OSS_ACCESS_KEY_SECRET]
+* `--endpoint <str>`: OSS endpoint, 如 https://oss-cn-hangzhou.aliyuncs.com  [env var: OSS_ENDPOINT]
+* `--region <str>`: OSS 区域, 如 cn-hangzhou; 与 --endpoint 二选一  [env var: OSS_REGION]
+* `--bucket <str>`: Bucket 名称  [env var: OSS_BUCKET]
+* `--security-token <str>`: STS 临时凭证 Token, 可选  [env var: OSS_SESSION_TOKEN]
 * `--help`: Show this message and exit.
 
 ### `ai-assistant aliyun-oss sign`
@@ -344,23 +344,23 @@ $ ai-assistant aliyun-oss cat [OPTIONS] OSS_KEY
 **Usage**:
 
 ```console
-$ ai-assistant aliyun-oss sign [OPTIONS] OSS_KEY
+$ ai-assistant aliyun-oss sign [OPTIONS] {oss_key}
 ```
 
 **Arguments**:
 
-* `OSS_KEY`: OSS 对象 key  [required]
+* `oss_key`: OSS 对象 key  [required]
 
 **Options**:
 
-* `-e, --expires INTEGER`: URL 有效期, 秒  [default: 3600]
-* `-m, --method TEXT`: HTTP 方法 (GET / PUT)  [default: GET]
-* `--access-key-id TEXT`: AccessKey ID  [env var: OSS_ACCESS_KEY_ID]
-* `--access-key-secret TEXT`: AccessKey Secret  [env var: OSS_ACCESS_KEY_SECRET]
-* `--endpoint TEXT`: OSS endpoint, 如 https://oss-cn-hangzhou.aliyuncs.com  [env var: OSS_ENDPOINT]
-* `--region TEXT`: OSS 区域, 如 cn-hangzhou; 与 --endpoint 二选一  [env var: OSS_REGION]
-* `--bucket TEXT`: Bucket 名称  [env var: OSS_BUCKET]
-* `--security-token TEXT`: STS 临时凭证 Token, 可选  [env var: OSS_SESSION_TOKEN]
+* `-e, --expires <int>`: URL 有效期, 秒  [default: 3600]
+* `-m, --method <str>`: HTTP 方法 (GET / PUT)  [default: GET]
+* `--access-key-id <str>`: AccessKey ID  [env var: OSS_ACCESS_KEY_ID]
+* `--access-key-secret <str>`: AccessKey Secret  [env var: OSS_ACCESS_KEY_SECRET]
+* `--endpoint <str>`: OSS endpoint, 如 https://oss-cn-hangzhou.aliyuncs.com  [env var: OSS_ENDPOINT]
+* `--region <str>`: OSS 区域, 如 cn-hangzhou; 与 --endpoint 二选一  [env var: OSS_REGION]
+* `--bucket <str>`: Bucket 名称  [env var: OSS_BUCKET]
+* `--security-token <str>`: STS 临时凭证 Token, 可选  [env var: OSS_SESSION_TOKEN]
 * `--help`: Show this message and exit.
 
 ### `ai-assistant aliyun-oss sync`
@@ -381,28 +381,28 @@ OSS 端两种写法等价 (URI 内的 bucket 必须与 --bucket / OSS_BUCKET 一
 **Usage**:
 
 ```console
-$ ai-assistant aliyun-oss sync [OPTIONS] SRC DST
+$ ai-assistant aliyun-oss sync [OPTIONS] {src} {dst}
 ```
 
 **Arguments**:
 
-* `SRC`: 源路径, 本地路径或 oss:&lt;prefix&gt;/ 或 oss://&lt;bucket&gt;/&lt;prefix&gt;/  [required]
-* `DST`: 目标路径, 本地路径或 oss:&lt;prefix&gt;/ 或 oss://&lt;bucket&gt;/&lt;prefix&gt;/  [required]
+* `src`: 源路径, 本地路径或 oss:&lt;prefix&gt;/ 或 oss://&lt;bucket&gt;/&lt;prefix&gt;/  [required]
+* `dst`: 目标路径, 本地路径或 oss:&lt;prefix&gt;/ 或 oss://&lt;bucket&gt;/&lt;prefix&gt;/  [required]
 
 **Options**:
 
 * `--delete`: 删除目标端不存在于源端的文件 (镜像同步)
 * `--dry-run`: 只显示需要同步的文件列表, 不实际传输
-* `--max-files INTEGER`: 本次最多同步多少个文件, 默认无限
-* `--workers INTEGER`: 并发传输数  [default: 4]
+* `--max-files <int>`: 本次最多同步多少个文件, 默认无限
+* `--workers <int>`: 并发传输数  [default: 4]
 * `-f, --force`: 忽略 size/mtime 比较, 全部覆盖
 * `--verbose`: 输出扫描、列举及对象元数据比对的进度
-* `--access-key-id TEXT`: AccessKey ID  [env var: OSS_ACCESS_KEY_ID]
-* `--access-key-secret TEXT`: AccessKey Secret  [env var: OSS_ACCESS_KEY_SECRET]
-* `--endpoint TEXT`: OSS endpoint, 如 https://oss-cn-hangzhou.aliyuncs.com  [env var: OSS_ENDPOINT]
-* `--region TEXT`: OSS 区域, 如 cn-hangzhou; 与 --endpoint 二选一  [env var: OSS_REGION]
-* `--bucket TEXT`: Bucket 名称  [env var: OSS_BUCKET]
-* `--security-token TEXT`: STS 临时凭证 Token, 可选  [env var: OSS_SESSION_TOKEN]
+* `--access-key-id <str>`: AccessKey ID  [env var: OSS_ACCESS_KEY_ID]
+* `--access-key-secret <str>`: AccessKey Secret  [env var: OSS_ACCESS_KEY_SECRET]
+* `--endpoint <str>`: OSS endpoint, 如 https://oss-cn-hangzhou.aliyuncs.com  [env var: OSS_ENDPOINT]
+* `--region <str>`: OSS 区域, 如 cn-hangzhou; 与 --endpoint 二选一  [env var: OSS_REGION]
+* `--bucket <str>`: Bucket 名称  [env var: OSS_BUCKET]
+* `--security-token <str>`: STS 临时凭证 Token, 可选  [env var: OSS_SESSION_TOKEN]
 * `--help`: Show this message and exit.
 
 ## `ai-assistant bump-version`
@@ -465,21 +465,21 @@ cloudflared 默认在 `127.0.0.1:20241` 暴露 metrics 服务，
 **Usage**:
 
 ```console
-$ ai-assistant cf-tunnel-watcher watch [OPTIONS] RUN_CMD
+$ ai-assistant cf-tunnel-watcher watch [OPTIONS] {run_cmd}
 ```
 
 **Arguments**:
 
-* `RUN_CMD`: 检测到状态变化后执行的 shell 命令  [required]
+* `run_cmd`: 检测到状态变化后执行的 shell 命令  [required]
 
 **Options**:
 
-* `-m, --metrics-url TEXT`: cloudflared metrics 端点地址  [default: http://127.0.0.1:20241]
-* `-i, --interval FLOAT RANGE`: 轮询间隔（秒）  [default: 10; x&gt;=1]
-* `--request-timeout FLOAT RANGE`: 请求超时时间（秒）  [default: 5.0; x&gt;=1]
+* `-m, --metrics-url <str>`: cloudflared metrics 端点地址  [default: http://127.0.0.1:20241]
+* `-i, --interval <float range>`: 轮询间隔（秒）  [default: 10; x&gt;=1]
+* `--request-timeout <float range>`: 请求超时时间（秒）  [default: 5.0; x&gt;=1]
 * `--run-on-start`: 启动时立即执行一次命令
 * `--run-on-unhealthy`: 仅在状态变为不健康时执行命令（默认任何状态变化都执行）
-* `-s, --sleep-after-run FLOAT RANGE`: 执行命令后等待时间（秒）  [default: 60; x&gt;=0]
+* `-s, --sleep-after-run <float range>`: 执行命令后等待时间（秒）  [default: 60; x&gt;=0]
 * `--help`: Show this message and exit.
 
 ## `ai-assistant cindy`
@@ -492,37 +492,321 @@ $ ai-assistant cindy [OPTIONS] COMMAND [ARGS]...
 
 **Options**:
 
-* `--version, -v, -V`: Show version and exit.
 * `--help`: Show this message and exit.
 
 **Commands**:
 
-* `cshare-to-markdown`: Convert a Cindy `.cshare` or legacy `.xdtshare` file to Markdown.
+* `cshare-to-markdown`: 将 Cindy .cshare 或旧 .xdtshare 文件转换为 Markdown。
+* `install`: 解析并校验指定地区客户端；支持 --dest 独立目录安装，不自动启动。
+* `installs`: 只读列出安装登记与磁盘实际版本，不运行客户端。
+* `releases`: 查询两区各渠道当前版本及 GitHub 历史产物，不执行安装。
+* `uninstall`: 卸载已登记程序；所有模式均保留用户数据与外部文件。
+* `recover`: 按文件身份收尾数据、安装和卸载事务，不覆盖外来目标。
+* `data`: Cindy profile 冷备份、校验、全量覆盖恢复及备份清理。
 
 ### `ai-assistant cindy cshare-to-markdown`
 
-Convert a Cindy `.cshare` or legacy `.xdtshare` file to Markdown.
+将 Cindy .cshare 或旧 .xdtshare 文件转换为 Markdown。
 
-Each message is enclosed in `cshare-message:start/end` HTML comments, allowing third-party Agents to split messages without relying on Markdown headings.
+消息使用 cshare-message:start/end 注释包裹，便于第三方 Agent 解析。
 
 **Usage**:
 
 ```console
-$ ai-assistant cindy cshare-to-markdown [OPTIONS] INPUT_PATH
+$ ai-assistant cindy cshare-to-markdown [OPTIONS] {input_path}
 ```
 
 **Arguments**:
 
-* `INPUT_PATH`: [required]
+* `input_path`: 输入的 Cindy 会话分享文件。  [required]
 
 **Options**:
 
-* `-o, --output PATH`: [required]
-* `--password-env TEXT`
-* `--include-tools`
-* `--include-meta`
-* `--extract-media PATH`
-* `--verify-only`
+* `-o, --output <path>`: 输出 Markdown 文件。  [required]
+* `--password-env <str>`: 提供解密密码的环境变量名，不打印密码。
+* `--include-tools / --no-include-tools`: 包含工具调用消息。  [default: no-include-tools]
+* `--include-meta / --no-include-meta`: 包含会话元数据。  [default: no-include-meta]
+* `--extract-media <path>`: 提取媒体文件的目标目录。
+* `--verify-only / --no-verify-only`: 仅校验分享文件，不写入 Markdown。  [default: no-verify-only]
+* `--help`: Show this message and exit.
+
+### `ai-assistant cindy install`
+
+解析并校验指定地区客户端；支持 --dest 独立目录安装，不自动启动。
+
+**Usage**:
+
+```console
+$ ai-assistant cindy install [OPTIONS]
+```
+
+**Options**:
+
+* `--region <cn|global>`: 发行区域。可选值：cn（中国大陆版）、global（国际版）。 必须显式指定。  [required]
+* `--channel <release|beta|canary>`: 渠道。可选值：release（正式）、beta（测试）、canary（灰度）。latest 时默认 release；不能与显式版本合用。
+* `--version <str>`: 版本：latest（默认）、X.Y.Z、vX.Y.Z、X.Y.Z-beta；显式版本不能与 channel 合用。  [default: latest]
+* `--platform <str>`: 平台。可选值：darwin（macOS）、win32（Windows）、linux（Linux）。默认本机；别名 mac/macos、win/windows。
+* `--arch <str>`: 架构。可选值：x64（64 位 x86）、arm64（64 位 ARM）。默认本机原生架构；别名 intel/amd64/x86_64、aarch64。不支持 Windows/Linux ARM 产物。
+* `--dest <path>`: 安装目标：macOS 为完整 .app 路径，其他平台为独立目录；不改变 userData。
+* `--id <str>`: 安装 ID，默认区域-版本-平台-架构-模式。
+* `--mode <auto|dmg|portable|installer|user-install>`: 模式。可选值：auto（自动）、dmg（macOS）、portable（Windows 便携）、installer（Windows 官方安装器）、user-install（Linux 用户级）。默认 auto：macOS=dmg、Windows=portable、Linux=user-install。  [default: auto]
+* `--source <cdn|github>`: 来源。可选值：cdn（区域官方 CDN）、github（GitHub Releases 同产物）。默认 cdn；无同类型资产则拒绝。  [default: cdn]
+* `--sha256 <str>`: 用户提供的可信整包 SHA-256；不能用 Setup.exe 摘要验证 ZIP。
+* `--require-sha256 / --no-require-sha256`: 强制可信摘要，与 allow-signature-only 互斥。  [default: no-require-sha256]
+* `--allow-signature-only / --no-allow-signature-only`: 仅本机 macOS dmg：无摘要时显式允许完整签名校验，不放行摘要不符。  [default: no-allow-signature-only]
+* `--download-only / --no-download-only`: 只下载并验证摘要，可指定其他平台；不执行或安装。  [default: no-download-only]
+* `--output-dir <path>`: download-only 的输出目录，默认私有下载缓存。
+* `--register-desktop / --no-register-desktop`: Linux 桌面/协议注册；未通过实机门禁，当前拒绝执行。  [default: no-register-desktop]
+* `--replace / --no-replace`: 允许替换同区域、已核验归属的程序，不修改用户数据。  [default: no-replace]
+* `--yes`: 跳过确认，不跳过身份、停止或平台门禁。
+* `--help`: Show this message and exit.
+
+### `ai-assistant cindy installs`
+
+只读列出安装登记与磁盘实际版本，不运行客户端。
+
+**Usage**:
+
+```console
+$ ai-assistant cindy installs [OPTIONS]
+```
+
+**Options**:
+
+* `--json`: 输出单个版本化 JSON 对象。
+* `--help`: Show this message and exit.
+
+### `ai-assistant cindy releases`
+
+查询两区各渠道当前版本及 GitHub 历史产物，不执行安装。
+
+**Usage**:
+
+```console
+$ ai-assistant cindy releases [OPTIONS]
+```
+
+**Options**:
+
+* `--region <cn|global>`: 发行区域。可选值：cn（中国大陆版）、global（国际版）。 默认查询两区。
+* `--platform <str>`: 平台。可选值：darwin（macOS）、win32（Windows）、linux（Linux）。默认本机；别名 mac/macos、win/windows。
+* `--arch <str>`: 架构。可选值：x64（64 位 x86）、arm64（64 位 ARM）。默认本机原生架构；别名 intel/amd64/x86_64、aarch64。不支持 Windows/Linux ARM 产物。
+* `--limit <int range>`: 历史版本条目上限。  [default: 20; 1&lt;=x&lt;=1000]
+* `--json`: 输出单个版本化 JSON 对象。
+* `--help`: Show this message and exit.
+
+### `ai-assistant cindy uninstall`
+
+卸载已登记程序；所有模式均保留用户数据与外部文件。
+
+**Usage**:
+
+```console
+$ ai-assistant cindy uninstall [OPTIONS] {identifier}
+```
+
+**Arguments**:
+
+* `identifier`: 已登记安装 ID；不接受任意目录作为删除授权。  [required]
+
+**Options**:
+
+* `--yes`: 跳过卸载确认，不删除 userData。
+* `--help`: Show this message and exit.
+
+### `ai-assistant cindy recover`
+
+按文件身份收尾数据、安装和卸载事务，不覆盖外来目标。
+
+**Usage**:
+
+```console
+$ ai-assistant cindy recover [OPTIONS]
+```
+
+**Options**:
+
+* `--yes`: 跳过全部事务收尾确认；遇到冲突仍拒绝。
+* `--help`: Show this message and exit.
+
+### `ai-assistant cindy data`
+
+Cindy profile 冷备份、校验、全量覆盖恢复及备份清理。
+
+**Usage**:
+
+```console
+$ ai-assistant cindy data [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `backup`: 在所有 Cindy 退出后创建并完整校验私有备份。
+* `verify`: 完整读取并校验内容摘要、结构、计数及压缩校验和。
+* `restore`: 全量覆盖一个同区域、同平台、同原生架构的 Profile。
+* `reset`: 先完整备份，再以可恢复事务清空 Profile；cn shared 默认保留。
+* `list`: 只读列出 Profile、默认备份与待恢复事务。
+* `prune`: 按 Profile 保留最新 N 份与最近撤销点，保留项损坏时拒绝删除。
+* `clear`: 交互清空备份；必须输入 delete 加份数，不能用 --yes。
+* `recover`: 收尾中断的恢复或清空；安装事务请使用 cindy recover。
+
+#### `ai-assistant cindy data backup`
+
+在所有 Cindy 退出后创建并完整校验私有备份。
+
+**Usage**:
+
+```console
+$ ai-assistant cindy data backup [OPTIONS]
+```
+
+**Options**:
+
+* `--region <cn|global|dev>`: 区域。可选值：cn（中国大陆版）、global（国际版）、dev（开发区域版，不等同于隔离 profile）。 不提供 path 时必填，有 path 时可推断。
+* `--path <path>`: 明确选择的 Profile 目录，不能为链接。
+* `--output-dir <path>`: 私有备份目录；默认状态目录下 backups，不能位于源内或 Git 工作区。
+* `--label <str>`: 备份标签，最多 80 字且不能含控制字符。
+* `--compress <auto|none|zstd|gzip>`: 压缩。可选值：auto（有 zstd 时使用，否则不压缩）、none（不压缩）、zstd（Zstandard）、gzip（Gzip）。默认 auto。  [default: auto]
+* `--exclude-caches / --no-exclude-caches`: 排除已知顶层浏览器缓存，不排除任意同名子目录。  [default: no-exclude-caches]
+* `--include-update-cache / --no-include-update-cache`: 包含已下载更新；恢复后可能立即触发升级。  [default: no-include-update-cache]
+* `--max-bytes <int range>`: 未压缩数据上限（字节），默认 100 GiB。  [default: 107374182400; x&gt;=1]
+* `--max-entries <int range>`: 成员数上限，默认 200000。  [default: 200000; x&gt;=1]
+* `--help`: Show this message and exit.
+
+#### `ai-assistant cindy data verify`
+
+完整读取并校验内容摘要、结构、计数及压缩校验和。
+
+**Usage**:
+
+```console
+$ ai-assistant cindy data verify [OPTIONS] {archive}
+```
+
+**Arguments**:
+
+* `archive`: 需要完整验证的归档文件；不依赖索引也能校验正文。  [required]
+
+**Options**:
+
+* `--max-bytes <int range>`: 未压缩数据上限（字节）。  [default: 107374182400; x&gt;=1]
+* `--max-entries <int range>`: 归档成员上限。  [default: 200000; x&gt;=1]
+* `--help`: Show this message and exit.
+
+#### `ai-assistant cindy data restore`
+
+全量覆盖一个同区域、同平台、同原生架构的 Profile。
+
+**Usage**:
+
+```console
+$ ai-assistant cindy data restore [OPTIONS] [archive]
+```
+
+**Arguments**:
+
+* `archive`: 可信归档；不提供时必须通过 TTY 选择。
+
+**Options**:
+
+* `--backup-dir <path>`: 候选备份目录，不是恢复目标。
+* `--region <cn|global|dev>`: 区域。可选值：cn（中国大陆版）、global（国际版）、dev（开发区域版，不等同于隔离 profile）。 未提供时不过滤；显式归档时作为区域断言。
+* `--target <path>`: 显式迁移目标，必须同时传 allow-relocate；不能跨 Profile 类型。
+* `--allow-relocate / --no-allow-relocate`: 允许明确迁移；不改写链接、数据库路径或钥匙串标记。  [default: no-allow-relocate]
+* `--include-shared / --no-include-shared`: 仅 cn 主目录：使用归档内 shared，可能影响其他区域。  [default: no-include-shared]
+* `--no-pre-backup / --no-no-pre-backup`: 跳过当前数据的自动备份，不跳过完整校验与事务。  [default: no-no-pre-backup]
+* `--yes`: 显式归档时跳过确认；交互选择模式忽略。
+* `--max-bytes <int range>`: 未压缩数据上限（字节）。  [default: 107374182400; x&gt;=1]
+* `--max-entries <int range>`: 归档成员上限。  [default: 200000; x&gt;=1]
+* `--help`: Show this message and exit.
+
+#### `ai-assistant cindy data reset`
+
+先完整备份，再以可恢复事务清空 Profile；cn shared 默认保留。
+
+**Usage**:
+
+```console
+$ ai-assistant cindy data reset [OPTIONS]
+```
+
+**Options**:
+
+* `--region <cn|global|dev>`: 区域。可选值：cn（中国大陆版）、global（国际版）、dev（开发区域版，不等同于隔离 profile）。 无 path 时必填，有 path 时可推断。
+* `--path <path>`: 明确选择的 Profile 目录。
+* `--no-backup / --no-no-backup`: 不自动备份，丢失数据后不能撤销。  [default: no-no-backup]
+* `--yes`: 跳过清空确认，不跳过停止检查。
+* `--help`: Show this message and exit.
+
+#### `ai-assistant cindy data list`
+
+只读列出 Profile、默认备份与待恢复事务。
+
+**Usage**:
+
+```console
+$ ai-assistant cindy data list [OPTIONS]
+```
+
+**Options**:
+
+* `--json`: 输出单个版本化 JSON 对象。
+* `--help`: Show this message and exit.
+
+#### `ai-assistant cindy data prune`
+
+按 Profile 保留最新 N 份与最近撤销点，保留项损坏时拒绝删除。
+
+**Usage**:
+
+```console
+$ ai-assistant cindy data prune [OPTIONS]
+```
+
+**Options**:
+
+* `--backup-dir <path>`: 清理范围，仅第一层备份。
+* `--region <cn|global|dev>`: 区域。可选值：cn（中国大陆版）、global（国际版）、dev（开发区域版，不等同于隔离 profile）。 默认全部区域，按 profile 分组。
+* `--keep <int range>`: 每个 Profile 至少保留的最新备份数。  [default: 5; x&gt;=1]
+* `--yes`: 跳过确认；仍保护最近自动备份。
+* `--help`: Show this message and exit.
+
+#### `ai-assistant cindy data clear`
+
+交互清空备份；必须输入 delete 加份数，不能用 --yes。
+
+**Usage**:
+
+```console
+$ ai-assistant cindy data clear [OPTIONS]
+```
+
+**Options**:
+
+* `--backup-dir <path>`: 备份目录，只处理第一层普通文件。
+* `--region <cn|global|dev>`: 区域。可选值：cn（中国大陆版）、global（国际版）、dev（开发区域版，不等同于隔离 profile）。 默认全部区域。
+* `--only-auto / --no-only-auto`: 只删除 kind 为 pre-restore/pre-reset 的备份。  [default: no-only-auto]
+* `--keep-auto / --no-keep-auto`: 保留自动备份，与 only-auto 互斥。  [default: no-keep-auto]
+* `--select / --no-select`: 逐项选择，而非选择范围内全部备份。  [default: no-select]
+* `--help`: Show this message and exit.
+
+#### `ai-assistant cindy data recover`
+
+收尾中断的恢复或清空；安装事务请使用 cindy recover。
+
+**Usage**:
+
+```console
+$ ai-assistant cindy data recover [OPTIONS]
+```
+
+**Options**:
+
+* `--yes`: 跳过数据事务收尾确认；遇到冲突仍拒绝。
 * `--help`: Show this message and exit.
 
 ## `ai-assistant cloudflare-dns`
@@ -562,12 +846,12 @@ $ ai-assistant cloudflare-dns list [OPTIONS]
 
 **Options**:
 
-* `-T, --type [a|cname]`: 按记录类型筛选: A 或 CNAME
-* `-n, --name TEXT`: 按记录名/FQDN 精确筛选
-* `-c, --content TEXT`: 按记录值/内容精确筛选, 如 A 的 IP 或 CNAME 目标
-* `-s, --search TEXT`: 在记录名或内容中做本地子串筛选
-* `-t, --token TEXT`: Cloudflare API Token, 缺省读环境变量 CLOUDFLARE_API_TOKEN
-* `-z, --zone TEXT`: Cloudflare zone 名, list 必须指定  [required]
+* `-T, --type <a|cname>`: 按记录类型筛选: A 或 CNAME
+* `-n, --name <str>`: 按记录名/FQDN 精确筛选
+* `-c, --content <str>`: 按记录值/内容精确筛选, 如 A 的 IP 或 CNAME 目标
+* `-s, --search <str>`: 在记录名或内容中做本地子串筛选
+* `-t, --token <str>`: Cloudflare API Token, 缺省读环境变量 CLOUDFLARE_API_TOKEN
+* `-z, --zone <str>`: Cloudflare zone 名, list 必须指定  [required]
 * `--delete`: 删除筛选出来的记录
 * `--dry-run`: 配合 --delete 时只打印将删除的记录, 不真正调用 API
 * `--help`: Show this message and exit.
@@ -589,12 +873,12 @@ $ ai-assistant cloudflare-dns upsert [OPTIONS]
 
 **Options**:
 
-* `-T, --type [a|cname]`: 记录类型: A 或 CNAME  [required]
-* `-n, --name TEXT`: 记录名/FQDN, 如 nas.example.com  [required]
-* `-c, --content TEXT`: 记录内容: A 为 IPv4 地址, CNAME 为目标域名  [required]
-* `-t, --token TEXT`: Cloudflare API Token, 缺省读环境变量 CLOUDFLARE_API_TOKEN
-* `-z, --zone TEXT`: Cloudflare zone 名, 缺省按记录名自动匹配
-* `--ttl INTEGER`: DNS TTL, 1 表示 auto  [default: 1]
+* `-T, --type <a|cname>`: 记录类型: A 或 CNAME  [required]
+* `-n, --name <str>`: 记录名/FQDN, 如 nas.example.com  [required]
+* `-c, --content <str>`: 记录内容: A 为 IPv4 地址, CNAME 为目标域名  [required]
+* `-t, --token <str>`: Cloudflare API Token, 缺省读环境变量 CLOUDFLARE_API_TOKEN
+* `-z, --zone <str>`: Cloudflare zone 名, 缺省按记录名自动匹配
+* `--ttl <int>`: DNS TTL, 1 表示 auto  [default: 1]
 * `--proxied / --no-proxied`: 是否经 Cloudflare 代理 (橙云)  [default: no-proxied]
 * `--dry-run`: 只打印将要执行的变更, 不真正调用 API
 * `--help`: Show this message and exit.
@@ -615,11 +899,11 @@ $ ai-assistant cloudflare-dns a [OPTIONS]
 
 **Options**:
 
-* `-n, --name TEXT`: A 记录名/FQDN, 如 nas.example.com  [required]
-* `-i, --ip TEXT`: IPv4 地址  [required]
-* `-t, --token TEXT`: Cloudflare API Token, 缺省读环境变量 CLOUDFLARE_API_TOKEN
-* `-z, --zone TEXT`: Cloudflare zone 名, 缺省按记录名自动匹配
-* `--ttl INTEGER`: DNS TTL, 1 表示 auto  [default: 1]
+* `-n, --name <str>`: A 记录名/FQDN, 如 nas.example.com  [required]
+* `-i, --ip <str>`: IPv4 地址  [required]
+* `-t, --token <str>`: Cloudflare API Token, 缺省读环境变量 CLOUDFLARE_API_TOKEN
+* `-z, --zone <str>`: Cloudflare zone 名, 缺省按记录名自动匹配
+* `--ttl <int>`: DNS TTL, 1 表示 auto  [default: 1]
 * `--proxied / --no-proxied`: 是否经 Cloudflare 代理 (橙云)  [default: no-proxied]
 * `--dry-run`: 只打印将要执行的变更, 不真正调用 API
 * `--help`: Show this message and exit.
@@ -640,11 +924,11 @@ $ ai-assistant cloudflare-dns cname [OPTIONS]
 
 **Options**:
 
-* `-n, --name TEXT`: CNAME 记录名/FQDN, 如 www.example.com  [required]
-* `-c, --target TEXT`: CNAME 目标域名, 如 target.example.com  [required]
-* `-t, --token TEXT`: Cloudflare API Token, 缺省读环境变量 CLOUDFLARE_API_TOKEN
-* `-z, --zone TEXT`: Cloudflare zone 名, 缺省按记录名自动匹配
-* `--ttl INTEGER`: DNS TTL, 1 表示 auto  [default: 1]
+* `-n, --name <str>`: CNAME 记录名/FQDN, 如 www.example.com  [required]
+* `-c, --target <str>`: CNAME 目标域名, 如 target.example.com  [required]
+* `-t, --token <str>`: Cloudflare API Token, 缺省读环境变量 CLOUDFLARE_API_TOKEN
+* `-z, --zone <str>`: Cloudflare zone 名, 缺省按记录名自动匹配
+* `--ttl <int>`: DNS TTL, 1 表示 auto  [default: 1]
 * `--proxied / --no-proxied`: 是否经 Cloudflare 代理 (橙云)  [default: no-proxied]
 * `--dry-run`: 只打印将要执行的变更, 不真正调用 API
 * `--help`: Show this message and exit.
@@ -691,17 +975,17 @@ Usage::
 **Usage**:
 
 ```console
-$ ai-assistant cookies get [OPTIONS] DOMAINS...
+$ ai-assistant cookies get [OPTIONS] {domains}...
 ```
 
 **Arguments**:
 
-* `DOMAINS...`: 目标域名，可指定多个，例如 example.com api.example.com  [required]
+* `domains...`: 目标域名，可指定多个，例如 example.com api.example.com  [required]
 
 **Options**:
 
-* `-f, --format [string|dict|json]`: 输出格式: string (a=b; c=d), dict (Python dict), json (JSON 字符串)  [default: string]
-* `-F, --field TEXT`: 只提取指定名称的 Cookie，可多次使用
+* `-f, --format <string|dict|json>`: 输出格式: string (a=b; c=d), dict (Python dict), json (JSON 字符串)  [default: string]
+* `-F, --field <str>`: 只提取指定名称的 Cookie，可多次使用
 * `--help`: Show this message and exit.
 
 ### `ai-assistant cookies twitter`
@@ -730,8 +1014,8 @@ $ ai-assistant cookies twitter [OPTIONS]
 
 **Options**:
 
-* `-f, --format [string|dict|json]`: 输出格式: string (a=b; c=d), dict (Python dict), json (JSON 字符串)  [default: string]
-* `-F, --field TEXT`: 只提取指定名称的 Cookie，可多次使用
+* `-f, --format <string|dict|json>`: 输出格式: string (a=b; c=d), dict (Python dict), json (JSON 字符串)  [default: string]
+* `-F, --field <str>`: 只提取指定名称的 Cookie，可多次使用
 * `--help`: Show this message and exit.
 
 ### `ai-assistant cookies cursor`
@@ -760,8 +1044,8 @@ $ ai-assistant cookies cursor [OPTIONS]
 
 **Options**:
 
-* `-f, --format [string|dict|json]`: 输出格式: string (a=b; c=d), dict (Python dict), json (JSON 字符串)  [default: string]
-* `-F, --field TEXT`: 只提取指定名称的 Cookie，可多次使用
+* `-f, --format <string|dict|json>`: 输出格式: string (a=b; c=d), dict (Python dict), json (JSON 字符串)  [default: string]
+* `-F, --field <str>`: 只提取指定名称的 Cookie，可多次使用
 * `--help`: Show this message and exit.
 
 ## `ai-assistant cursor-usage`
@@ -793,12 +1077,12 @@ Excel 结构:
 **Usage**:
 
 ```console
-$ ai-assistant cursor-usage get-usage [OPTIONS] CSV_PATH
+$ ai-assistant cursor-usage get-usage [OPTIONS] {csv_path}
 ```
 
 **Arguments**:
 
-* `CSV_PATH`: CSV 文件路径  [required]
+* `csv_path`: CSV 文件路径  [required]
 
 **Options**:
 
@@ -840,7 +1124,7 @@ $ ai-assistant disable-ssl-verify install [OPTIONS]
 
 **Options**:
 
-* `-t, --target DIRECTORY`: 自定义 .pth 写入目录，默认使用 site.getsitepackages()[0]
+* `-t, --target <directory>`: 自定义 .pth 写入目录，默认使用 site.getsitepackages()[0]
 * `-y, --yes`: 跳过确认提示直接写入
 * `--help`: Show this message and exit.
 
@@ -861,7 +1145,7 @@ $ ai-assistant disable-ssl-verify uninstall [OPTIONS]
 
 **Options**:
 
-* `-t, --target DIRECTORY`: 自定义 .pth 所在目录，默认使用 site.getsitepackages()[0]
+* `-t, --target <directory>`: 自定义 .pth 所在目录，默认使用 site.getsitepackages()[0]
 * `-q, --quiet`: 文件不存在时静默退出 0
 * `--help`: Show this message and exit.
 
@@ -881,7 +1165,7 @@ $ ai-assistant disable-ssl-verify status [OPTIONS]
 
 **Options**:
 
-* `-t, --target DIRECTORY`: 自定义 .pth 所在目录，默认使用 site.getsitepackages()[0]
+* `-t, --target <directory>`: 自定义 .pth 所在目录，默认使用 site.getsitepackages()[0]
 * `--help`: Show this message and exit.
 
 ## `ai-assistant docker`
@@ -924,16 +1208,16 @@ $ ai-assistant docker [OPTIONS] COMMAND [ARGS]...
 **Usage**:
 
 ```console
-$ ai-assistant docker log-clear [OPTIONS] CONTAINER
+$ ai-assistant docker log-clear [OPTIONS] {container}
 ```
 
 **Arguments**:
 
-* `CONTAINER`: 精确容器名称、完整/短容器 ID，或 `*` 表示全部容器  [required]
+* `container`: 精确容器名称、完整/短容器 ID，或 `*` 表示全部容器  [required]
 
 **Options**:
 
-* `--helper-image TEXT`: 无法直接访问日志文件时使用的辅助镜像  [default: alpine:3.20]
+* `--helper-image <str>`: 无法直接访问日志文件时使用的辅助镜像  [default: alpine:3.20]
 * `--help`: Show this message and exit.
 
 ### `ai-assistant docker network-connect-all`
@@ -952,12 +1236,12 @@ $ ai-assistant docker log-clear [OPTIONS] CONTAINER
 **Usage**:
 
 ```console
-$ ai-assistant docker network-connect-all [OPTIONS] CONTAINER
+$ ai-assistant docker network-connect-all [OPTIONS] {container}
 ```
 
 **Arguments**:
 
-* `CONTAINER`: 精确容器名称、完整容器 ID 或短容器 ID  [required]
+* `container`: 精确容器名称、完整容器 ID 或短容器 ID  [required]
 
 **Options**:
 
@@ -1005,19 +1289,19 @@ $ ai-assistant docker-hub-runner [OPTIONS] COMMAND [ARGS]...
 **Usage**:
 
 ```console
-$ ai-assistant docker-hub-runner watch [OPTIONS] IMAGE RUN_CMD
+$ ai-assistant docker-hub-runner watch [OPTIONS] {image} {run_cmd}
 ```
 
 **Arguments**:
 
-* `IMAGE`: Docker Hub 镜像名，如 `nginx` 或 `library/nginx`  [required]
-* `RUN_CMD`: 检测到新镜像推送后执行的 shell 命令  [required]
+* `image`: Docker Hub 镜像名，如 `nginx` 或 `library/nginx`  [required]
+* `run_cmd`: 检测到新镜像推送后执行的 shell 命令  [required]
 
 **Options**:
 
-* `--tag TEXT`: 固定监听某个 tag，例如 `latest`
-* `-i, --interval FLOAT RANGE`: 轮询间隔（秒）  [default: 300; x&gt;=1]
-* `--request-timeout FLOAT RANGE`: 请求 Docker Hub API 的超时时间（秒）  [default: 10.0; x&gt;=1]
+* `--tag <str>`: 固定监听某个 tag，例如 `latest`
+* `-i, --interval <float range>`: 轮询间隔（秒）  [default: 300; x&gt;=1]
+* `--request-timeout <float range>`: 请求 Docker Hub API 的超时时间（秒）  [default: 10.0; x&gt;=1]
 * `--run-on-start`: 启动时立即执行一次命令
 * `--help`: Show this message and exit.
 
@@ -1055,18 +1339,18 @@ Usage examples::
 **Usage**:
 
 ```console
-$ ai-assistant file-change-runner watch [OPTIONS] TARGET RUN_CMD
+$ ai-assistant file-change-runner watch [OPTIONS] {target} {run_cmd}
 ```
 
 **Arguments**:
 
-* `TARGET`: 监听目标（文件或目录）  [required]
-* `RUN_CMD`: 检测到变化后执行的 shell 命令  [required]
+* `target`: 监听目标（文件或目录）  [required]
+* `run_cmd`: 检测到变化后执行的 shell 命令  [required]
 
 **Options**:
 
-* `-i, --interval FLOAT`: 事件轮询步长（秒）  [default: 0.2]
-* `-d, --debounce FLOAT`: 两次触发的最短间隔（秒）  [default: 0.5]
+* `-i, --interval <float>`: 事件轮询步长（秒）  [default: 0.2]
+* `-d, --debounce <float>`: 两次触发的最短间隔（秒）  [default: 0.5]
 * `--run-on-start`: 启动时先执行一次命令
 * `--help`: Show this message and exit.
 
@@ -1115,19 +1399,19 @@ Usage examples::
 **Usage**:
 
 ```console
-$ ai-assistant freshrss subscribe [OPTIONS] FEED_URL
+$ ai-assistant freshrss subscribe [OPTIONS] {feed_url}
 ```
 
 **Arguments**:
 
-* `FEED_URL`: 订阅源地址  [required]
+* `feed_url`: 订阅源地址  [required]
 
 **Options**:
 
-* `--endpoint TEXT`: FreshRSS 站点地址，例如 http://freshrss.docker.localhost/api/greader.php  [env var: FRESHRSS_ENDPOINT; required]
-* `--category TEXT`: 分类名或分类 ID，留空则使用默认分类
-* `--feed-kind TEXT`: 订阅源类型，如 jsonfeed、json、rss，或直接传 FreshRSS 的数值；仅当当前页面提供该字段时需要  [default: jsonfeed]
-* `--cookies TEXT`: Cookie 字符串，格式如 &#x27;a=b; c=d&#x27;；为空时尝试从系统浏览器读取
+* `--endpoint <str>`: FreshRSS 站点地址，例如 http://freshrss.docker.localhost/api/greader.php  [env var: FRESHRSS_ENDPOINT; required]
+* `--category <str>`: 分类名或分类 ID，留空则使用默认分类
+* `--feed-kind <str>`: 订阅源类型，如 jsonfeed、json、rss，或直接传 FreshRSS 的数值；仅当当前页面提供该字段时需要  [default: jsonfeed]
+* `--cookies <str>`: Cookie 字符串，格式如 &#x27;a=b; c=d&#x27;；为空时尝试从系统浏览器读取
 * `--help`: Show this message and exit.
 
 ### `ai-assistant freshrss refresh`
@@ -1143,17 +1427,17 @@ Usage examples::
 **Usage**:
 
 ```console
-$ ai-assistant freshrss refresh [OPTIONS] ENDPOINT
+$ ai-assistant freshrss refresh [OPTIONS] {endpoint}
 ```
 
 **Arguments**:
 
-* `ENDPOINT`: FreshRSS 端点地址  [env var: FRESHRSS_ENDPOINT; required]
+* `endpoint`: FreshRSS 端点地址  [env var: FRESHRSS_ENDPOINT; required]
 
 **Options**:
 
-* `--user TEXT`: FreshRSS 用户名  [env var: FRESHRSS_USER; required]
-* `--token TEXT`: FreshRSS API Token  [env var: FRESHRSS_API_TOKEN; required]
+* `--user <str>`: FreshRSS 用户名  [env var: FRESHRSS_USER; required]
+* `--token <str>`: FreshRSS API Token  [env var: FRESHRSS_API_TOKEN; required]
 * `--help`: Show this message and exit.
 
 ### `ai-assistant freshrss cleanup-unread`
@@ -1174,12 +1458,12 @@ $ ai-assistant freshrss cleanup-unread [OPTIONS]
 
 **Options**:
 
-* `--category TEXT`: FreshRSS 分类名（不是分类 ID）  [required]
-* `--keep TEXT`: 标题包含任一字符串时跳过，不标记为已读；可重复传入
-* `--limit INTEGER RANGE`: 最多处理多少篇待标记为已读的文章；0 表示不限制  [default: 10; x&gt;=0]
-* `--endpoint TEXT`: FreshRSS 端点地址  [env var: FRESHRSS_ENDPOINT; required]
-* `--user TEXT`: FreshRSS 用户名  [env var: FRESHRSS_USER; required]
-* `--token TEXT`: FreshRSS API Token  [env var: FRESHRSS_API_TOKEN; required]
+* `--category <str>`: FreshRSS 分类名（不是分类 ID）  [required]
+* `--keep <str>`: 标题包含任一字符串时跳过，不标记为已读；可重复传入
+* `--limit <int range>`: 最多处理多少篇待标记为已读的文章；0 表示不限制  [default: 10; x&gt;=0]
+* `--endpoint <str>`: FreshRSS 端点地址  [env var: FRESHRSS_ENDPOINT; required]
+* `--user <str>`: FreshRSS 用户名  [env var: FRESHRSS_USER; required]
+* `--token <str>`: FreshRSS API Token  [env var: FRESHRSS_API_TOKEN; required]
 * `--dry-run / --no-dry-run`: 只输出将被标记为已读的文章，不实际修改  [default: no-dry-run]
 * `--ignore-case / --match-case`: 标题匹配时默认忽略大小写  [default: ignore-case]
 * `--help`: Show this message and exit.
@@ -1204,12 +1488,12 @@ $ ai-assistant freshrss cleanup-video-404 [OPTIONS]
 
 **Options**:
 
-* `--category, --label TEXT`: FreshRSS 分类/label 名称（不是分类 ID）  [required]
-* `-t, --title TEXT`: 标题关键字；留空则检查分类下全部未读文章
-* `--limit INTEGER RANGE`: 最多标记多少篇视频全部 404 的文章；0 表示不限制  [default: 10; x&gt;=0]
-* `--endpoint TEXT`: FreshRSS 端点地址  [env var: FRESHRSS_ENDPOINT; required]
-* `--user TEXT`: FreshRSS 用户名  [env var: FRESHRSS_USER; required]
-* `--token TEXT`: FreshRSS API Token  [env var: FRESHRSS_API_TOKEN; required]
+* `--category, --label <str>`: FreshRSS 分类/label 名称（不是分类 ID）  [required]
+* `-t, --title <str>`: 标题关键字；留空则检查分类下全部未读文章
+* `--limit <int range>`: 最多标记多少篇视频全部 404 的文章；0 表示不限制  [default: 10; x&gt;=0]
+* `--endpoint <str>`: FreshRSS 端点地址  [env var: FRESHRSS_ENDPOINT; required]
+* `--user <str>`: FreshRSS 用户名  [env var: FRESHRSS_USER; required]
+* `--token <str>`: FreshRSS API Token  [env var: FRESHRSS_API_TOKEN; required]
 * `--dry-run / --no-dry-run`: 预览待标记为已读的视频 404 文章列表，不真实执行写入  [default: no-dry-run]
 * `--ignore-case / --match-case`: 标题匹配时默认忽略大小写  [default: ignore-case]
 * `--help`: Show this message and exit.
@@ -1233,14 +1517,14 @@ $ ai-assistant freshrss search [OPTIONS]
 
 **Options**:
 
-* `-t, --title TEXT`: 标题关键字；留空则不按标题过滤
-* `-k, --keyword TEXT`: 正文关键字；留空则不按正文过滤
-* `--category TEXT`: 分类名；留空表示搜索全部分类
-* `--limit INTEGER RANGE`: 最多显示并处理多少篇命中文章；0 表示不限制  [default: 10; x&gt;=0]
+* `-t, --title <str>`: 标题关键字；留空则不按标题过滤
+* `-k, --keyword <str>`: 正文关键字；留空则不按正文过滤
+* `--category <str>`: 分类名；留空表示搜索全部分类
+* `--limit <int range>`: 最多显示并处理多少篇命中文章；0 表示不限制  [default: 10; x&gt;=0]
 * `--read`: 是否将命中的文章标记为已读，默认不修改
-* `--endpoint TEXT`: FreshRSS 端点地址  [env var: FRESHRSS_ENDPOINT; required]
-* `--user TEXT`: FreshRSS 用户名  [env var: FRESHRSS_USER; required]
-* `--token TEXT`: FreshRSS API Token  [env var: FRESHRSS_API_TOKEN; required]
+* `--endpoint <str>`: FreshRSS 端点地址  [env var: FRESHRSS_ENDPOINT; required]
+* `--user <str>`: FreshRSS 用户名  [env var: FRESHRSS_USER; required]
+* `--token <str>`: FreshRSS API Token  [env var: FRESHRSS_API_TOKEN; required]
 * `--help`: Show this message and exit.
 
 ### `ai-assistant freshrss disable-priority`
@@ -1258,12 +1542,12 @@ Usage examples::
 **Usage**:
 
 ```console
-$ ai-assistant freshrss disable-priority [OPTIONS] TARGET
+$ ai-assistant freshrss disable-priority [OPTIONS] {target}
 ```
 
 **Arguments**:
 
-* `TARGET`: SQLite 文件路径或数据库 DSN  [env var: FRESHRSS_DATABASE; required]
+* `target`: SQLite 文件路径或数据库 DSN  [env var: FRESHRSS_DATABASE; required]
 
 **Options**:
 
@@ -1317,10 +1601,10 @@ $ ai-assistant ghi release create [OPTIONS]
 
 **Options**:
 
-* `--tag TEXT`: Tag name, default to pyproject.toml version
-* `-t, --title TEXT`: Release title
-* `--target TEXT`: Target branch or full commit SHA (default: main branch)
-* `-n, --notes TEXT`: Release notes
+* `--tag <str>`: Tag name, default to pyproject.toml version
+* `-t, --title <str>`: Release title
+* `--target <str>`: Target branch or full commit SHA (default: main branch)
+* `-n, --notes <str>`: Release notes
 * `-p, --prerelease`: Mark the release as a prerelease
 * `--verbose`
 * `--help`: Show this message and exit.
@@ -1337,7 +1621,7 @@ $ ai-assistant ghi release delete [OPTIONS]
 
 **Options**:
 
-* `--tag TEXT`: Tag name, default to pyproject.toml version
+* `--tag <str>`: Tag name, default to pyproject.toml version
 * `--verbose`
 * `-y, --yes`: Skip the confirmation prompt  [default: True]
 * `--delete-tag / --no-delete-tag`: Also delete the local and remote git tag  [default: delete-tag]
@@ -1396,9 +1680,9 @@ $ ai-assistant greader login [OPTIONS]
 
 **Options**:
 
-* `--endpoint TEXT`: GReader API 端点  [env var: GREADER_ENDPOINT; required]
-* `--user TEXT`: 用户名  [env var: GREADER_USER; required]
-* `--password TEXT`: 密码或 API Token  [env var: GREADER_PASSWORD; required]
+* `--endpoint <str>`: GReader API 端点  [env var: GREADER_ENDPOINT; required]
+* `--user <str>`: 用户名  [env var: GREADER_USER; required]
+* `--password <str>`: 密码或 API Token  [env var: GREADER_PASSWORD; required]
 * `--help`: Show this message and exit.
 
 ### `ai-assistant greader subscriptions`
@@ -1417,9 +1701,9 @@ $ ai-assistant greader subscriptions [OPTIONS]
 
 **Options**:
 
-* `--endpoint TEXT`: GReader API 端点  [env var: GREADER_ENDPOINT; required]
-* `--user TEXT`: 用户名  [env var: GREADER_USER; required]
-* `--password TEXT`: 密码或 API Token  [env var: GREADER_PASSWORD; required]
+* `--endpoint <str>`: GReader API 端点  [env var: GREADER_ENDPOINT; required]
+* `--user <str>`: 用户名  [env var: GREADER_USER; required]
+* `--password <str>`: 密码或 API Token  [env var: GREADER_PASSWORD; required]
 * `--json`: 输出原始 JSON
 * `--help`: Show this message and exit.
 
@@ -1438,9 +1722,9 @@ $ ai-assistant greader tags [OPTIONS]
 
 **Options**:
 
-* `--endpoint TEXT`: GReader API 端点  [env var: GREADER_ENDPOINT; required]
-* `--user TEXT`: 用户名  [env var: GREADER_USER; required]
-* `--password TEXT`: 密码或 API Token  [env var: GREADER_PASSWORD; required]
+* `--endpoint <str>`: GReader API 端点  [env var: GREADER_ENDPOINT; required]
+* `--user <str>`: 用户名  [env var: GREADER_USER; required]
+* `--password <str>`: 密码或 API Token  [env var: GREADER_PASSWORD; required]
 * `--help`: Show this message and exit.
 
 ### `ai-assistant greader unread-count`
@@ -1459,9 +1743,9 @@ $ ai-assistant greader unread-count [OPTIONS]
 
 **Options**:
 
-* `--endpoint TEXT`: GReader API 端点  [env var: GREADER_ENDPOINT; required]
-* `--user TEXT`: 用户名  [env var: GREADER_USER; required]
-* `--password TEXT`: 密码或 API Token  [env var: GREADER_PASSWORD; required]
+* `--endpoint <str>`: GReader API 端点  [env var: GREADER_ENDPOINT; required]
+* `--user <str>`: 用户名  [env var: GREADER_USER; required]
+* `--password <str>`: 密码或 API Token  [env var: GREADER_PASSWORD; required]
 * `--json`: 输出原始 JSON
 * `--help`: Show this message and exit.
 
@@ -1485,21 +1769,21 @@ Usage examples::
 **Usage**:
 
 ```console
-$ ai-assistant greader stream-contents [OPTIONS] STREAM
+$ ai-assistant greader stream-contents [OPTIONS] {stream}
 ```
 
 **Arguments**:
 
-* `STREAM`: Stream ID 或快捷名 (reading-list, starred, read, label/&lt;name&gt;, feed/&lt;url&gt;)  [required]
+* `stream`: Stream ID 或快捷名 (reading-list, starred, read, label/&lt;name&gt;, feed/&lt;url&gt;)  [required]
 
 **Options**:
 
-* `--endpoint TEXT`: GReader API 端点  [env var: GREADER_ENDPOINT; required]
-* `--user TEXT`: 用户名  [env var: GREADER_USER; required]
-* `--password TEXT`: 密码或 API Token  [env var: GREADER_PASSWORD; required]
-* `-n, --count INTEGER`: 返回条目数  [default: 20]
-* `--exclude TEXT`: 排除的 stream/tag ID
-* `--continuation TEXT`: 分页 continuation token
+* `--endpoint <str>`: GReader API 端点  [env var: GREADER_ENDPOINT; required]
+* `--user <str>`: 用户名  [env var: GREADER_USER; required]
+* `--password <str>`: 密码或 API Token  [env var: GREADER_PASSWORD; required]
+* `-n, --count <int>`: 返回条目数  [default: 20]
+* `--exclude <str>`: 排除的 stream/tag ID
+* `--continuation <str>`: 分页 continuation token
 * `--help`: Show this message and exit.
 
 ### `ai-assistant greader stream-item-ids`
@@ -1513,21 +1797,21 @@ Usage examples::
 **Usage**:
 
 ```console
-$ ai-assistant greader stream-item-ids [OPTIONS] STREAM
+$ ai-assistant greader stream-item-ids [OPTIONS] {stream}
 ```
 
 **Arguments**:
 
-* `STREAM`: Stream ID 或快捷名  [required]
+* `stream`: Stream ID 或快捷名  [required]
 
 **Options**:
 
-* `--endpoint TEXT`: GReader API 端点  [env var: GREADER_ENDPOINT; required]
-* `--user TEXT`: 用户名  [env var: GREADER_USER; required]
-* `--password TEXT`: 密码或 API Token  [env var: GREADER_PASSWORD; required]
-* `-n, --count INTEGER`: 返回条目数  [default: 1000]
-* `--exclude TEXT`: 排除的 stream/tag ID
-* `--include TEXT`: 包含的 stream/tag ID
+* `--endpoint <str>`: GReader API 端点  [env var: GREADER_ENDPOINT; required]
+* `--user <str>`: 用户名  [env var: GREADER_USER; required]
+* `--password <str>`: 密码或 API Token  [env var: GREADER_PASSWORD; required]
+* `-n, --count <int>`: 返回条目数  [default: 1000]
+* `--exclude <str>`: 排除的 stream/tag ID
+* `--include <str>`: 包含的 stream/tag ID
 * `--help`: Show this message and exit.
 
 ### `ai-assistant greader edit-tag`
@@ -1547,20 +1831,20 @@ Usage examples::
 **Usage**:
 
 ```console
-$ ai-assistant greader edit-tag [OPTIONS] ITEM_IDS...
+$ ai-assistant greader edit-tag [OPTIONS] {item_ids}...
 ```
 
 **Arguments**:
 
-* `ITEM_IDS...`: 条目 ID，可传入多个  [required]
+* `item_ids...`: 条目 ID，可传入多个  [required]
 
 **Options**:
 
-* `--endpoint TEXT`: GReader API 端点  [env var: GREADER_ENDPOINT; required]
-* `--user TEXT`: 用户名  [env var: GREADER_USER; required]
-* `--password TEXT`: 密码或 API Token  [env var: GREADER_PASSWORD; required]
-* `-a, --add TEXT`: 添加的 tag (如 user/-/state/com.google/starred)
-* `-r, --remove TEXT`: 移除的 tag
+* `--endpoint <str>`: GReader API 端点  [env var: GREADER_ENDPOINT; required]
+* `--user <str>`: 用户名  [env var: GREADER_USER; required]
+* `--password <str>`: 密码或 API Token  [env var: GREADER_PASSWORD; required]
+* `-a, --add <str>`: 添加的 tag (如 user/-/state/com.google/starred)
+* `-r, --remove <str>`: 移除的 tag
 * `--help`: Show this message and exit.
 
 ### `ai-assistant greader mark-all-read`
@@ -1575,19 +1859,19 @@ Usage examples::
 **Usage**:
 
 ```console
-$ ai-assistant greader mark-all-read [OPTIONS] STREAM
+$ ai-assistant greader mark-all-read [OPTIONS] {stream}
 ```
 
 **Arguments**:
 
-* `STREAM`: Stream ID 或快捷名  [required]
+* `stream`: Stream ID 或快捷名  [required]
 
 **Options**:
 
-* `--endpoint TEXT`: GReader API 端点  [env var: GREADER_ENDPOINT; required]
-* `--user TEXT`: 用户名  [env var: GREADER_USER; required]
-* `--password TEXT`: 密码或 API Token  [env var: GREADER_PASSWORD; required]
-* `--timestamp INTEGER`: UNIX 时间戳起点，默认当前时间  [default: 0]
+* `--endpoint <str>`: GReader API 端点  [env var: GREADER_ENDPOINT; required]
+* `--user <str>`: 用户名  [env var: GREADER_USER; required]
+* `--password <str>`: 密码或 API Token  [env var: GREADER_PASSWORD; required]
+* `--timestamp <int>`: UNIX 时间戳起点，默认当前时间  [default: 0]
 * `--help`: Show this message and exit.
 
 ### `ai-assistant greader subscription-edit`
@@ -1602,22 +1886,22 @@ Usage examples::
 **Usage**:
 
 ```console
-$ ai-assistant greader subscription-edit [OPTIONS] STREAM_ID
+$ ai-assistant greader subscription-edit [OPTIONS] {stream_id}
 ```
 
 **Arguments**:
 
-* `STREAM_ID`: 订阅 stream ID (如 feed/https://example.com/feed)  [required]
+* `stream_id`: 订阅 stream ID (如 feed/https://example.com/feed)  [required]
 
 **Options**:
 
-* `--endpoint TEXT`: GReader API 端点  [env var: GREADER_ENDPOINT; required]
-* `--user TEXT`: 用户名  [env var: GREADER_USER; required]
-* `--password TEXT`: 密码或 API Token  [env var: GREADER_PASSWORD; required]
-* `-a, --action TEXT`: 操作: subscribe, unsubscribe, edit  [required]
-* `--title TEXT`: 订阅标题 (subscribe/edit 时可用)
-* `--add-label TEXT`: 添加分类标签名
-* `--remove-label TEXT`: 移除分类标签名
+* `--endpoint <str>`: GReader API 端点  [env var: GREADER_ENDPOINT; required]
+* `--user <str>`: 用户名  [env var: GREADER_USER; required]
+* `--password <str>`: 密码或 API Token  [env var: GREADER_PASSWORD; required]
+* `-a, --action <str>`: 操作: subscribe, unsubscribe, edit  [required]
+* `--title <str>`: 订阅标题 (subscribe/edit 时可用)
+* `--add-label <str>`: 添加分类标签名
+* `--remove-label <str>`: 移除分类标签名
 * `--help`: Show this message and exit.
 
 ### `ai-assistant greader fetch-unread`
@@ -1639,11 +1923,11 @@ $ ai-assistant greader fetch-unread [OPTIONS]
 
 **Options**:
 
-* `--endpoint TEXT`: GReader API 端点  [env var: GREADER_ENDPOINT; required]
-* `--user TEXT`: 用户名  [env var: GREADER_USER; required]
-* `--password TEXT`: 密码或 API Token  [env var: GREADER_PASSWORD; required]
-* `--stream TEXT`: Stream ID 或快捷名，默认 reading-list  [default: reading-list]
-* `--limit INTEGER`: 最多返回条目数，0 表示不限制  [default: 0]
+* `--endpoint <str>`: GReader API 端点  [env var: GREADER_ENDPOINT; required]
+* `--user <str>`: 用户名  [env var: GREADER_USER; required]
+* `--password <str>`: 密码或 API Token  [env var: GREADER_PASSWORD; required]
+* `--stream <str>`: Stream ID 或快捷名，默认 reading-list  [default: reading-list]
+* `--limit <int>`: 最多返回条目数，0 表示不限制  [default: 0]
 * `--json`: 输出原始 JSON
 * `--help`: Show this message and exit.
 
@@ -1664,9 +1948,9 @@ $ ai-assistant greader refresh-all [OPTIONS]
 
 **Options**:
 
-* `--endpoint TEXT`: GReader API 端点  [env var: GREADER_ENDPOINT; required]
-* `--user TEXT`: 用户名  [env var: GREADER_USER; required]
-* `--password TEXT`: 密码或 API Token  [env var: GREADER_PASSWORD; required]
+* `--endpoint <str>`: GReader API 端点  [env var: GREADER_ENDPOINT; required]
+* `--user <str>`: 用户名  [env var: GREADER_USER; required]
+* `--password <str>`: 密码或 API Token  [env var: GREADER_PASSWORD; required]
 * `--help`: Show this message and exit.
 
 ## `ai-assistant handoff`
@@ -1742,7 +2026,7 @@ $ ai-assistant httpx-disable-verify install [OPTIONS]
 
 **Options**:
 
-* `-t, --target DIRECTORY`: 自定义 .pth 写入目录，默认使用 site.getsitepackages()[0]
+* `-t, --target <directory>`: 自定义 .pth 写入目录，默认使用 site.getsitepackages()[0]
 * `-y, --yes`: 跳过确认提示直接写入
 * `--help`: Show this message and exit.
 
@@ -1763,7 +2047,7 @@ $ ai-assistant httpx-disable-verify uninstall [OPTIONS]
 
 **Options**:
 
-* `-t, --target DIRECTORY`: 自定义 .pth 所在目录，默认使用 site.getsitepackages()[0]
+* `-t, --target <directory>`: 自定义 .pth 所在目录，默认使用 site.getsitepackages()[0]
 * `-q, --quiet`: 文件不存在时静默退出 0
 * `--help`: Show this message and exit.
 
@@ -1783,7 +2067,7 @@ $ ai-assistant httpx-disable-verify status [OPTIONS]
 
 **Options**:
 
-* `-t, --target DIRECTORY`: 自定义 .pth 所在目录，默认使用 site.getsitepackages()[0]
+* `-t, --target <directory>`: 自定义 .pth 所在目录，默认使用 site.getsitepackages()[0]
 * `--help`: Show this message and exit.
 
 ## `ai-assistant httpx-rfc-cache`
@@ -1822,8 +2106,8 @@ $ ai-assistant httpx-rfc-cache install [OPTIONS]
 
 **Options**:
 
-* `-t, --target DIRECTORY`: 自定义 .pth 写入目录；未指定时查询 --python 对应的 site-packages
-* `-p, --python FILE`: 目标 Python 解释器路径，默认使用当前解释器
+* `-t, --target <directory>`: 自定义 .pth 写入目录；未指定时查询 --python 对应的 site-packages
+* `-p, --python <file>`: 目标 Python 解释器路径，默认使用当前解释器
 * `-y, --yes`: 跳过确认提示直接写入
 * `--help`: Show this message and exit.
 
@@ -1844,8 +2128,8 @@ $ ai-assistant httpx-rfc-cache uninstall [OPTIONS]
 
 **Options**:
 
-* `-t, --target DIRECTORY`: 自定义 .pth 所在目录；未指定时查询 --python 对应的 site-packages
-* `-p, --python FILE`: 目标 Python 解释器路径，默认使用当前解释器
+* `-t, --target <directory>`: 自定义 .pth 所在目录；未指定时查询 --python 对应的 site-packages
+* `-p, --python <file>`: 目标 Python 解释器路径，默认使用当前解释器
 * `-q, --quiet`: 文件不存在时静默退出 0
 * `--help`: Show this message and exit.
 
@@ -1866,8 +2150,8 @@ $ ai-assistant httpx-rfc-cache status [OPTIONS]
 
 **Options**:
 
-* `-t, --target DIRECTORY`: 自定义 .pth 所在目录；未指定时查询 --python 对应的 site-packages
-* `-p, --python FILE`: 目标 Python 解释器路径，默认使用当前解释器
+* `-t, --target <directory>`: 自定义 .pth 所在目录；未指定时查询 --python 对应的 site-packages
+* `-p, --python <file>`: 目标 Python 解释器路径，默认使用当前解释器
 * `--help`: Show this message and exit.
 
 ## `ai-assistant lan-ddns`
@@ -1906,24 +2190,22 @@ $ ai-assistant lan-ddns update [OPTIONS]
 
 **Options**:
 
-* `-m, --mac TEXT`: 目标设备的 MAC 地址  [required]
-* `-d, --domain TEXT`: 要更新的 A 记录 FQDN, 如 nas.example.com  [required]
-* `-t, --token TEXT`: Cloudflare API Token, 缺省读环境变量 CLOUDFLARE_API_TOKEN
-* `-z, --zone TEXT`: Cloudflare zone 名, 缺省按域名自动匹配
+* `-m, --mac <str>`: 目标设备的 MAC 地址  [required]
+* `-d, --domain <str>`: 要更新的 A 记录 FQDN, 如 nas.example.com  [required]
+* `-t, --token <str>`: Cloudflare API Token, 缺省读环境变量 CLOUDFLARE_API_TOKEN
+* `-z, --zone <str>`: Cloudflare zone 名, 缺省按域名自动匹配
 * `--sweep / --no-sweep`: ARP 缓存里没有时, 是否主动 ping 扫描全网段补全 (公司内网慎用, 默认关闭)  [default: no-sweep]
-* `--subnet TEXT`: --sweep 时指定扫描网段 CIDR, 如 192.168.1.0/24; 缺省自动推导
-* `--interface TEXT`: --sweep 时限定使用的网卡名
-* `--ttl INTEGER`: DNS TTL, 1 表示 auto  [default: 1]
+* `--subnet <str>`: --sweep 时指定扫描网段 CIDR, 如 192.168.1.0/24; 缺省自动推导
+* `--interface <str>`: --sweep 时限定使用的网卡名
+* `--ttl <int>`: DNS TTL, 1 表示 auto  [default: 1]
 * `--proxied / --no-proxied`: 是否经 Cloudflare 代理 (橙云)  [default: no-proxied]
-* `--ping-timeout FLOAT`: --sweep 时单个地址 ping 超时, 秒  [default: 1.0]
-* `--workers INTEGER`: --sweep 时并发扫描线程数  [default: 64]
-* `-i, --interval FLOAT`: 循环间隔秒数, 0 表示只执行一次  [default: 0]
+* `--ping-timeout <float>`: --sweep 时单个地址 ping 超时, 秒  [default: 1.0]
+* `--workers <int>`: --sweep 时并发扫描线程数  [default: 64]
+* `-i, --interval <float>`: 循环间隔秒数, 0 表示只执行一次  [default: 0]
 * `--dry-run`: 只打印将要执行的变更, 不真正调用 API
 * `--help`: Show this message and exit.
 
 ## `ai-assistant litellm`
-
-LiteLLM 网关诊断工具。
 
 **Usage**:
 
@@ -1933,7 +2215,6 @@ $ ai-assistant litellm [OPTIONS] COMMAND [ARGS]...
 
 **Options**:
 
-* `--version`, `-v`, `-V`
 * `--help`: Show this message and exit.
 
 **Commands**:
@@ -1947,25 +2228,25 @@ $ ai-assistant litellm [OPTIONS] COMMAND [ARGS]...
 **Usage**:
 
 ```console
-$ ai-assistant litellm probe-chat-models [OPTIONS]
+$ ai-assistant litellm probe-chat-models [OPTIONS] COMMAND [ARGS]...
 ```
 
 **Options**:
 
-* `--base-url TEXT`: OpenAI-compatible LiteLLM 网关地址  [required]
-* `--api-key TEXT`: LiteLLM 网关 API key；不会写入报告  [required]
-* `--concurrency INTEGER`: 并发探测模型数  [default: 4]
-* `--timeout FLOAT`: 单次请求超时时间（秒）  [default: 30.0]
-* `--retries INTEGER`: 瞬态失败的重试次数  [default: 2]
-* `--wire-api TEXT`: 使用 auto、chat 或 responses  [default: auto]
-* `--reasoning-levels TEXT`: 逗号分隔的 reasoning levels
-* `--max-models INTEGER`: 最多探测多少个聊天模型
-* `--output-dir PATH`: 报告输出目录  [default: model-capability-report]
-* `--format TEXT`: 输出 json、md 或 both  [default: both]
+* `--base-url <str>`: OpenAI-compatible LiteLLM 网关地址  [required]
+* `--api-key <str>`: LiteLLM 网关 API key；不会写入报告  [required]
+* `--concurrency <int range>`: 并发探测模型数  [default: 4; x&gt;=1]
+* `--timeout <float range>`: 单次请求超时时间（秒）  [default: 30.0; x&gt;=0.1]
+* `--retries <int range>`: 瞬态失败的重试次数  [default: 2; x&gt;=0]
+* `--wire-api <str>`: 使用 auto、chat 或 responses  [default: auto]
+* `--reasoning-levels <str>`: 逗号分隔的 reasoning levels  [default: none,off,minimal,low,medium,high,xhigh,max,ultra]
+* `--max-models <int range>`: 最多探测多少个聊天模型  [x&gt;=0]
+* `--output-dir <path>`: 报告输出目录  [default: model-capability-report]
+* `--format <str>`: 输出 json、md 或 both  [default: both]
 * `--dry-run`: 只获取并分类模型，不发送能力探测请求
 * `--verbose`: 在 stderr 输出每个模型的探测摘要
 * `--no-progress`: 关闭 TTY 中的动态进度条
-* `--version`, `-v`, `-V`
+* `-v, -V, --version`
 * `--help`: Show this message and exit.
 
 ## `ai-assistant mcd`
@@ -1993,19 +2274,19 @@ $ ai-assistant mcd [OPTIONS] COMMAND [ARGS]...
 **Usage**:
 
 ```console
-$ ai-assistant mcd single [OPTIONS] QUERY
+$ ai-assistant mcd single [OPTIONS] {query}
 ```
 
 **Arguments**:
 
-* `QUERY`: 用户问题，例如：看一下我有多少张优惠券  [required]
+* `query`: 用户问题，例如：看一下我有多少张优惠券  [required]
 
 **Options**:
 
-* `--mcp-token TEXT`: MCD MCP 服务的 Authorization token  [env var: MCD_MCP_TOKEN; required]
-* `--base-url TEXT`: OpenAI API 基础 URL  [env var: OPENAI_BASE_URL]
-* `--api-key TEXT`: OpenAI API Key  [env var: OPENAI_API_KEY]
-* `--model TEXT`: 使用的模型名称  [env var: OPENAI_MODEL]
+* `--mcp-token <str>`: MCD MCP 服务的 Authorization token  [env var: MCD_MCP_TOKEN; required]
+* `--base-url <str>`: OpenAI API 基础 URL  [env var: OPENAI_BASE_URL]
+* `--api-key <str>`: OpenAI API Key  [env var: OPENAI_API_KEY]
+* `--model <str>`: 使用的模型名称  [env var: OPENAI_MODEL]
 * `--auto-approve / --no-auto-approve`: 是否自动批准工具调用  [default: auto-approve]
 * `--verbose / --no-verbose`: 是否打印详细信息  [default: verbose]
 * `--help`: Show this message and exit.
@@ -2022,10 +2303,10 @@ $ ai-assistant mcd quickstart [OPTIONS]
 
 **Options**:
 
-* `--mcp-token TEXT`: MCD MCP 服务的 Authorization token  [env var: MCD_MCP_TOKEN; required]
-* `--base-url TEXT`: OpenAI API 基础 URL  [env var: OPENAI_BASE_URL]
-* `--api-key TEXT`: OpenAI API Key  [env var: OPENAI_API_KEY]
-* `--model TEXT`: 使用的模型名称  [env var: OPENAI_MODEL]
+* `--mcp-token <str>`: MCD MCP 服务的 Authorization token  [env var: MCD_MCP_TOKEN; required]
+* `--base-url <str>`: OpenAI API 基础 URL  [env var: OPENAI_BASE_URL]
+* `--api-key <str>`: OpenAI API Key  [env var: OPENAI_API_KEY]
+* `--model <str>`: 使用的模型名称  [env var: OPENAI_MODEL]
 * `--auto-approve / --no-auto-approve`: 是否自动批准工具调用  [default: auto-approve]
 * `--verbose / --no-verbose`: 是否打印详细信息  [default: verbose]
 * `--help`: Show this message and exit.
@@ -2042,10 +2323,10 @@ $ ai-assistant mcd interactive [OPTIONS]
 
 **Options**:
 
-* `--mcp-token TEXT`: MCD MCP 服务的 Authorization token  [env var: MCD_MCP_TOKEN; required]
-* `--base-url TEXT`: OpenAI API 基础 URL  [env var: OPENAI_BASE_URL]
-* `--api-key TEXT`: OpenAI API Key  [env var: OPENAI_API_KEY]
-* `--model TEXT`: 使用的模型名称  [env var: OPENAI_MODEL]
+* `--mcp-token <str>`: MCD MCP 服务的 Authorization token  [env var: MCD_MCP_TOKEN; required]
+* `--base-url <str>`: OpenAI API 基础 URL  [env var: OPENAI_BASE_URL]
+* `--api-key <str>`: OpenAI API Key  [env var: OPENAI_API_KEY]
+* `--model <str>`: 使用的模型名称  [env var: OPENAI_MODEL]
 * `--auto-approve / --no-auto-approve`: 是否自动批准工具调用  [default: auto-approve]
 * `--help`: Show this message and exit.
 
@@ -2074,12 +2355,12 @@ $ ai-assistant mcp-cli [OPTIONS] COMMAND [ARGS]...
 **Usage**:
 
 ```console
-$ ai-assistant mcp-cli tools [OPTIONS] ENDPOINT
+$ ai-assistant mcp-cli tools [OPTIONS] {endpoint}
 ```
 
 **Arguments**:
 
-* `ENDPOINT`: MCP 服务端点  [required]
+* `endpoint`: MCP 服务端点  [required]
 
 **Options**:
 
@@ -2125,19 +2406,19 @@ $ ai-assistant opml [OPTIONS] COMMAND [ARGS]...
 **Usage**:
 
 ```console
-$ ai-assistant opml fetch [OPTIONS] OPML_PATH
+$ ai-assistant opml fetch [OPTIONS] {opml_path}
 ```
 
 **Arguments**:
 
-* `OPML_PATH`: OPML 文件路径  [required]
+* `opml_path`: OPML 文件路径  [required]
 
 **Options**:
 
-* `-m, --max-concurrent INTEGER`: 最大并发数  [default: 5]
+* `-m, --max-concurrent <int>`: 最大并发数  [default: 5]
 * `--loop / --no-loop`: 是否循环抓取  [default: no-loop]
-* `--log-level TEXT`: 日志级别 (DEBUG, INFO, WARNING, ERROR)  [default: INFO]
-* `--rate-limit-minutes INTEGER RANGE`: 遇到 429 后跳过该 URL 的分钟数，也可通过环境变量 OPML_429_SKIP_MINUTES 设置  [env var: OPML_429_SKIP_MINUTES; default: 5; x&gt;=1]
+* `--log-level <str>`: 日志级别 (DEBUG, INFO, WARNING, ERROR)  [default: INFO]
+* `--rate-limit-minutes <int range>`: 遇到 429 后跳过该 URL 的分钟数，也可通过环境变量 OPML_429_SKIP_MINUTES 设置  [env var: OPML_429_SKIP_MINUTES; default: 5; x&gt;=1]
 * `--help`: Show this message and exit.
 
 ## `ai-assistant plugins`
@@ -2187,17 +2468,17 @@ Print manual hook configuration for a plugin.
 **Usage**:
 
 ```console
-$ ai-assistant plugins config-snippet [OPTIONS] PLUGIN
+$ ai-assistant plugins config-snippet [OPTIONS] {plugin}
 ```
 
 **Arguments**:
 
-* `PLUGIN`: Plugin name, e.g. agent-bark-notify  [required]
+* `plugin`: Plugin name, e.g. agent-bark-notify  [required]
 
 **Options**:
 
-* `--target [codex|claude|openclaw]`: Target agent: codex, claude, or openclaw.  [required]
-* `--scope [global|project]`: Config scope: global or project.  [default: global]
+* `--target <codex|claude|openclaw>`: Target agent: codex, claude, or openclaw.  [required]
+* `--scope <global|project>`: Config scope: global or project.  [default: global]
 * `--help`: Show this message and exit.
 
 ### `ai-assistant plugins install-guide`
@@ -2207,17 +2488,17 @@ Print instructions for agent-assisted plugin installation.
 **Usage**:
 
 ```console
-$ ai-assistant plugins install-guide [OPTIONS] PLUGIN
+$ ai-assistant plugins install-guide [OPTIONS] {plugin}
 ```
 
 **Arguments**:
 
-* `PLUGIN`: Plugin name, e.g. agent-bark-notify  [required]
+* `plugin`: Plugin name, e.g. agent-bark-notify  [required]
 
 **Options**:
 
-* `--target [codex|claude|openclaw]`: Target agent: codex, claude, or openclaw.  [required]
-* `--scope [global|project]`: Plugin install scope: global or project.  [default: global]
+* `--target <codex|claude|openclaw>`: Target agent: codex, claude, or openclaw.  [required]
+* `--scope <global|project>`: Plugin install scope: global or project.  [default: global]
 * `--help`: Show this message and exit.
 
 ## `ai-assistant pypi-mirror`
@@ -2284,20 +2565,20 @@ $ ai-assistant reality build [OPTIONS]
 
 **Options**:
 
-* `--port INTEGER`: 监听端口, 缺省为 443
-* `--sni TEXT`: 伪装目标域名 (SNI), 缺省为 www.amazon.com
+* `--port <int>`: 监听端口, 缺省为 443
+* `--sni <str>`: 伪装目标域名 (SNI), 缺省为 www.amazon.com
 * `--sniff / --no-sniff`: 是否启用 sniffing, 缺省关闭
-* `--short-ids TEXT`: REALITY shortIds, 缺省为 88
-* `--uuid TEXT`: VLESS 客户端 UUID, 缺省自动生成
-* `--public-key TEXT`: REALITY 公钥, 必须与 --private-key 一同提供
-* `--private-key TEXT`: REALITY 私钥, 必须与 --public-key 一同提供
-* `--address TEXT`: 服务器公网 IP, 缺省时通过 cloudflare/cdn-cgi/trace 自动探测
-* `--loglevel TEXT`: xray 日志级别  [default: warning]
-* `--access-log TEXT`: xray access 日志路径, 留空则不写入  [default: /var/log/xray/access.log]
-* `--error-log TEXT`: xray error 日志路径, 留空则不写入  [default: /var/log/xray/error.log]
+* `--short-ids <str>`: REALITY shortIds, 缺省为 88
+* `--uuid <str>`: VLESS 客户端 UUID, 缺省自动生成
+* `--public-key <str>`: REALITY 公钥, 必须与 --private-key 一同提供
+* `--private-key <str>`: REALITY 私钥, 必须与 --public-key 一同提供
+* `--address <str>`: 服务器公网 IP, 缺省时通过 cloudflare/cdn-cgi/trace 自动探测
+* `--loglevel <str>`: xray 日志级别  [default: warning]
+* `--access-log <str>`: xray access 日志路径, 留空则不写入  [default: /var/log/xray/access.log]
+* `--error-log <str>`: xray error 日志路径, 留空则不写入  [default: /var/log/xray/error.log]
 * `--limit-fallback / --no-limit-fallback`: 是否启用回落限速, 启用后参数随机生成  [default: no-limit-fallback]
-* `--config-path PATH`: 服务端配置写入路径  [default: /usr/local/etc/xray/config.json]
-* `--client-info-path PATH`: 客户端信息写入路径  [default: /usr/local/etc/xray/reclient.json]
+* `--config-path <path>`: 服务端配置写入路径  [default: /usr/local/etc/xray/config.json]
+* `--client-info-path <path>`: 客户端信息写入路径  [default: /usr/local/etc/xray/reclient.json]
 * `--skip-install`: 跳过 xray 自动安装步骤
 * `-y, --yes`: 跳过 xray 安装的二次确认 (curl-bash)
 * `--skip-enable`: 跳过 systemctl enable / restart 步骤
@@ -2338,15 +2619,15 @@ $ ai-assistant realm generate [OPTIONS]
 
 **Options**:
 
-* `--log-level TEXT`: 日志级别, off/error/warn/info/debug/trace  [default: off]
-* `--log-output TEXT`: 日志输出路径  [default: /var/log/realm.log]
+* `--log-level <str>`: 日志级别, off/error/warn/info/debug/trace  [default: off]
+* `--log-output <str>`: 日志输出路径  [default: /var/log/realm.log]
 * `--no-tcp / --no-no-tcp`: 禁用 TCP 转发  [default: no-no-tcp]
 * `--use-udp / --no-use-udp`: 启用 UDP 转发  [default: use-udp]
-* `--listen-host TEXT`: 本地监听主机地址  [default: [::0]]
-* `--listen-port TEXT`: 本地监听端口, 支持单端口或范围, 如 443,8110-8113  [default: 443]
-* `--remote-host TEXT`: 远程主机地址  [default: 127.0.0.1]
-* `--remote-port TEXT`: 远程主机端口  [default: 443]
-* `--output TEXT`: 配置输出路径, 默认 - 输出到 stdout  [default: -]
+* `--listen-host <str>`: 本地监听主机地址  [default: [::0]]
+* `--listen-port <str>`: 本地监听端口, 支持单端口或范围, 如 443,8110-8113  [default: 443]
+* `--remote-host <str>`: 远程主机地址  [default: 127.0.0.1]
+* `--remote-port <str>`: 远程主机端口  [default: 443]
+* `--output <str>`: 配置输出路径, 默认 - 输出到 stdout  [default: -]
 * `--help`: Show this message and exit.
 
 ### `ai-assistant realm show`
@@ -2356,12 +2637,12 @@ $ ai-assistant realm generate [OPTIONS]
 **Usage**:
 
 ```console
-$ ai-assistant realm show [OPTIONS] [PATH]
+$ ai-assistant realm show [OPTIONS] [path]
 ```
 
 **Arguments**:
 
-* `[PATH]`: 配置路径, 留空时按 ./config.toml -&gt; /etc/realm/config.toml 顺序查找
+* `path`: 配置路径, 留空时按 ./config.toml -&gt; /etc/realm/config.toml 顺序查找
 
 **Options**:
 
@@ -2374,12 +2655,12 @@ $ ai-assistant realm show [OPTIONS] [PATH]
 **Usage**:
 
 ```console
-$ ai-assistant realm validate [OPTIONS] [PATH]
+$ ai-assistant realm validate [OPTIONS] [path]
 ```
 
 **Arguments**:
 
-* `[PATH]`: 配置路径, 留空时按 ./config.toml -&gt; /etc/realm/config.toml 顺序查找
+* `path`: 配置路径, 留空时按 ./config.toml -&gt; /etc/realm/config.toml 顺序查找
 
 **Options**:
 
@@ -2397,9 +2678,9 @@ $ ai-assistant realm install [OPTIONS]
 
 **Options**:
 
-* `--version TEXT`: realm 版本标签, latest 自动解析 GitHub 最新; 显式形如 v2.9.3  [default: latest]
-* `--arch TEXT`: CPU 架构, 可选 [&#x27;aarch64&#x27;, &#x27;x86_64&#x27;]  [default: x86_64]
-* `--prefix PATH`: 二进制安装目录  [default: /usr/local/bin]
+* `--version <str>`: realm 版本标签, latest 自动解析 GitHub 最新; 显式形如 v2.9.3  [default: latest]
+* `--arch <str>`: CPU 架构, 可选 [&#x27;aarch64&#x27;, &#x27;x86_64&#x27;]  [default: x86_64]
+* `--prefix <path>`: 二进制安装目录  [default: /usr/local/bin]
 * `--force / --no-force`: 目标已存在时覆盖  [default: no-force]
 * `--dry-run / --no-dry-run`: 只打印将执行的步骤, 不下载也不写盘  [default: no-dry-run]
 * `--help`: Show this message and exit.
@@ -2425,9 +2706,9 @@ $ ai-assistant realm install-service [OPTIONS]
 
 **Options**:
 
-* `--config PATH`: ExecStart -c 指向的配置文件路径  [default: /etc/realm/config.toml]
-* `--binary PATH`: ExecStart 使用的 realm 二进制路径  [default: /usr/local/bin/realm]
-* `--unit-path PATH`: systemd unit 文件写入路径  [default: /etc/systemd/system/realm.service]
+* `--config <path>`: ExecStart -c 指向的配置文件路径  [default: /etc/realm/config.toml]
+* `--binary <path>`: ExecStart 使用的 realm 二进制路径  [default: /usr/local/bin/realm]
+* `--unit-path <path>`: systemd unit 文件写入路径  [default: /etc/systemd/system/realm.service]
 * `--force / --no-force`: 已存在时覆盖, 避免误盖手改过的 unit  [default: no-force]
 * `--dry-run / --no-dry-run`: 只打印将写入的内容, 不写盘  [default: no-dry-run]
 * `--help`: Show this message and exit.
@@ -2452,7 +2733,7 @@ $ ai-assistant realm uninstall-service [OPTIONS]
 
 **Options**:
 
-* `--unit-path PATH`: 待删除的 systemd unit 文件路径  [default: /etc/systemd/system/realm.service]
+* `--unit-path <path>`: 待删除的 systemd unit 文件路径  [default: /etc/systemd/system/realm.service]
 * `--dry-run / --no-dry-run`: 只打印将删除的文件, 不实际删除  [default: no-dry-run]
 * `--help`: Show this message and exit.
 
@@ -2492,7 +2773,7 @@ $ ai-assistant requests-disable-verify install [OPTIONS]
 
 **Options**:
 
-* `-t, --target DIRECTORY`: 自定义 .pth 写入目录，默认使用 site.getsitepackages()[0]
+* `-t, --target <directory>`: 自定义 .pth 写入目录，默认使用 site.getsitepackages()[0]
 * `-y, --yes`: 跳过确认提示直接写入
 * `--help`: Show this message and exit.
 
@@ -2513,7 +2794,7 @@ $ ai-assistant requests-disable-verify uninstall [OPTIONS]
 
 **Options**:
 
-* `-t, --target DIRECTORY`: 自定义 .pth 所在目录，默认使用 site.getsitepackages()[0]
+* `-t, --target <directory>`: 自定义 .pth 所在目录，默认使用 site.getsitepackages()[0]
 * `-q, --quiet`: 文件不存在时静默退出 0
 * `--help`: Show this message and exit.
 
@@ -2533,7 +2814,7 @@ $ ai-assistant requests-disable-verify status [OPTIONS]
 
 **Options**:
 
-* `-t, --target DIRECTORY`: 自定义 .pth 所在目录，默认使用 site.getsitepackages()[0]
+* `-t, --target <directory>`: 自定义 .pth 所在目录，默认使用 site.getsitepackages()[0]
 * `--help`: Show this message and exit.
 
 ## `ai-assistant route`
@@ -2577,7 +2858,7 @@ $ ai-assistant route list [OPTIONS]
 **Options**:
 
 * `--all-system`: 显示系统原始路由表。注意: 这不是 managed route 列表, 不能据此判断哪些是自定义路由。
-* `--state-file PATH`: managed route JSON 状态文件路径; 默认使用 AI_ASSISTANT_ROUTE_STATE 或用户 state 目录。
+* `--state-file <path>`: managed route JSON 状态文件路径; 默认使用 AI_ASSISTANT_ROUTE_STATE 或用户 state 目录。
 * `--help`: Show this message and exit.
 
 ### `ai-assistant route add`
@@ -2602,13 +2883,13 @@ $ ai-assistant route add [OPTIONS]
 
 **Options**:
 
-* `--dest TEXT`: 目标网段 CIDR, 如 10.0.0.0/8 或 2001:db8::/32。必须包含前缀长度。  [required]
-* `--gateway TEXT`: 下一跳网关 IP, 必须和 --dest 使用同一地址族。  [required]
-* `-i, --interface TEXT`: 可选出口网卡名/接口别名, 如 macOS en0、Linux eth0、Windows Ethernet。
-* `--metric INTEGER`: 可选路由 metric/优先级。不同平台语义略有差异。
+* `--dest <str>`: 目标网段 CIDR, 如 10.0.0.0/8 或 2001:db8::/32。必须包含前缀长度。  [required]
+* `--gateway <str>`: 下一跳网关 IP, 必须和 --dest 使用同一地址族。  [required]
+* `-i, --interface <str>`: 可选出口网卡名/接口别名, 如 macOS en0、Linux eth0、Windows Ethernet。
+* `--metric <int>`: 可选路由 metric/优先级。不同平台语义略有差异。
 * `--macos-global`: [仅 macOS] 通过 PF_ROUTE socket 以非 scoped 形式添加全局路由 (请求 RTF_GLOBAL, 内核可能忽略该标志), 避免路由被 -ifscope 后在全局查找中失效。用于 VPN (如 Tailscale accept-routes) 子网路由遮蔽物理网卡路由的场景。仅 IPv4, 不可与 --interface 同用, 需要 sudo。
 * `--dry-run`: 只打印将执行的平台命令, 不修改系统路由表, 也不写状态文件。
-* `--state-file PATH`: managed route JSON 状态文件路径。
+* `--state-file <path>`: managed route JSON 状态文件路径。
 * `--help`: Show this message and exit.
 
 ### `ai-assistant route delete`
@@ -2629,22 +2910,22 @@ MDM 或其他工具添加的系统路由。确实要删除 unmanaged route 时�
 **Usage**:
 
 ```console
-$ ai-assistant route delete [OPTIONS] [ROUTE_ID]
+$ ai-assistant route delete [OPTIONS] [route_id]
 ```
 
 **Arguments**:
 
-* `[ROUTE_ID]`: managed route ID, 可从 `ai-assistant route list` 获取。
+* `route_id`: managed route ID, 可从 `ai-assistant route list` 获取。
 
 **Options**:
 
-* `--dest TEXT`: 按目标网段删除 managed route; 多条匹配时请改用 route ID 或显式加 --all-matching。
-* `--gateway TEXT`: 和 --dest 一起精确匹配下一跳网关。
+* `--dest <str>`: 按目标网段删除 managed route; 多条匹配时请改用 route ID 或显式加 --all-matching。
+* `--gateway <str>`: 和 --dest 一起精确匹配下一跳网关。
 * `--all-matching`: 当 --dest/--gateway 匹配多条 managed routes 时, 显式删除全部匹配项。
 * `--unmanaged`: 允许删除未记录在状态文件中的系统路由。危险选项, 必须同时提供 --dest 和 --gateway。
 * `--force-state`: 只清理状态文件中的 managed route, 不执行系统 delete。用于系统路由已手动删除的 stale 记录。
 * `--dry-run`: 只打印将执行的平台命令, 不修改系统路由表或状态文件。
-* `--state-file PATH`: managed route JSON 状态文件路径。
+* `--state-file <path>`: managed route JSON 状态文件路径。
 * `--help`: Show this message and exit.
 
 ### `ai-assistant route query`
@@ -2663,16 +2944,16 @@ match。Linux 使用 `ip route get`, macOS 使用 `route -n get`, Windows 使用
 **Usage**:
 
 ```console
-$ ai-assistant route query [OPTIONS] IP
+$ ai-assistant route query [OPTIONS] {ip}
 ```
 
 **Arguments**:
 
-* `IP`: 要查询的目标 IP, 如 8.8.8.8 或 2001:4860:4860::8888。  [required]
+* `ip`: 要查询的目标 IP, 如 8.8.8.8 或 2001:4860:4860::8888。  [required]
 
 **Options**:
 
-* `--state-file PATH`: managed route JSON 状态文件路径; 用于提示该 IP 是否落入某条 managed route 的目标网段。
+* `--state-file <path>`: managed route JSON 状态文件路径; 用于提示该 IP 是否落入某条 managed route 的目标网段。
 * `--help`: Show this message and exit.
 
 ## `ai-assistant shell-env-to-win`
@@ -2730,19 +3011,19 @@ $ ai-assistant similar-questions [OPTIONS] COMMAND [ARGS]...
 **Usage**:
 
 ```console
-$ ai-assistant similar-questions generate [OPTIONS] QUERY
+$ ai-assistant similar-questions generate [OPTIONS] {query}
 ```
 
 **Arguments**:
 
-* `QUERY`: 用户输入问题  [required]
+* `query`: 用户输入问题  [required]
 
 **Options**:
 
-* `--topn INTEGER`: 生成的相似问条数  [default: 5]
-* `--base-url TEXT`
-* `--api-key TEXT`
-* `--model TEXT`
+* `--topn <int>`: 生成的相似问条数  [default: 5]
+* `--base-url <str>`
+* `--api-key <str>`
+* `--model <str>`
 * `--help`: Show this message and exit.
 
 ## `ai-assistant ssl`
@@ -2776,12 +3057,12 @@ Usage examples::
 **Usage**:
 
 ```console
-$ ai-assistant ssl info [OPTIONS] CERT_PATH
+$ ai-assistant ssl info [OPTIONS] {cert_path}
 ```
 
 **Arguments**:
 
-* `CERT_PATH`: 证书文件路径  [required]
+* `cert_path`: 证书文件路径  [required]
 
 **Options**:
 
@@ -2807,7 +3088,7 @@ $ ai-assistant ssl generate [OPTIONS]
 
 **Options**:
 
-* `-o, --output-dir DIRECTORY`: 证书输出目录，默认使用当前目录下的 ssl 子目录
+* `-o, --output-dir <directory>`: 证书输出目录，默认使用当前目录下的 ssl 子目录
 * `--help`: Show this message and exit.
 
 ### `ai-assistant ssl trust`
@@ -2825,16 +3106,16 @@ Usage examples::
 **Usage**:
 
 ```console
-$ ai-assistant ssl trust [OPTIONS] CERT_PATH
+$ ai-assistant ssl trust [OPTIONS] {cert_path}
 ```
 
 **Arguments**:
 
-* `CERT_PATH`: 需要加入系统信任存储的证书文件路径  [required]
+* `cert_path`: 需要加入系统信任存储的证书文件路径  [required]
 
 **Options**:
 
-* `--scope TEXT`: 证书信任范围：system 表示系统级，user 表示当前用户（Linux 仅支持 system）  [default: system]
+* `--scope <str>`: 证书信任范围：system 表示系统级，user 表示当前用户（Linux 仅支持 system）  [default: system]
 * `--help`: Show this message and exit.
 
 ### `ai-assistant ssl merge`
@@ -2871,19 +3152,19 @@ Usage examples::
 **Usage**:
 
 ```console
-$ ai-assistant ssl merge [OPTIONS] FILES...
+$ ai-assistant ssl merge [OPTIONS] {files}...
 ```
 
 **Arguments**:
 
-* `FILES...`: 证书文件路径，可传多个；使用 `-` 表示从标准输入读取  [required]
+* `files...`: 证书文件路径，可传多个；使用 `-` 表示从标准输入读取  [required]
 
 **Options**:
 
-* `-o, --output FILE`: 输出文件路径，未指定则写入标准输出
+* `-o, --output <file>`: 输出文件路径，未指定则写入标准输出
 * `--dedup / --no-dedup`: 按 SHA-256 指纹去重，默认开启  [default: dedup]
 * `--headers / --no-headers`: 在每个证书前输出 Subject/Issuer 注释  [default: headers]
-* `--password TEXT`: PKCS#12 文件密码，留空表示无密码
+* `--password <str>`: PKCS#12 文件密码，留空表示无密码
 * `--help`: Show this message and exit.
 
 ## `ai-assistant stash-log`
@@ -2914,16 +3195,16 @@ $ ai-assistant stash-log [OPTIONS] COMMAND [ARGS]...
 **Usage**:
 
 ```console
-$ ai-assistant stash-log download [OPTIONS] FILE
+$ ai-assistant stash-log download [OPTIONS] {file}
 ```
 
 **Arguments**:
 
-* `FILE`: 日志文件路径  [required]
+* `file`: 日志文件路径  [required]
 
 **Options**:
 
-* `-o, --output-dir TEXT`: 下载输出目录前缀  [default: Assets]
+* `-o, --output-dir <str>`: 下载输出目录前缀  [default: Assets]
 * `--help`: Show this message and exit.
 
 ### `ai-assistant stash-log urls`
@@ -2938,16 +3219,16 @@ $ ai-assistant stash-log download [OPTIONS] FILE
 **Usage**:
 
 ```console
-$ ai-assistant stash-log urls [OPTIONS] FILE
+$ ai-assistant stash-log urls [OPTIONS] {file}
 ```
 
 **Arguments**:
 
-* `FILE`: 日志文件路径  [required]
+* `file`: 日志文件路径  [required]
 
 **Options**:
 
-* `--dest PATH`: 结果输出路径, 默认标准输出  [default: -]
+* `--dest <path>`: 结果输出路径, 默认标准输出  [default: -]
 * `--uniq`: 去重  [default: True]
 * `--sort`: 排序  [default: True]
 * `--help`: Show this message and exit.
@@ -2983,26 +3264,26 @@ state 目录, 也可以通过 --session 指定已有 session 文件, 或用
 **Usage**:
 
 ```console
-$ ai-assistant tg-bot-click [OPTIONS] [BOT]
+$ ai-assistant tg-bot-click [OPTIONS] [bot]
 ```
 
 **Arguments**:
 
-* `[BOT]`: 目标 Telegram bot 用户名, 可带或不带 @。导入/导出 session 时可省略。
+* `bot`: 目标 Telegram bot 用户名, 可带或不带 @。导入/导出 session 时可省略。
 
 **Options**:
 
 * `-v, -V, --version`
-* `--trigger TEXT`: 发送给 bot 的触发语, 默认 /start。  [default: /start]
-* `--match TEXT`: 待匹配的回复文本; 命中条件为回复正文包含该文本。
-* `--timeout FLOAT RANGE`: 等待匹配回复的总超时时间, 秒。  [default: 30.0; x&gt;=0.1]
-* `--button-text TEXT`: 可选按钮文本。未指定时点击命中消息中的第一个按钮。
-* `--api-id INTEGER`: Telegram API ID, 也可通过 TG_API_ID 提供。  [env var: TG_API_ID]
-* `--api-hash TEXT`: Telegram API hash, 也可通过 TG_API_HASH 提供。  [env var: TG_API_HASH]
-* `--phone TEXT`: Telegram 账号手机号, 也可通过 TG_PHONE 提供。  [env var: TG_PHONE]
-* `--session PATH`: Telegram session 文件路径; 默认使用用户 state 目录。  [env var: TG_SESSION]
-* `--export-session PATH`: 把当前 --session 或默认 session 文件复制到指定路径, 用于备份/迁移。
-* `--import-session PATH`: 把已有 session 文件复制到当前 --session 或默认 session 位置。
+* `--trigger <str>`: 发送给 bot 的触发语, 默认 /start。  [default: /start]
+* `--match <str>`: 待匹配的回复文本; 命中条件为回复正文包含该文本。
+* `--timeout <float range>`: 等待匹配回复的总超时时间, 秒。  [default: 30.0; x&gt;=0.1]
+* `--button-text <str>`: 可选按钮文本。未指定时点击命中消息中的第一个按钮。
+* `--api-id <int>`: Telegram API ID, 也可通过 TG_API_ID 提供。  [env var: TG_API_ID]
+* `--api-hash <str>`: Telegram API hash, 也可通过 TG_API_HASH 提供。  [env var: TG_API_HASH]
+* `--phone <str>`: Telegram 账号手机号, 也可通过 TG_PHONE 提供。  [env var: TG_PHONE]
+* `--session <path>`: Telegram session 文件路径; 默认使用用户 state 目录。  [env var: TG_SESSION]
+* `--export-session <path>`: 把当前 --session 或默认 session 文件复制到指定路径, 用于备份/迁移。
+* `--import-session <path>`: 把已有 session 文件复制到当前 --session 或默认 session 位置。
 * `-f, --force`: 导入/导出 session 时允许覆盖目标文件。
 * `--install-completion`: Install completion for the current shell.
 * `--show-completion`: Show completion for the current shell, to copy it or customize the installation.
@@ -3035,18 +3316,18 @@ $ ai-assistant udp [OPTIONS] COMMAND [ARGS]...
 **Usage**:
 
 ```console
-$ ai-assistant udp client [OPTIONS] [MESSAGE]
+$ ai-assistant udp client [OPTIONS] [message]
 ```
 
 **Arguments**:
 
-* `[MESSAGE]`: 发送的消息  [default: hello world]
+* `message`: 发送的消息  [default: hello world]
 
 **Options**:
 
-* `-h, --host TEXT`: 服务端地址  [default: 127.0.0.1]
-* `-p, --port INTEGER`: 服务端端口  [default: 8000]
-* `-t, --timeout FLOAT`: 接收超时, 秒  [default: 60]
+* `-h, --host <str>`: 服务端地址  [default: 127.0.0.1]
+* `-p, --port <int>`: 服务端端口  [default: 8000]
+* `-t, --timeout <float>`: 接收超时, 秒  [default: 60]
 * `--help`: Show this message and exit.
 
 ### `ai-assistant udp echo-server`
@@ -3064,8 +3345,8 @@ $ ai-assistant udp echo-server [OPTIONS]
 
 **Options**:
 
-* `-h, --host TEXT`: 监听地址  [default: 0.0.0.0]
-* `-p, --port INTEGER`: 监听端口  [default: 8000]
+* `-h, --host <str>`: 监听地址  [default: 0.0.0.0]
+* `-p, --port <int>`: 监听端口  [default: 8000]
 * `--help`: Show this message and exit.
 
 ## `ai-assistant uv-tool`
@@ -3097,7 +3378,7 @@ $ ai-assistant uv-tool upgrade-all [OPTIONS]
 **Options**:
 
 * `--dry-run`: 只列出会被升级的工具, 不执行
-* `--prerelease TEXT`: 透传 uv tool upgrade --prerelease 的取值, 例如 allow / if-necessary / explicit
+* `--prerelease <str>`: 透传 uv tool upgrade --prerelease 的取值, 例如 allow / if-necessary / explicit
 * `--reinstall`: 透传 uv tool upgrade --reinstall, 强制重装
 * `--help`: Show this message and exit.
 
@@ -3133,7 +3414,7 @@ $ ai-assistant win-env list [OPTIONS]
 
 **Options**:
 
-* `-s, --scope [user|system|process|all]`: user / system / process / all  [default: user]
+* `-s, --scope <user|system|process|all>`: user / system / process / all  [default: user]
 * `--json`: JSON 输出
 * `--help`: Show this message and exit.
 
@@ -3144,16 +3425,16 @@ $ ai-assistant win-env list [OPTIONS]
 **Usage**:
 
 ```console
-$ ai-assistant win-env get [OPTIONS] NAME
+$ ai-assistant win-env get [OPTIONS] {name}
 ```
 
 **Arguments**:
 
-* `NAME`: 变量名  [required]
+* `name`: 变量名  [required]
 
 **Options**:
 
-* `-s, --scope [user|system|process|all]`: [default: all]
+* `-s, --scope <user|system|process|all>`: [default: all]
 * `--json`
 * `--help`: Show this message and exit.
 
@@ -3164,18 +3445,18 @@ $ ai-assistant win-env get [OPTIONS] NAME
 **Usage**:
 
 ```console
-$ ai-assistant win-env set [OPTIONS] NAME VALUE
+$ ai-assistant win-env set [OPTIONS] {name} {value}
 ```
 
 **Arguments**:
 
-* `NAME`: 变量名  [required]
-* `VALUE`: 变量值  [required]
+* `name`: 变量名  [required]
+* `value`: 变量值  [required]
 
 **Options**:
 
-* `-s, --scope [user|system]`: [default: user]
-* `--type [sz|expand]`: sz | expand; 不传时沿用现值或自动推断
+* `-s, --scope <user|system>`: [default: user]
+* `--type <sz|expand>`: sz | expand; 不传时沿用现值或自动推断
 * `--dry-run`
 * `--help`: Show this message and exit.
 
@@ -3186,16 +3467,16 @@ $ ai-assistant win-env set [OPTIONS] NAME VALUE
 **Usage**:
 
 ```console
-$ ai-assistant win-env unset [OPTIONS] NAME
+$ ai-assistant win-env unset [OPTIONS] {name}
 ```
 
 **Arguments**:
 
-* `NAME`: 变量名  [required]
+* `name`: 变量名  [required]
 
 **Options**:
 
-* `-s, --scope [user|system]`: [default: user]
+* `-s, --scope <user|system>`: [default: user]
 * `--dry-run`
 * `--help`: Show this message and exit.
 
@@ -3231,7 +3512,7 @@ $ ai-assistant win-env path show [OPTIONS]
 
 **Options**:
 
-* `-s, --scope [user|system|effective]`: [default: effective]
+* `-s, --scope <user|system|effective>`: [default: effective]
 * `--help`: Show this message and exit.
 
 #### `ai-assistant win-env path add`
@@ -3241,18 +3522,18 @@ $ ai-assistant win-env path show [OPTIONS]
 **Usage**:
 
 ```console
-$ ai-assistant win-env path add [OPTIONS] ENTRY
+$ ai-assistant win-env path add [OPTIONS] {entry}
 ```
 
 **Arguments**:
 
-* `ENTRY`: 要加入的目录  [required]
+* `entry`: 要加入的目录  [required]
 
 **Options**:
 
-* `-s, --scope [user|system]`: [default: user]
+* `-s, --scope <user|system>`: [default: user]
 * `--prepend`: 加到最前; 默认追加到末尾
-* `--backup-dir PATH`: 备份目录, 默认 %LOCALAPPDATA%/ai-assistant/win-env-backup
+* `--backup-dir <path>`: 备份目录, 默认 %LOCALAPPDATA%/ai-assistant/win-env-backup
 * `--dry-run`
 * `--help`: Show this message and exit.
 
@@ -3263,16 +3544,16 @@ $ ai-assistant win-env path add [OPTIONS] ENTRY
 **Usage**:
 
 ```console
-$ ai-assistant win-env path remove [OPTIONS] ENTRY
+$ ai-assistant win-env path remove [OPTIONS] {entry}
 ```
 
 **Arguments**:
 
-* `ENTRY`: 要移除的目录  [required]
+* `entry`: 要移除的目录  [required]
 
 **Options**:
 
-* `-s, --scope [user|system]`: [default: user]
-* `--backup-dir PATH`
+* `-s, --scope <user|system>`: [default: user]
+* `--backup-dir <path>`
 * `--dry-run`
 * `--help`: Show this message and exit.

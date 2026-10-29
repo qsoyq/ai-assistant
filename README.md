@@ -34,7 +34,33 @@ uvx 'ai-assistant[mcd]' ai-assistant mcd quickstart
 | `cursor` | `cursor-usage` | `matplotlib` + `pandas` |
 | `telegram` | `tg-bot-click` | `telethon` |
 | `shell-env` | `shell-env-to-win`（Windows） | `bashkit==0.18.2` |
+| `cindy` | `cindy` 的 zstd 压缩与交互选择增强 | `zstandard` + `questionary`（无此 extra 时可用不压缩归档与编号选择） |
 | `all` | 全部 | 上述并集 |
+
+## Cindy 数据与客户端管理
+
+`ai-assistant cindy --help` 使用中文说明；枚举参数的帮助显式列出可选值、含义和默认规则。现有 `cshare-to-markdown` 保持兼容。
+
+```bash
+# 冷备份：操作期间所有地区的 Cindy 都必须完全退出
+ai-assistant cindy data backup --region cn --label before-test
+# reset 已默认生成并校验 pre-reset 备份
+ai-assistant cindy data reset --region cn
+ai-assistant cindy data restore --region cn
+ai-assistant cindy recover
+
+# 在 POSIX 主机上只下载 Windows 国际版安装器，不执行安装
+ai-assistant cindy install --region global --channel beta --platform win32 --arch x64 --mode installer --download-only
+
+# macOS：两区程序放在不同目录，userData 仍由客户端按区域选择
+ai-assistant cindy install --region cn --dest "$HOME/Applications/Cindy-CN/Cindy.app"
+ai-assistant cindy install --region global --dest "$HOME/Applications/Cindy-Global/Cindy.app"
+ai-assistant cindy installs --json
+```
+
+私有状态默认为 `${XDG_STATE_HOME:-~/.local/state}/ai-assistant/cindy`，可用绝对路径 `AI_ASSISTANT_CINDY_HOME` 覆盖。`--backup-dir` 只选择备份目录；迁移恢复目标须同时使用 `--target` 和 `--allow-relocate`。不允许跨地区、平台、原生架构或 Profile 类型恢复。归档包含内嵌文件摘要，丢失索引后仍可完整校验；`data clear` 只能通过真实终端输入确认词删除备份，不提供 `--yes`。
+
+当前已实现 POSIX 数据事务、查询/校验下载和 macOS 安装适配器。Windows 写入（含 DACL/互斥与下载缓存）、Windows 原生安装/卸载，以及 Linux 原生安装和桌面集成尚未通过实机门禁，明确拒绝执行；在 POSIX 主机可下载两者安装包。没有跳过门禁的环境变量。完整边界与验证方法见 [Cindy CLI 设计](docs/design/cindy-cli.md)。
 
 ## Shell 环境变量导入 Windows
 
@@ -77,6 +103,16 @@ export PROMPT
 写入后同步更新命令自身的 Python 进程环境并广播一次刷新通知。已打开的终端和应用需重新启动才能使用新值。
 
 ## ⚠️ 安全提示
+
+### `cindy data` / `cindy install`
+
+备份是选定 userData 目录的内容快照，不是整机备份。可能包含全部对话、日志、插件和明文/密文秘密；不解密凭证、不读取系统钥匙串，不保证同机恢复仍保持登录。外部项目、Agent home、Git worktree 恢复对象和链接目标不包含在快照中。备份与敏感临时目录禁止放入 Git 工作区（包括忽略目录），建议避免自动同步网盘。
+
+restore/reset 会覆盖 Profile，默认先生成且完整校验自动备份；跳过备份后可能无法撤销。恢复只接受可信归档：内嵌摘要检测损坏，但不证明来源可信。默认保留当前 cn 的顶层 shared-*；显式恢复归档 shared 可能影响 global/dev。所有地区客户端必须在整个数据操作期间保持停止；CLI 的互斥锁不能阻止客户端重新启动。发生中断或冲突时保留 journal，通过 `cindy recover` 检查，不能手动删日志假装完成。
+
+安装命令会访问对应地区的 Cindy CDN 与 GitHub，可下载并在明确确认后安装官方程序；macOS 始终检查签名、地区身份和版本。Windows 历史热更 ZIP 必须有该 ZIP 的可信摘要，不能用安装器摘要代替。只有 macOS 本机安装可显式选择无摘要的完整签名校验；下载或签名失败不会自动降低安全要求。
+
+**按目录分开安装只能避免程序文件互相覆盖，不保证双地区完全无冲突。** 两区共用深链协议、部分共享目录和钥匙串身份；客户端启动时可能自行注册协议，Windows 官方安装器还有同名快捷方式、菜单和进程干扰。macOS/Windows 的自动更新没有被关闭，旧版启动后可能自动升级。CLI 不启动客户端、不改签名、不改 ASAR，也不会修改更新链路来掩盖这些限制。
 
 ### `shell-env-to-win`
 

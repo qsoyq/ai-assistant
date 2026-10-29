@@ -33,6 +33,27 @@ jobs:
       - name: Run tox
         run: uv run tox -e ${{ matrix.python-version }}
 
+  cindy-platform:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+        python-version: ["3.10", "3.14"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - name: Set up Python
+        run: uv python install ${{ matrix.python-version }}
+      - name: Install Cindy test dependencies
+        run: uv sync --python ${{ matrix.python-version }} --extra cindy --group dev
+      - name: Test without real profiles or installers
+        run: uv run pytest -q tests/cindy_test.py tests/cindy_archive_test.py tests/cindy_transaction_test.py tests/cindy_download_test.py tests/cindy_cli_test.py tests/cindy_native_test.py
+      - name: Test minimal install without Cindy extra
+        run: uv run --isolated --no-extra cindy --group dev python -c "import importlib.util,pytest; assert importlib.util.find_spec('zstandard') is None; assert importlib.util.find_spec('questionary') is None; raise SystemExit(pytest.main(['-q', 'tests/cindy_test.py', 'tests/cindy_archive_test.py', 'tests/cindy_cli_test.py']))"
+
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -53,7 +74,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [test, lint]
+    needs: [test, lint, cindy-platform]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write

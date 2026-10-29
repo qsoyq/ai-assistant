@@ -169,17 +169,17 @@ def _render_content(raw: object) -> str:
 
 @cmd.command("cshare-to-markdown")
 def cshare_to_markdown(
-    input_path: Path,
-    output: Path = typer.Option(..., "--output", "-o"),
-    password_env: str | None = None,
-    include_tools: bool = False,
-    include_meta: bool = False,
-    extract_media: Path | None = None,
-    verify_only: bool = False,
+    input_path: Path = typer.Argument(..., help="输入的 Cindy 会话分享文件。"),
+    output: Path = typer.Option(..., "--output", "-o", help="输出 Markdown 文件。"),
+    password_env: str | None = typer.Option(None, help="提供解密密码的环境变量名，不打印密码。"),
+    include_tools: bool = typer.Option(False, help="包含工具调用消息。"),
+    include_meta: bool = typer.Option(False, help="包含会话元数据。"),
+    extract_media: Path | None = typer.Option(None, help="提取媒体文件的目标目录。"),
+    verify_only: bool = typer.Option(False, help="仅校验分享文件，不写入 Markdown。"),
 ) -> None:
-    """Convert a Cindy .cshare or legacy .xdtshare file to Markdown.
+    """将 Cindy .cshare 或旧 .xdtshare 文件转换为 Markdown。
 
-    Each message is enclosed in cshare-message:start/end HTML comments for third-party Agent parsing.
+    消息使用 cshare-message:start/end 注释包裹，便于第三方 Agent 解析。
     """
     password = os.environ.get(password_env) if password_env else None
     try:
