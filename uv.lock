@@ -96,7 +96,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "ai-assistant", extras = ["mcd", "oss", "freshrss", "docker", "cookies", "cursor", "telegram", "shell-env"], marker = "extra == 'all'" },
-    { name = "bashkit", marker = "sys_platform == 'win32' and extra == 'shell-env'", specifier = "==0.19.0" },
+    { name = "bashkit", marker = "sys_platform == 'win32' and extra == 'shell-env'", specifier = "==0.20.1" },
     { name = "browser-cookie3", marker = "extra == 'cookies'", specifier = ">=0.16.6" },
     { name = "cryptography", specifier = ">=50.0.0" },
     { name = "docker", marker = "extra == 'docker'", specifier = ">=7.2.0" },
@@ -278,12 +278,12 @@ wheels = [
 
 [[package]]
 name = "bashkit"
-version = "0.19.0"
+version = "0.20.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/d5/ea/38ce656694eda414822cb13d987e7fd968d5b47d0353054b7de3795da2a4/bashkit-0.19.0.tar.gz", hash = "sha256:7220345c3a935d001318b0ef3e33d213c7dcd40765bd6c8e9c6d2ef0604d67e5", size = 11055050, upload-time = "2026-10-15T21:18:57.061Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b3/76/3e154877fceb29192a1c4a84d7c6b71a783ed26f8412416b2389ba3f5290/bashkit-0.20.1.tar.gz", hash = "sha256:99102add4f82fb54aa1269e775aab3e04a2dc3f32f5df4ea67527e526d080146", size = 11158172, upload-time = "2026-10-26T02:29:43.123Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e1/f0/b0d401d107b7f87476413fe5bb8a60f01bb4872aa848e404000c30b221a0/bashkit-0.19.0-cp39-abi3-pyemscripten_2025_0_wasm32.whl", hash = "sha256:a2d700a489830159abc5c5dabbe87932ae6074406ebcc3b1b167760ed59f182d", size = 6497229, upload-time = "2026-10-15T21:18:52.823Z" },
-    { url = "https://files.pythonhosted.org/packages/fb/d8/3f25ac1349ee434f345706ef5d7dcbefc49e785423cbd8feb4f429087a2d/bashkit-0.19.0-cp39-abi3-win_amd64.whl", hash = "sha256:ab7829159246904c43a12171176a790f086de1dbc1782e0a88bbf8c7efb31b5e", size = 18276336, upload-time = "2026-10-15T21:18:54.807Z" },
+    { url = "https://files.pythonhosted.org/packages/bb/d7/93dbc360305c49c213327108c4a02d7a208835c8c653343b34b7406c2f92/bashkit-0.20.1-cp39-abi3-pyemscripten_2025_0_wasm32.whl", hash = "sha256:d9d08c7f23d363d95a77067d8655db868b37a916cf2bc3bc941409b2af72f4aa", size = 6539010, upload-time = "2026-10-26T02:29:38.205Z" },
+    { url = "https://files.pythonhosted.org/packages/5b/b8/99f8011e0bf1ec6569c95394ee6e8812fc556f0a2c9edb61985eae5cc0fb/bashkit-0.20.1-cp39-abi3-win_amd64.whl", hash = "sha256:948f3f73a3e1289caeba7581330732fd145d5b26e5c018d97345c1bd92ce9099", size = 18461784, upload-time = "2026-10-26T02:29:40.543Z" },
 ]
 
 [[package]]
