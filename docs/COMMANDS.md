@@ -542,15 +542,51 @@ $ ai-assistant cindy install [OPTIONS]
 
 **Options**:
 
-* `--region <cn|global>`: 发行区域。可选值：cn（中国大陆版）、global（国际版）。 必须显式指定。  [required]
-* `--channel <release|beta|canary>`: 渠道。可选值：release（正式）、beta（测试）、canary（灰度）。latest 时默认 release；不能与显式版本合用。
+* `--region REGION`: 发行区域。可选值：
+
+- cn：中国大陆版
+- global：国际版
+
+
+必须显式指定。  [required]
+* `--channel CHANNEL`: 渠道。可选值：
+
+- release：正式渠道
+- beta：测试渠道
+- canary：灰度渠道
+
+latest 时默认 release，不能与显式版本合用。
 * `--version <str>`: 版本：latest（默认）、X.Y.Z、vX.Y.Z、X.Y.Z-beta；显式版本不能与 channel 合用。  [default: latest]
-* `--platform <str>`: 平台。可选值：darwin（macOS）、win32（Windows）、linux（Linux）。默认本机；别名 mac/macos、win/windows。
-* `--arch <str>`: 架构。可选值：x64（64 位 x86）、arm64（64 位 ARM）。默认本机原生架构；别名 intel/amd64/x86_64、aarch64。不支持 Windows/Linux ARM 产物。
+* `--platform PLATFORM`: 平台。可选值：
+
+- darwin：macOS（别名 mac、macos）
+- win32：Windows（别名 win、windows）
+- linux：Linux
+
+默认本机平台。
+* `--arch ARCH`: 架构。可选值：
+
+- x64：64 位 x86（别名 intel、amd64、x86_64）
+- arm64：64 位 ARM（别名 aarch64）
+
+默认本机原生架构。不支持 Windows/Linux ARM 产物。
 * `--dest <path>`: 安装目标：macOS 为完整 .app 路径，其他平台为独立目录；不改变 userData。
 * `--id <str>`: 安装 ID，默认区域-版本-平台-架构-模式。
-* `--mode <auto|dmg|portable|installer|user-install>`: 模式。可选值：auto（自动）、dmg（macOS）、portable（Windows 便携）、installer（Windows 官方安装器）、user-install（Linux 用户级）。默认 auto：macOS=dmg、Windows=portable、Linux=user-install。  [default: auto]
-* `--source <cdn|github>`: 来源。可选值：cdn（区域官方 CDN）、github（GitHub Releases 同产物）。默认 cdn；无同类型资产则拒绝。  [default: cdn]
+* `--mode MODE`: 模式。可选值：
+
+- auto：按平台自动选择
+- dmg：macOS 安装
+- portable：Windows 便携目录
+- installer：Windows 官方安装器
+- user-install：Linux 用户级安装
+
+默认 auto：macOS=dmg、Windows=portable、Linux=user-install。  [default: auto]
+* `--source SOURCE`: 来源。可选值：
+
+- cdn：区域官方 CDN
+- github：GitHub Releases 同产物
+
+默认 cdn；无同类型资产则拒绝。  [default: cdn]
 * `--sha256 <str>`: 用户提供的可信整包 SHA-256；不能用 Setup.exe 摘要验证 ZIP。
 * `--require-sha256 / --no-require-sha256`: 强制可信摘要，与 allow-signature-only 互斥。  [default: no-require-sha256]
 * `--allow-signature-only / --no-allow-signature-only`: 仅本机 macOS dmg：无摘要时显式允许完整签名校验，不放行摘要不符。  [default: no-allow-signature-only]
@@ -588,9 +624,25 @@ $ ai-assistant cindy releases [OPTIONS]
 
 **Options**:
 
-* `--region <cn|global>`: 发行区域。可选值：cn（中国大陆版）、global（国际版）。 默认查询两区。
-* `--platform <str>`: 平台。可选值：darwin（macOS）、win32（Windows）、linux（Linux）。默认本机；别名 mac/macos、win/windows。
-* `--arch <str>`: 架构。可选值：x64（64 位 x86）、arm64（64 位 ARM）。默认本机原生架构；别名 intel/amd64/x86_64、aarch64。不支持 Windows/Linux ARM 产物。
+* `--region REGION`: 发行区域。可选值：
+
+- cn：中国大陆版
+- global：国际版
+
+ 默认查询两区。
+* `--platform PLATFORM`: 平台。可选值：
+
+- darwin：macOS（别名 mac、macos）
+- win32：Windows（别名 win、windows）
+- linux：Linux
+
+默认本机平台。
+* `--arch ARCH`: 架构。可选值：
+
+- x64：64 位 x86（别名 intel、amd64、x86_64）
+- arm64：64 位 ARM（别名 aarch64）
+
+默认本机原生架构。不支持 Windows/Linux ARM 产物。
 * `--limit <int range>`: 历史版本条目上限。  [default: 20; 1&lt;=x&lt;=1000]
 * `--json`: 输出单个版本化 JSON 对象。
 * `--help`: Show this message and exit.
@@ -666,11 +718,26 @@ $ ai-assistant cindy data backup [OPTIONS]
 
 **Options**:
 
-* `--region <cn|global|dev>`: 区域。可选值：cn（中国大陆版）、global（国际版）、dev（开发区域版，不等同于隔离 profile）。 不提供 path 时必填，有 path 时可推断。
+* `--region REGION`: 区域。可选值：
+
+- cn：中国大陆版
+- global：国际版
+- dev：开发区域版
+
+dev 不等同于隔离 profile。
+
+不提供 path 时必填，有 path 时可推断。
 * `--path <path>`: 明确选择的 Profile 目录，不能为链接。
 * `--output-dir <path>`: 私有备份目录；默认状态目录下 backups，不能位于源内或 Git 工作区。
 * `--label <str>`: 备份标签，最多 80 字且不能含控制字符。
-* `--compress <auto|none|zstd|gzip>`: 压缩。可选值：auto（有 zstd 时使用，否则不压缩）、none（不压缩）、zstd（Zstandard）、gzip（Gzip）。默认 auto。  [default: auto]
+* `--compress COMPRESSION`: 压缩。可选值：
+
+- auto：有 zstd 时使用，否则不压缩
+- none：不压缩
+- zstd：Zstandard
+- gzip：Gzip
+
+默认 auto。  [default: auto]
 * `--exclude-caches / --no-exclude-caches`: 排除已知顶层浏览器缓存，不排除任意同名子目录。  [default: no-exclude-caches]
 * `--include-update-cache / --no-include-update-cache`: 包含已下载更新；恢复后可能立即触发升级。  [default: no-include-update-cache]
 * `--max-bytes <int range>`: 未压缩数据上限（字节），默认 100 GiB。  [default: 107374182400; x&gt;=1]
@@ -714,7 +781,14 @@ $ ai-assistant cindy data restore [OPTIONS] [archive]
 **Options**:
 
 * `--backup-dir <path>`: 候选备份目录，不是恢复目标。
-* `--region <cn|global|dev>`: 区域。可选值：cn（中国大陆版）、global（国际版）、dev（开发区域版，不等同于隔离 profile）。 未提供时不过滤；显式归档时作为区域断言。
+* `--region REGION`: 区域。可选值：
+
+- cn：中国大陆版
+- global：国际版
+- dev：开发区域版
+
+dev 不等同于隔离 profile。
+ 未提供时不过滤；显式归档时作为区域断言。
 * `--target <path>`: 显式迁移目标，必须同时传 allow-relocate；不能跨 Profile 类型。
 * `--allow-relocate / --no-allow-relocate`: 允许明确迁移；不改写链接、数据库路径或钥匙串标记。  [default: no-allow-relocate]
 * `--include-shared / --no-include-shared`: 仅 cn 主目录：使用归档内 shared，可能影响其他区域。  [default: no-include-shared]
@@ -736,7 +810,14 @@ $ ai-assistant cindy data reset [OPTIONS]
 
 **Options**:
 
-* `--region <cn|global|dev>`: 区域。可选值：cn（中国大陆版）、global（国际版）、dev（开发区域版，不等同于隔离 profile）。 无 path 时必填，有 path 时可推断。
+* `--region REGION`: 区域。可选值：
+
+- cn：中国大陆版
+- global：国际版
+- dev：开发区域版
+
+dev 不等同于隔离 profile。
+ 无 path 时必填，有 path 时可推断。
 * `--path <path>`: 明确选择的 Profile 目录。
 * `--no-backup / --no-no-backup`: 不自动备份，丢失数据后不能撤销。  [default: no-no-backup]
 * `--yes`: 跳过清空确认，不跳过停止检查。
@@ -770,7 +851,14 @@ $ ai-assistant cindy data prune [OPTIONS]
 **Options**:
 
 * `--backup-dir <path>`: 清理范围，仅第一层备份。
-* `--region <cn|global|dev>`: 区域。可选值：cn（中国大陆版）、global（国际版）、dev（开发区域版，不等同于隔离 profile）。 默认全部区域，按 profile 分组。
+* `--region REGION`: 区域。可选值：
+
+- cn：中国大陆版
+- global：国际版
+- dev：开发区域版
+
+dev 不等同于隔离 profile。
+ 默认全部区域，按 profile 分组。
 * `--keep <int range>`: 每个 Profile 至少保留的最新备份数。  [default: 5; x&gt;=1]
 * `--yes`: 跳过确认；仍保护最近自动备份。
 * `--help`: Show this message and exit.
@@ -788,7 +876,14 @@ $ ai-assistant cindy data clear [OPTIONS]
 **Options**:
 
 * `--backup-dir <path>`: 备份目录，只处理第一层普通文件。
-* `--region <cn|global|dev>`: 区域。可选值：cn（中国大陆版）、global（国际版）、dev（开发区域版，不等同于隔离 profile）。 默认全部区域。
+* `--region REGION`: 区域。可选值：
+
+- cn：中国大陆版
+- global：国际版
+- dev：开发区域版
+
+dev 不等同于隔离 profile。
+ 默认全部区域。
 * `--only-auto / --no-only-auto`: 只删除 kind 为 pre-restore/pre-reset 的备份。  [default: no-only-auto]
 * `--keep-auto / --no-keep-auto`: 保留自动备份，与 only-auto 互斥。  [default: no-keep-auto]
 * `--select / --no-select`: 逐项选择，而非选择范围内全部备份。  [default: no-select]

@@ -31,10 +31,13 @@ COMMANDS = [
 @pytest.mark.parametrize("width", [80, 120])
 @pytest.mark.parametrize("command", COMMANDS)
 def test_all_help_is_chinese_and_available_without_io(command: list[str], width: int):
-    result = CliRunner().invoke(cmd, [*command, "--help"], terminal_width=width)
+    result = CliRunner().invoke(cmd, [*command, "--help"], env={"COLUMNS": str(width)}, terminal_width=width)
     assert result.exit_code == 0, result.output
     assert re.search(r"[\u4e00-\u9fff]", result.output)
-    assert "…" not in result.output
+    assert "╭─ Options" in result.output
+    assert "╰" in result.output
+    if not command or command == ["data"]:
+        assert "╭─ Commands" in result.output
 
 
 @pytest.mark.parametrize(
@@ -67,7 +70,7 @@ def test_enum_values_in_explicit_parameter_help(command: list[str], parameter: s
     assert "可选值" in text
     for value in values:
         assert value in text
-    result = CliRunner().invoke(cmd, [*command, "--help"], terminal_width=80)
+    result = CliRunner().invoke(cmd, [*command, "--help"], env={"COLUMNS": "80"}, terminal_width=80)
     compact = re.sub(r"\s+", "", result.output)
     for value in values:
         assert value in compact

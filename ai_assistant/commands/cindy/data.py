@@ -44,7 +44,7 @@ from .schema import highest_migration, schema_versions
 from .state import State, index_update, read_json, sha256
 from .transaction import Observer, Transaction, pending_transactions, remove_owned
 
-cmd = typer.Typer(help="Cindy profile 冷备份、校验、全量覆盖恢复及备份清理。", rich_markup_mode=None)
+cmd = typer.Typer(help="Cindy profile 冷备份、校验、全量覆盖恢复及备份清理。", rich_markup_mode="markdown")
 
 
 def candidates(directory: Path, region: str | None = None, *, include_partial: bool = False) -> list[dict[str, Any]]:
@@ -255,11 +255,11 @@ def replace_profile(
 @cmd.command("backup")
 @guarded
 def backup(
-    region: Region | None = typer.Option(None, help=f"{REGION_HELP} 不提供 path 时必填，有 path 时可推断。"),
+    region: Region | None = typer.Option(None, "--region", help=f"{REGION_HELP}\n不提供 path 时必填，有 path 时可推断。", metavar="REGION", rich_help_panel="区域与压缩"),
     path: Path | None = typer.Option(None, help="明确选择的 Profile 目录，不能为链接。"),
     output_dir: Path | None = typer.Option(None, help="私有备份目录；默认状态目录下 backups，不能位于源内或 Git 工作区。"),
     label: str = typer.Option("", help="备份标签，最多 80 字且不能含控制字符。"),
-    compress: Compression = typer.Option(Compression.auto, help=COMPRESSION_HELP),
+    compress: Compression = typer.Option(Compression.auto, help=COMPRESSION_HELP, metavar="COMPRESSION", rich_help_panel="区域与压缩"),
     exclude_caches: bool = typer.Option(False, help="排除已知顶层浏览器缓存，不排除任意同名子目录。"),
     include_update_cache: bool = typer.Option(False, help="包含已下载更新；恢复后可能立即触发升级。"),
     max_bytes: int = typer.Option(MAX_BYTES, min=1, help="未压缩数据上限（字节），默认 100 GiB。"),
@@ -300,7 +300,7 @@ def verify(
 def restore(
     archive: Path | None = typer.Argument(None, help="可信归档；不提供时必须通过 TTY 选择。"),
     backup_dir: Path | None = typer.Option(None, help="候选备份目录，不是恢复目标。"),
-    region: Region | None = typer.Option(None, help=f"{REGION_HELP} 未提供时不过滤；显式归档时作为区域断言。"),
+    region: Region | None = typer.Option(None, "--region", help=f"{REGION_HELP} 未提供时不过滤；显式归档时作为区域断言。", metavar="REGION", rich_help_panel="可选值"),
     target: Path | None = typer.Option(None, help="显式迁移目标，必须同时传 allow-relocate；不能跨 Profile 类型。"),
     allow_relocate: bool = typer.Option(False, help="允许明确迁移；不改写链接、数据库路径或钥匙串标记。"),
     include_shared: bool = typer.Option(False, help="仅 cn 主目录：使用归档内 shared，可能影响其他区域。"),
@@ -341,7 +341,7 @@ def restore(
 @cmd.command("reset")
 @guarded
 def reset(
-    region: Region | None = typer.Option(None, help=f"{REGION_HELP} 无 path 时必填，有 path 时可推断。"),
+    region: Region | None = typer.Option(None, "--region", help=f"{REGION_HELP} 无 path 时必填，有 path 时可推断。", metavar="REGION", rich_help_panel="可选值"),
     path: Path | None = typer.Option(None, help="明确选择的 Profile 目录。"),
     no_backup: bool = typer.Option(False, help="不自动备份，丢失数据后不能撤销。"),
     yes: bool = typer.Option(False, "--yes", help="跳过清空确认，不跳过停止检查。"),
@@ -408,7 +408,7 @@ def delete_backups(items: list[dict[str, Any]], directory: Path) -> None:
 @guarded
 def prune(
     backup_dir: Path | None = typer.Option(None, help="清理范围，仅第一层备份。"),
-    region: Region | None = typer.Option(None, help=f"{REGION_HELP} 默认全部区域，按 profile 分组。"),
+    region: Region | None = typer.Option(None, "--region", help=f"{REGION_HELP} 默认全部区域，按 profile 分组。", metavar="REGION", rich_help_panel="可选值"),
     keep: int = typer.Option(5, min=1, help="每个 Profile 至少保留的最新备份数。"),
     yes: bool = typer.Option(False, "--yes", help="跳过确认；仍保护最近自动备份。"),
 ) -> None:
@@ -437,7 +437,7 @@ def prune(
 @guarded
 def clear(
     backup_dir: Path | None = typer.Option(None, help="备份目录，只处理第一层普通文件。"),
-    region: Region | None = typer.Option(None, help=f"{REGION_HELP} 默认全部区域。"),
+    region: Region | None = typer.Option(None, "--region", help=f"{REGION_HELP} 默认全部区域。", metavar="REGION", rich_help_panel="可选值"),
     only_auto: bool = typer.Option(False, help="只删除 kind 为 pre-restore/pre-reset 的备份。"),
     keep_auto: bool = typer.Option(False, help="保留自动备份，与 only-auto 互斥。"),
     select: bool = typer.Option(False, help="逐项选择，而非选择范围内全部备份。"),

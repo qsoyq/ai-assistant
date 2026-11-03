@@ -17,7 +17,7 @@ helptext = """
 Cindy 会话转换、数据备份恢复与客户端安装工具。
 """
 
-cmd = make_typer(helptext, rich_markup_mode=None)
+cmd = make_typer(helptext, rich_markup_mode="markdown")
 cmd.command("cshare-to-markdown")(cshare_to_markdown)
 cmd.add_typer(data.cmd, name="data")
 cmd.command("install")(install)

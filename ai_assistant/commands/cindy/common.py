@@ -54,16 +54,69 @@ class Source(str, Enum):
     github = "github"
 
 
-REGION_HELP = "区域。可选值：cn（中国大陆版）、global（国际版）、dev（开发区域版，不等同于隔离 profile）。"
-RELEASE_REGION_HELP = "发行区域。可选值：cn（中国大陆版）、global（国际版）。"
-COMPRESSION_HELP = "压缩。可选值：auto（有 zstd 时使用，否则不压缩）、none（不压缩）、zstd（Zstandard）、gzip（Gzip）。默认 auto。"
-PLATFORM_HELP = "平台。可选值：darwin（macOS）、win32（Windows）、linux（Linux）。默认本机；别名 mac/macos、win/windows。"
-ARCH_HELP = "架构。可选值：x64（64 位 x86）、arm64（64 位 ARM）。默认本机原生架构；别名 intel/amd64/x86_64、aarch64。不支持 Windows/Linux ARM 产物。"
-CHANNEL_HELP = "渠道。可选值：release（正式）、beta（测试）、canary（灰度）。latest 时默认 release；不能与显式版本合用。"
-MODE_HELP = (
-    "模式。可选值：auto（自动）、dmg（macOS）、portable（Windows 便携）、installer（Windows 官方安装器）、user-install（Linux 用户级）。默认 auto：macOS=dmg、Windows=portable、Linux=user-install。"
-)
-SOURCE_HELP = "来源。可选值：cdn（区域官方 CDN）、github（GitHub Releases 同产物）。默认 cdn；无同类型资产则拒绝。"
+REGION_HELP = """区域。可选值：
+
+- cn：中国大陆版
+- global：国际版
+- dev：开发区域版
+
+dev 不等同于隔离 profile。
+"""
+RELEASE_REGION_HELP = """发行区域。可选值：
+
+- cn：中国大陆版
+- global：国际版
+
+"""
+COMPRESSION_HELP = """压缩。可选值：
+
+- auto：有 zstd 时使用，否则不压缩
+- none：不压缩
+- zstd：Zstandard
+- gzip：Gzip
+
+默认 auto。
+"""
+PLATFORM_HELP = """平台。可选值：
+
+- darwin：macOS（别名 mac、macos）
+- win32：Windows（别名 win、windows）
+- linux：Linux
+
+默认本机平台。
+"""
+ARCH_HELP = """架构。可选值：
+
+- x64：64 位 x86（别名 intel、amd64、x86_64）
+- arm64：64 位 ARM（别名 aarch64）
+
+默认本机原生架构。不支持 Windows/Linux ARM 产物。
+"""
+CHANNEL_HELP = """渠道。可选值：
+
+- release：正式渠道
+- beta：测试渠道
+- canary：灰度渠道
+
+latest 时默认 release，不能与显式版本合用。
+"""
+MODE_HELP = """模式。可选值：
+
+- auto：按平台自动选择
+- dmg：macOS 安装
+- portable：Windows 便携目录
+- installer：Windows 官方安装器
+- user-install：Linux 用户级安装
+
+默认 auto：macOS=dmg、Windows=portable、Linux=user-install。
+"""
+SOURCE_HELP = """来源。可选值：
+
+- cdn：区域官方 CDN
+- github：GitHub Releases 同产物
+
+默认 cdn；无同类型资产则拒绝。
+"""
 MAX_BYTES = 100 * 1024**3
 MAX_ENTRIES = 200_000
 F = TypeVar("F", bound=Callable[..., Any])

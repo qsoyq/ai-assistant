@@ -6,6 +6,12 @@
 cold profile snapshots, integrity verification, transactional replacement,
 retention, artifact resolution and verified downloads. Custom help is Chinese;
 each enumerated option explicitly lists its values and meanings in `--help`.
+Help is rendered by Typer's native Rich renderer, with its Usage, Options,
+Arguments and Commands panels. Chinese enum descriptions use Markdown lists
+and the public `rich_help_panel` option for grouping; do not disable Rich,
+replace the help renderer or patch global Typer styles to prevent truncation.
+Narrow terminals may fold or truncate long non-enum prose according to Typer's
+layout; all enum choices must remain visible in their parameter help.
 
 This implementation deliberately distinguishes implemented machinery from
 platform acceptance:

@@ -204,15 +204,15 @@ def install_mac(artifact: Artifact, package: Path, target: Path, identifier: str
 
 @guarded
 def install(
-    region: ReleaseRegion = typer.Option(..., help=f"{RELEASE_REGION_HELP} 必须显式指定。"),
-    channel: Channel | None = typer.Option(None, help=CHANNEL_HELP),
+    region: ReleaseRegion = typer.Option(..., "--region", help=f"{RELEASE_REGION_HELP}\n必须显式指定。", metavar="REGION", rich_help_panel="版本与平台"),
+    channel: Channel | None = typer.Option(None, "--channel", help=CHANNEL_HELP, metavar="CHANNEL", rich_help_panel="版本与平台"),
     version: str = typer.Option("latest", help="版本：latest（默认）、X.Y.Z、vX.Y.Z、X.Y.Z-beta；显式版本不能与 channel 合用。"),
-    platform: str | None = typer.Option(None, help=PLATFORM_HELP),
-    arch: str | None = typer.Option(None, help=ARCH_HELP),
+    platform: str | None = typer.Option(None, "--platform", help=PLATFORM_HELP, metavar="PLATFORM", rich_help_panel="版本与平台"),
+    arch: str | None = typer.Option(None, "--arch", help=ARCH_HELP, metavar="ARCH", rich_help_panel="版本与平台"),
     dest: Path | None = typer.Option(None, help="安装目标：macOS 为完整 .app 路径，其他平台为独立目录；不改变 userData。"),
     identifier: str | None = typer.Option(None, "--id", help="安装 ID，默认区域-版本-平台-架构-模式。"),
-    mode: Mode = typer.Option(Mode.auto, help=MODE_HELP),
-    source: Source = typer.Option(Source.cdn, help=SOURCE_HELP),
+    mode: Mode = typer.Option(Mode.auto, "--mode", help=MODE_HELP, metavar="MODE", rich_help_panel="版本与平台"),
+    source: Source = typer.Option(Source.cdn, "--source", help=SOURCE_HELP, metavar="SOURCE", rich_help_panel="版本与平台"),
     sha256: str | None = typer.Option(None, help="用户提供的可信整包 SHA-256；不能用 Setup.exe 摘要验证 ZIP。"),
     require_sha256: bool = typer.Option(False, help="强制可信摘要，与 allow-signature-only 互斥。"),
     allow_signature_only: bool = typer.Option(False, help="仅本机 macOS dmg：无摘要时显式允许完整签名校验，不放行摘要不符。"),
@@ -283,9 +283,9 @@ def install(
 
 @guarded
 def releases(
-    region: ReleaseRegion | None = typer.Option(None, help=f"{RELEASE_REGION_HELP} 默认查询两区。"),
-    platform: str | None = typer.Option(None, help=PLATFORM_HELP),
-    arch: str | None = typer.Option(None, help=ARCH_HELP),
+    region: ReleaseRegion | None = typer.Option(None, "--region", help=f"{RELEASE_REGION_HELP} 默认查询两区。", metavar="REGION", rich_help_panel="版本与平台"),
+    platform: str | None = typer.Option(None, "--platform", help=PLATFORM_HELP, metavar="PLATFORM", rich_help_panel="版本与平台"),
+    arch: str | None = typer.Option(None, "--arch", help=ARCH_HELP, metavar="ARCH", rich_help_panel="版本与平台"),
     limit: int = typer.Option(20, min=1, max=1000, help="历史版本条目上限。"),
     as_json: bool = typer.Option(False, "--json", help="输出单个版本化 JSON 对象。"),
 ) -> None:
