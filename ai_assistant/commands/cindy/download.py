@@ -12,6 +12,7 @@ from urllib.parse import urljoin, urlsplit
 
 from .common import CindyError
 from .paths import is_link, private_dir, root_path
+from .progress import ByteProgress, phase, stage
 from .state import atomic_json, read_json, sha256
 
 MAX_DOWNLOAD = 2 * 1024**3
@@ -58,6 +59,7 @@ def http_json(url: str, *, token: str | None = None, origins: tuple[str, ...] = 
     try:
         with httpx.Client(timeout=httpx.Timeout(60, connect=10), follow_redirects=False) as client:
             for attempt in range(3):
+                phase(f"请求版本元数据（第 {attempt + 1}/3 次）")
                 response = request(client, url, headers=headers, origins=origins)
                 with closing(response):
                     if response.status_code == 404:
@@ -94,7 +96,10 @@ def download_file(url: str, destination: Path, expected: str | None, *, size: in
     if destination.exists():
         if not destination.is_file() or destination.stat().st_size > max_size:
             raise CindyError("已有缓存/输出不是受限大小的普通文件。", 4)
-        if not is_link(destination) and expected and sha256(destination) == expected and (size is None or destination.stat().st_size == size):
+        with stage("复核已有缓存 SHA-256"):
+            cached_digest = sha256(destination) if not is_link(destination) and expected else None
+        if expected and cached_digest == expected and (size is None or destination.stat().st_size == size):
+            phase("复用已校验缓存，无需下载")
             return destination
         raise CindyError("已有缓存/输出文件无法通过摘要验证，拒绝覆盖。", 4)
     partial = destination.with_name(f"{destination.name}.part")
@@ -114,18 +119,24 @@ def download_file(url: str, destination: Path, expected: str | None, *, size: in
             if resume:
                 headers.update({"Range": f"bytes={resume}-", "If-Range": str(etag)})
             try:
+                phase(f"连接下载服务（第 {attempt + 1}/3 次）")
                 response = request(client, url, headers=headers, origins=origins)
                 with closing(response):
                     if response.status_code == 404:
                         raise CindyError("对应下载产物不存在。", 5)
                     if response.status_code == 416:
-                        if resume and expected and sha256(partial) == expected and (size is None or resume == size):
+                        with stage("校验已完成的续传文件 SHA-256"):
+                            complete_digest = sha256(partial) if resume and expected else None
+                        if resume and expected and complete_digest == expected and (size is None or resume == size):
+                            phase("续传文件已完整，发布已校验下载")
                             os.rename(partial, destination)
                             metadata.unlink(missing_ok=True)
                             return destination
+                        phase("续传文件不完整，重置续传状态后重新下载")
                         atomic_json(metadata, {"binding": binding, "etag": None})
                         continue
                     if response.status_code in {408, 429, 500, 502, 503, 504} and attempt < 2:
+                        phase(f"下载服务 HTTP {response.status_code}，等待后重试")
                         retry = response.headers.get("retry-after", "1")
                         time.sleep(min(int(retry), 5) if retry.isdigit() else 1)
                         continue
@@ -142,6 +153,8 @@ def download_file(url: str, destination: Path, expected: str | None, *, size: in
                         if response.headers.get("etag") != etag:
                             raise CindyError("续传 ETag 发生变化。", 4)
                     else:
+                        if resume:
+                            phase("服务器返回完整响应，丢弃旧续传进度并从零下载")
                         resume = 0
                     length = response.headers.get("content-length")
                     if length and (not length.isdigit() or int(length) + resume > max_size):
@@ -149,24 +162,32 @@ def download_file(url: str, destination: Path, expected: str | None, *, size: in
                     new_etag = response.headers.get("etag")
                     atomic_json(metadata, {"binding": binding, "etag": new_etag if new_etag and not new_etag.startswith("W/") else None})
                     flags = os.O_WRONLY | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0) | (os.O_APPEND if resume else os.O_TRUNC)
-                    with os.fdopen(os.open(partial, flags, 0o600), "wb") as stream:
+                    total = size if size is not None else (range_total if range_total is not None else (int(length) + resume if length else None))
+                    with os.fdopen(os.open(partial, flags, 0o600), "wb") as stream, ByteProgress(total, resume) as progress:
                         count = resume
                         for block in response.iter_raw():
                             count += len(block)
                             if count > max_size or (size is not None and count > size):
                                 raise CindyError("下载实际大小超过限制。", 4)
                             stream.write(block)
+                            progress.advance(len(block))
                         stream.flush()
                         os.fsync(stream.fileno())
                     if (size is not None and count != size) or (range_total is not None and count != range_total):
                         raise CindyError("下载字节数与预期或 Content-Range 不同。", 4)
-                    if expected and sha256(partial) != expected:
-                        raise CindyError("下载 SHA-256 校验失败；不自动切换来源。", 4)
+                    if expected:
+                        with stage("校验下载 SHA-256"):
+                            if sha256(partial) != expected:
+                                raise CindyError("下载 SHA-256 校验失败；不自动切换来源。", 4)
+                    else:
+                        phase("没有整包摘要，后续必须通过完整签名校验")
+                    phase("发布已完成下载")
                     os.rename(partial, destination)
                     metadata.unlink(missing_ok=True)
                     return destination
             except httpx.HTTPError as exc:
                 if attempt == 2:
                     raise CindyError(f"下载传输失败（{type(exc).__name__}），保留续传文件。") from exc
+                phase("下载传输失败，保留续传数据并等待重试")
                 time.sleep(attempt + 1)
     raise CindyError("下载重试耗尽，保留临时文件。")

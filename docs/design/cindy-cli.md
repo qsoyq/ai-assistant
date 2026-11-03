@@ -233,7 +233,17 @@ optional and only reach the official API origin, never CDN/assets/overrides or
 logs. Strong ETag / Range / If-Range bind resumable data to the exact artifact.
 200 restarts, 206 verifies the byte interval, and 416 only publishes an already
 complete file after digest verification. Cached bytes are rehashed before reuse.
-The file limit is 2 GiB. Loopback-only HTTP overrides support deterministic local
+The file limit is 2 GiB. Downloads show a Rich byte progress bar on stderr when
+that stream is a terminal (bytes, percentage when known, speed and ETA). Non-TTY
+stderr receives bounded start/end byte summaries without dynamic refresh.
+Unknown lengths remain unknown; resume starts at the existing offset, while a
+200 response resets the displayed progress to zero. Cache verification, retries,
+metadata resolution, SHA-256, native signing/Gatekeeper checks, copying and
+installation commit each have Chinese phase messages on stderr. Transfer
+completion is not checksum or installation success; failures never emit the
+corresponding successful phase completion. No phase message logs raw URLs or
+authorization headers, and download-only stdout remains parseable JSON.
+Loopback-only HTTP overrides support deterministic local
 tests without disabling TLS for real services.
 
 ## Validation And Remaining Gates

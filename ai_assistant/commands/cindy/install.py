@@ -50,6 +50,7 @@ from .paths import (
     safe_id,
 )
 from .procs import require_stopped
+from .progress import phase, stage
 from .releases import Artifact, Releases
 from .schema import highest_migration, schema_versions
 from .signing import actual_version, verify_mac
@@ -123,6 +124,7 @@ def install_mac(artifact: Artifact, package: Path, target: Path, identifier: str
             record = records.get(identifier)
             if record and record.get("sha256") == artifact.sha256 and identity(target) == record.get("directory_id"):
                 verify_mac(target, artifact.region, artifact.version, artifact.arch)
+                phase("复用已核验的现有安装")
                 return dict(record)
             raise CindyError("目标已存在，需要 --replace。", 2)
         verify_mac(target, artifact.region)
@@ -155,10 +157,14 @@ def install_mac(artifact: Artifact, package: Path, target: Path, identifier: str
         snapshot = tx.wrapper / "source.dmg"
         if is_link(package) or not package.is_file():
             raise CindyError("安装包不是普通文件。", 4)
-        shutil.copyfile(package, snapshot)
-        snapshot.chmod(0o600)
-        if artifact.sha256 and file_sha256(snapshot) != artifact.sha256:
-            raise CindyError("安装前私有快照摘要不匹配。", 4)
+        with stage("准备安装包私有快照"):
+            shutil.copyfile(package, snapshot)
+            snapshot.chmod(0o600)
+        if artifact.sha256:
+            with stage("校验安装包快照 SHA-256"):
+                if file_sha256(snapshot) != artifact.sha256:
+                    raise CindyError("安装前私有快照摘要不匹配。", 4)
+        phase("只读挂载 DMG")
         result = subprocess.run(
             ["/usr/bin/hdiutil", "attach", "-readonly", "-nobrowse", "-noautoopen", "-plist", "-mountpoint", str(mount), str(snapshot)], capture_output=True, timeout=120, check=False
         )
@@ -176,6 +182,7 @@ def install_mac(artifact: Artifact, package: Path, target: Path, identifier: str
         if len(apps) != 1:
             raise CindyError("DMG 根目录必须只有一个非链接 app。", 4)
         info = verify_mac(apps[0], artifact.region, artifact.version, artifact.arch)
+        phase("复制客户端至同卷临时目录")
         copied = subprocess.run(["/usr/bin/ditto", str(apps[0]), str(tx.new)], capture_output=True, timeout=600, check=False)
         if copied.returncode:
             raise CindyError("复制 app 失败，旧安装保持不变。")
@@ -183,19 +190,24 @@ def install_mac(artifact: Artifact, package: Path, target: Path, identifier: str
         record["exe"] = str(target / "Contents/MacOS" / info["exe"])
         tx.data["metadata"]["install"] = record
         # Detach before activation/cleanup: never recurse into a mounted image.
+        phase("卸载只读 DMG")
         detached = subprocess.run(["/usr/bin/hdiutil", "detach", device], capture_output=True, timeout=120, check=False)
         if detached.returncode:
             raise CindyError("DMG 卸载失败，保留事务供 recover 处理。", 6)
         attached = False
-        tx.activate(check)
+        with stage("提交安装目录、登记并清理旧版本"):
+            tx.activate(check)
+        phase("客户端安装完成，未启动客户端")
         return record
     except BaseException:
         if attached:
+            phase("异常收尾：尝试卸载只读 DMG")
             detached = subprocess.run(["/usr/bin/hdiutil", "detach", str(mount)], capture_output=True, timeout=120, check=False)
             attached = detached.returncode != 0
         if not attached:
             try:
                 check()
+                phase("异常收尾：恢复安装事务")
                 tx.recover()
             except BaseException:
                 pass
@@ -242,6 +254,7 @@ def install(
         resolver = Releases(state)
         for origin in resolver.custom_sources:
             typer.echo(f"警告：使用自定义来源 {origin}；仍要求可信产物校验。", err=True)
+        phase(f"解析客户端版本与可信摘要：{region.value}/{chosen_platform}/{chosen_arch}，请求 {version}")
         artifact = resolver.resolve(
             region.value,
             chosen_platform,
@@ -253,6 +266,7 @@ def install(
             manual_sha256=sha256,
             signature_only=allow_signature_only,
         )
+        phase(f"版本解析完成：{artifact.version}，模式 {artifact.mode}，校验来源 {artifact.digest_source}")
         identifier = safe_id(identifier or f"{artifact.region}-{artifact.version}-{artifact.platform}-{artifact.arch}-{artifact.mode}")
         target = root_path(dest or default_destination(artifact, identifier))
         if not download_only:
@@ -270,10 +284,12 @@ def install(
         safe_member(filename)
         package = download_file(artifact.url, directory / filename, artifact.sha256, size=artifact.size, origins=resolver.origins)
         if download_only:
+            phase("下载与摘要验证完成；仅下载，不执行安装或签名校验")
             emit({"path": package, "artifact": artifact.to_dict(), "signature": "not-checked"})
             return
         record = install_mac(artifact, package, target, identifier, state, replace=replace)
         emit(record)
+        phase("读取数据库与客户端迁移版本，进行兼容性初筛")
         maximum = highest_migration(target / "Contents/Resources")
         schemas = schema_versions(app_data() / ("Cindy" if region.value == "cn" else "CindyGlobal"))
         typer.echo(f"schema 序号初筛：数据库 {schemas}，客户端最大迁移 {maximum}；非兼容保证。")

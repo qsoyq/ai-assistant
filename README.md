@@ -39,7 +39,7 @@ uvx 'ai-assistant[mcd]' ai-assistant mcd quickstart
 
 ## Cindy 数据与客户端管理
 
-`ai-assistant cindy --help` 使用中文说明；枚举参数的帮助显式列出可选值、含义和默认规则。现有 `cshare-to-markdown` 保持兼容。
+`ai-assistant cindy --help` 使用中文说明；枚举参数的帮助显式列出可选值、含义和默认规则。现有 `cshare-to-markdown` 保持兼容。安装/下载会在 stderr 显示解析、缓存、摘要及签名等阶段；交互终端还显示下载字节进度、速度和剩余时间，非终端只输出阶段与字节摘要，不污染 stdout 的 JSON 结果。
 
 ```bash
 # 冷备份：操作期间所有地区的 Cindy 都必须完全退出

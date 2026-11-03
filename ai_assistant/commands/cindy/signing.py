@@ -13,6 +13,7 @@ from typing import Any
 
 from .common import CindyError
 from .paths import is_link
+from .progress import phase, stage
 
 # Verified against official regional bundles in the design's 2026-10-29 survey.
 MAC_IDENTITIES = {"cn": ("NTC4BJ542G", "com.xd.cindycn"), "global": ("SX9RG894L5", "com.xd.cindy")}
@@ -41,8 +42,11 @@ def verify_mac(app: Path, region: str, version: str | None = None, arch: str | N
         raise CindyError("macOS 签名只能在 macOS 校验。", 5)
     info = mac_info(app)
     team, bundle = MAC_IDENTITIES[region]
-    run_checked(["/usr/bin/codesign", "--verify", "--deep", "--strict", str(app)])
-    run_checked(["/usr/sbin/spctl", "--assess", "--type", "execute", str(app)])
+    with stage("校验客户端代码签名（codesign）"):
+        run_checked(["/usr/bin/codesign", "--verify", "--deep", "--strict", str(app)])
+    with stage("校验客户端 Gatekeeper 公证（spctl）"):
+        run_checked(["/usr/sbin/spctl", "--assess", "--type", "execute", str(app)])
+    phase("核对区域签名身份、版本及架构")
     signing = run_checked(["/usr/bin/codesign", "-dv", "--verbose=4", str(app)])
     found = re.search(r"^TeamIdentifier=(.+)$", signing.stderr, re.MULTILINE)
     if not found or found[1] != team or info.get("CFBundleIdentifier") != bundle:
@@ -57,6 +61,7 @@ def verify_mac(app: Path, region: str, version: str | None = None, arch: str | N
         architectures = run_checked(["/usr/bin/lipo", "-archs", str(app / "Contents/MacOS" / executable)]).stdout.split()
         if ("arm64" if arch == "arm64" else "x86_64") not in architectures:
             raise CindyError("app 的 Mach-O 架构不匹配。", 4)
+    phase("客户端签名、区域身份与请求版本核对完成")
     return {"version": actual, "bundle_id": bundle, "team": team, "exe": executable}
 
 

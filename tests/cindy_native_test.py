@@ -19,7 +19,7 @@ from ai_assistant.commands.cindy.state import State, sha256
 pytestmark = pytest.mark.skipif(sys.platform != "darwin", reason="Native macOS image tools; never runs on other platforms")
 
 
-def test_unsigned_dmg_mount_reject_and_cleanup(tmp_path: Path):
+def test_unsigned_dmg_mount_reject_and_cleanup(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
     image_source = tmp_path / "source"
     app = image_source / "Fixture.app"
     (app / "Contents/MacOS").mkdir(parents=True)
@@ -51,3 +51,8 @@ def test_unsigned_dmg_mount_reject_and_cleanup(tmp_path: Path):
     assert not list(state.journals.glob("*.json"))
     assert not list(tmp_path.glob(".cindy-txn-*"))
     assert not state.records("installs")
+    output = capsys.readouterr()
+    assert output.out == ""
+    for label in ("准备安装包私有快照", "校验安装包快照 SHA-256", "只读挂载 DMG", "校验客户端代码签名", "异常收尾"):
+        assert label in output.err
+    assert "客户端安装完成" not in output.err

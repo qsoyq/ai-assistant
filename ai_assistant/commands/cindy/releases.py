@@ -13,6 +13,7 @@ from urllib.parse import urljoin, urlsplit
 
 from .common import CindyError
 from .download import allowed_url, http_json
+from .progress import phase
 from .state import State, atomic_json, read_json
 
 CDN = {"cn": "https://hotfix.cindy.com.cn/cindy", "global": "https://hotfix.cindy.app/cindy"}
@@ -57,6 +58,7 @@ class Releases:
         if cached:
             saved = read_json(path)
             if saved.get("url") == url and time.time() - saved.get("time", 0) < 600:
+                phase("复用有效期内的版本元数据缓存")
                 return saved["data"]
         token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
         value = http_json(url, token=token, origins=self.origins)
@@ -66,6 +68,7 @@ class Releases:
 
     def manifest(self, region: str, platform: str, arch: str, channel: str) -> dict[str, Any]:
         suffix = "" if channel == "release" else f"-{channel}"
+        phase(f"读取 {region}/{platform}/{arch} 的 {channel} 渠道清单")
         value = self.get(f"{self.cdns[region]}/manifest-{platform}-{arch}{suffix}.json")
         if not isinstance(value, dict) or not isinstance(value.get("app"), dict) or not isinstance(value["app"].get("version"), str):
             raise CindyError("渠道清单结构无效。", 4)
@@ -75,6 +78,7 @@ class Releases:
         tags = [f"v{version}-beta"] if beta else [f"v{version}", f"v{version}-beta"]
         for index, tag in enumerate(tags):
             try:
+                phase(f"读取 GitHub Release {tag} 的产物摘要")
                 value = self.get(f"{self.api}/repos/makecindy/cindy/releases/tags/{tag}", cached=True)
                 if not isinstance(value, dict) or not isinstance(value.get("assets"), list):
                     raise CindyError("GitHub release 结构无效。", 4)
