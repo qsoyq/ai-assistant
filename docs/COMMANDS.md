@@ -697,7 +697,7 @@ $ ai-assistant cindy data [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `backup`: 在所有 Cindy 退出后创建并完整校验私有备份。
+* `backup`: 目标 Profile 冷备份并完整校验；CN 主目录或实际 shared...
 * `verify`: 完整读取并校验内容摘要、结构、计数及压缩校验和。
 * `restore`: 全量覆盖一个同区域、同平台、同原生架构的 Profile。
 * `reset`: 先完整备份，再以可恢复事务清空 Profile；cn shared 默认保留。
@@ -708,7 +708,7 @@ $ ai-assistant cindy data [OPTIONS] COMMAND [ARGS]...
 
 #### `ai-assistant cindy data backup`
 
-在所有 Cindy 退出后创建并完整校验私有备份。
+目标 Profile 冷备份并完整校验；CN 主目录或实际 shared 内容须全部退出，其他实例须能证明无关。
 
 **Usage**:
 

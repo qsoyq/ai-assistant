@@ -42,7 +42,7 @@ uvx 'ai-assistant[mcd]' ai-assistant mcd quickstart
 `ai-assistant cindy --help` 使用中文说明；枚举参数的帮助显式列出可选值、含义和默认规则。现有 `cshare-to-markdown` 保持兼容。安装/下载会在 stderr 显示解析、缓存、摘要及签名等阶段；交互终端还显示下载字节进度、速度和剩余时间，非终端只输出阶段与字节摘要，不污染 stdout 的 JSON 结果。
 
 ```bash
-# 冷备份：操作期间所有地区的 Cindy 都必须完全退出
+# CN 主目录冷备份：操作期间所有地区的 Cindy 都必须完全退出
 ai-assistant cindy data backup --region cn --label before-test
 # reset 已默认生成并校验 pre-reset 备份
 ai-assistant cindy data reset --region cn
@@ -59,6 +59,8 @@ ai-assistant cindy installs --json
 ```
 
 私有状态默认为 `${XDG_STATE_HOME:-~/.local/state}/ai-assistant/cindy`，可用绝对路径 `AI_ASSISTANT_CINDY_HOME` 覆盖。`--backup-dir` 只选择备份目录；迁移恢复目标须同时使用 `--target` 和 `--allow-relocate`。不允许跨地区、平台、原生架构或 Profile 类型恢复。归档包含内嵌文件摘要，丢失索引后仍可完整校验；`data clear` 只能通过真实终端输入确认词删除备份，不提供 `--yes`。
+
+仅手动 `data backup` 使用目标范围的停止检查：Global、隔离或自定义 Profile 在能证明其他实例使用独立目录时允许它们继续运行；目标使用者、子进程、可见文件占用或归属不明均拒绝。CN 主目录或目标内存在实际 `shared-*` 内容仍要求所有 Cindy 退出；指向外部共享目录的符号链接只保存链接，不备份共享目标。这不是热备份，操作期间不得启动目标实例；恢复、重置、自动操作前备份、恢复收尾和安装仍要求全部退出。开发版环境覆盖和权限不足可能使判断保持保守，没有跳过检查的开关。
 
 当前已实现 POSIX 数据事务、查询/校验下载和 macOS 安装适配器。Windows 写入（含 DACL/互斥与下载缓存）、Windows 原生安装/卸载，以及 Linux 原生安装和桌面集成尚未通过实机门禁，明确拒绝执行；在 POSIX 主机可下载两者安装包。没有跳过门禁的环境变量。完整边界与验证方法见 [Cindy CLI 设计](docs/design/cindy-cli.md)。
 

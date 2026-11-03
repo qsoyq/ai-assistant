@@ -39,7 +39,7 @@ from .paths import (
     root_path,
 )
 from .picker import choose_many, choose_one
-from .procs import require_stopped, running_state
+from .procs import require_backup_stopped, require_stopped, running_state
 from .schema import highest_migration, schema_versions
 from .state import State, index_update, read_json, sha256
 from .transaction import Observer, Transaction, pending_transactions, remove_owned
@@ -101,9 +101,14 @@ def profile_check(profile: Profile, state: State, check: Callable[[], None]) -> 
     return check
 
 
-def backup_profile(profile: Profile, state: State, *, output: Path | None = None, check: Callable[[], None] = require_stopped, **options: Any) -> tuple[Path, dict[str, Any]]:
+def backup_profile(profile: Profile, state: State, *, output: Path | None = None, check: Callable[[], None] | None = None, **options: Any) -> tuple[Path, dict[str, Any]]:
     validate_layout(profile, state, output)
-    check = profile_check(profile, state, check)
+    if check is None:
+        paths = [Path(record["path"]) for record in state.records("profiles").values()]
+        check = partial(require_backup_stopped, profile, paths, observed={})
+    else:
+        # Automatic pre-restore/reset backups retain the caller's global stop check.
+        check = profile_check(profile, state, check)
     check()
     path, header = create_backup(profile, output or state.backups, check=check, **options)
     check()
@@ -265,7 +270,7 @@ def backup(
     max_bytes: int = typer.Option(MAX_BYTES, min=1, help="未压缩数据上限（字节），默认 100 GiB。"),
     max_entries: int = typer.Option(MAX_ENTRIES, min=1, help="成员数上限，默认 200000。"),
 ) -> None:
-    """在所有 Cindy 退出后创建并完整校验私有备份。"""
+    """目标 Profile 冷备份并完整校验；CN 主目录或实际 shared 内容须全部退出，其他实例须能证明无关。"""
     state = State()
     profile = profile_for(path, region.value if region else None)
     with state.lock():

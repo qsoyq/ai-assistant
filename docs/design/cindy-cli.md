@@ -131,10 +131,32 @@ runtime directory prevent changing state roots to bypass interrupted work.
 OS-released `flock` locks are never replaced by PID-file guesses.
 
 The CLI lock cannot prevent Cindy itself from starting. Process evidence has
-stopped/busy/unknown states; unknown does not mean stopped. All Cindy regions
-must stay stopped while copying, activating or cleaning a profile or replacing
-an installation. Processes are never killed. Tests inject fixture executable
-names only through library APIs, not a production CLI bypass.
+stopped/busy/unknown states; unknown does not mean stopped. Restore, reset, their
+automatic pre-operation backups, recovery and native installation still require
+all Cindy regions stopped. Only standalone `data backup` uses scoped evidence:
+
+- CN main roots and any root with actual top-level `shared-*` content retain the
+  global stop rule. External symlink targets are not traversed or snapshotted.
+- A target live SingletonLock, executable, visible open file, overlapping explicit
+  profile argument or `XDT_USER_DATA_DIR` blocks the backup, regardless of region.
+- Other instances can remain running only with a locally verifiable active lock
+  belonging to a recognizable process (not older than that process), or a single
+  absolute profile argument/environment override. Conflicting, relative, duplicate,
+  unreadable or unknown evidence refuses rather than exempting by executable name.
+- Descendants inherit actual lock evidence, not merely a parent argument. Observed
+  related process identities remain tracked across reparenting during the backup;
+  a recycled PID never inherits the previous process evidence. Orphaned related
+  engines without independent evidence remain blocked.
+- The scan examines same-user visible file occupation (readers conservatively
+  block too). It cannot prove absence of arbitrary external writers with no open
+  files or unreadable unrelated process state. Relevant permission failures refuse.
+  Source inventory and process checks before publication remain mandatory; users
+  must not launch the target during backup. This is still a cold backup, not an
+  OS-atomic snapshot or a launch-preventing lock.
+
+Processes are never killed. Tests use real temporary native executables, locks,
+process trees and file handles; fixture names are injectable only via library
+APIs, not a production CLI bypass. No regional force/skip flag is exposed.
 
 ## Archive Version 1
 
